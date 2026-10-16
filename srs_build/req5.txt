@@ -304,7 +304,7 @@ R: Research access does not include control authority.
 
 @SR-2.1-1 | Verified principal derivation
 P: SEC-2.1
-S: The Identity & Authentication Service (E-03) SHALL derive the principal of each request only from the verified client certificate or the verified UDS peer and bearer key.
+S: The Identity & Authentication Service (E-03) SHALL derive the principal of each request only from the client registration bound to a verified access token (FR-2.18), from the verified client certificate when the mTLS Harness Profile is enabled, or from the verified UDS peer and bearer key.
 A: E-03; F-04; I-02
 V: Test | Send requests with forged clientInfo and session-claim principal fields; confirm the principal is unchanged.
 SRC: SEC 2.1
@@ -312,11 +312,11 @@ R: Identity from credentials only.
 
 @SR-2.1-2 | Session token binding
 P: SEC-2.1
-S: The Identity & Authentication Service (E-03) SHALL reject with HTTP 401 and Gateway error `-31006` a session token presented over a connection whose client certificate thumbprint or UDS peer differs from the one bound at session creation.
+S: The Identity & Authentication Service (E-03) SHALL reject with HTTP 401 and Gateway error `-31006` a session token presented on a listener other than the one it was issued for, or, when the mTLS Harness Profile or the UDS Harness Profile is enabled, over a connection whose client certificate thumbprint or UDS peer differs from the one bound at session creation.
 A: E-03; E-04; F-05; I-02; I-04; X-01
-V: Test | Replay a valid token from another certificate; confirm rejection.
+V: Test | Replay a valid TLS-listener token over the UDS listener, and, with the mTLS profile enabled, from another certificate; confirm rejection of both.
 SRC: SEC 2.1
-R: Stolen tokens are unusable without the key.
+R: Tokens are bound to their listener, and to the connection credential where one exists.
 
 @SR-2.1-3 | Per-request authentication
 P: SEC-2.1
@@ -336,11 +336,19 @@ R: Containment of credential compromise.
 
 @SR-2.3-1 | Bearer key generation
 P: SEC-2.3
-S: The Key & Trust Anchor Manager (E-22) SHALL generate UDS bearer keys and session tokens from at least 256 bits of CSPRNG output and SHALL store only their SHA-256 verifiers.
+S: The Key & Trust Anchor Manager (E-22) SHALL generate UDS bearer keys, session tokens, access tokens, refresh tokens, authorization codes and client secrets from at least 256 bits of CSPRNG output and SHALL store only their SHA-256 verifiers.
 A: E-22; E-04; F-59; F-06
 V: Inspection | Inspect the generation code and stored records; confirm entropy and verifier-only storage.
 SRC: SEC 2.3
 R: Stored verifiers cannot be replayed.
+
+@SR-2.3-2 | Adapter credential storage
+P: SEC-2.3
+S: The Harness Adapter Kit (E-33) SHALL store the principal credential and refresh token only in the CP-43 credential file with mode 0600 and SHALL refuse to start when that file is readable or writable by other users.
+A: E-33; F-94; X-12
+V: Test | Set the file to mode 0644; confirm the adapter exits with an error naming the file and makes no connection.
+SRC: SEC 2.3; CP-43
+R: The adapter holds the only copy of a framework credential on the harness host.
 
 @SR-2.4-1 | Revocation latency
 P: SEC-2.4
@@ -384,11 +392,11 @@ R: Authenticated transport.
 
 @SR-2.8-2 | Mutual TLS
 P: SEC-2.8
-S: The Harness Interface Endpoint (E-01) SHALL require a client certificate chaining to the Gateway client CA on the TLS harness listener.
+S: When the mTLS Harness Profile is enabled, the Harness Interface Endpoint (E-01) SHALL require a client certificate chaining to the Gateway client CA on the TLS harness listener.
 A: E-01; F-01; X-01
-V: Test | Connect without a certificate and with a foreign certificate; confirm rejection during the handshake.
+V: Test | Enable the profile; connect without a certificate and with a foreign certificate; confirm rejection during the handshake.
 SRC: SEC 2.8; ARCH §19 OD-2
-R: Framework authentication at transport.
+R: Optional transport-level framework authentication for harnesses that can present a client certificate.
 
 @SR-2.8-3 | UDS permissions
 P: SEC-2.8
@@ -430,13 +438,13 @@ V: Test | Capture southbound traffic; confirm no northbound credential material.
 SRC: SEC 2.10
 R: No credential forwarding.
 
-@SR-2.11-1 | OAuth Profile
+@SR-2.11-1 | OAuth token validation
 P: SEC-2.11
-S: When the OAuth Profile is enabled, the Identity & Authentication Service (E-03) SHALL validate access tokens per the MCP 2026-07-28 authorization specification, including audience binding to the Gateway resource, and SHALL reject tokens failing validation.
+S: The Identity & Authentication Service (E-03) SHALL validate access tokens per the MCP 2026-07-28 authorization specification, including audience binding to the CP-41 resource URI, and SHALL reject tokens failing validation.
 A: E-03; F-04; X-01
-V: Test | With the profile enabled, run the authorization conformance fixtures, including wrong-audience tokens.
-SRC: SEC 2.11; MCP:basic/authorization
-R: Conditional standards-based authorization.
+V: Test | Run the authorization conformance fixtures, including wrong-audience, expired and revoked tokens.
+SRC: SEC 2.11; MCP:basic/authorization; CP-41
+R: Standards-based authorization is the baseline harness authentication.
 
 @SR-2.12-1 | Handle ownership
 P: SEC-2.12
@@ -726,7 +734,7 @@ R: Conditional remote access.
 
 @SR-5.1-1 | Profile separation
 P: SEC-5.1
-S: The Protocol Mediator (E-02) SHALL route 2026-07-28 requests and Legacy Northbound Profile requests to separate protocol handlers selected only by the request's declared era.
+S: The Protocol Mediator (E-02) SHALL route 2026-07-28 requests and 2025-11-25 requests to separate protocol handlers selected only by the request's declared era: the `_meta` protocol version for modern requests, and an `initialize` request or a legacy session header for legacy requests.
 A: E-02; F-03
 V: Inspection | Inspect the dispatch code; confirm separate handlers and era-only selection.
 SRC: SEC 5.1
@@ -758,9 +766,9 @@ R: Header presence is required for validation.
 
 @SR-5.3-1 | No northbound downgrade
 P: SEC-5.3
-S: The Protocol Mediator (E-02) SHALL process a request under legacy semantics only when the request is a legacy `initialize` or carries a legacy-profile session, and SHALL never process a request under legacy semantics because of an authentication, authorization or modern protocol error.
+S: The Protocol Mediator (E-02) SHALL process a request under legacy semantics only when the request is a legacy `initialize` or carries a legacy session, and SHALL never process a request under legacy semantics because of an authentication, authorization or modern protocol error.
 A: E-02; F-03
-V: Test | Trigger each error class with the legacy profile enabled; confirm no legacy processing.
+V: Test | Trigger each error class; confirm no legacy processing.
 SRC: SEC 5.3
 R: Errors cannot open weaker paths.
 

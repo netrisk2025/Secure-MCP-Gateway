@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "config.schema.json",
+  "title": "Secure MCP Gateway configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "listener": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "address": { "type": "string", "pattern": "^(127\\.0\\.0\\.1|\\[::1\\]|localhost):[0-9]{1,5}$" },
+        "public_url": { "type": "string", "pattern": "^https://" },
+        "mcp_path": { "type": "string", "pattern": "^/" },
+        "tls_cert": { "type": "string", "minLength": 1 },
+        "tls_key": { "type": "string", "minLength": 1 },
+        "allowed_origins": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "state": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "dir": { "type": "string", "minLength": 1 } }
+    },
+    "admin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["username", "password_hash"],
+      "properties": {
+        "username": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "password_hash": { "type": "string", "pattern": "^\\$argon2id\\$" }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "file": { "type": "string", "minLength": 1 } }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "request_body_bytes": { "type": "integer", "minimum": 1024 },
+        "result_bytes": { "type": "integer", "minimum": 1024 },
+        "tool_concurrency_per_principal": { "type": "integer", "minimum": 1 },
+        "tool_concurrency_total": { "type": "integer", "minimum": 1 },
+        "tool_queue": { "type": "integer", "minimum": 0 },
+        "principal_calls_per_minute": { "type": "integer", "minimum": 1 },
+        "upstream_timeout": { "type": "string" },
+        "client_deadline": { "type": "string" },
+        "session_max_lifetime": { "type": "string" },
+        "session_idle_timeout": { "type": "string" },
+        "sessions_per_principal": { "type": "integer", "minimum": 1 },
+        "catalog_ttl_ms": { "type": "integer", "minimum": 0 },
+        "catalog_page_size": { "type": "integer", "minimum": 1, "maximum": 1000 },
+        "listen_streams_per_session": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "principal": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "framework", "profile"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$" },
+          "framework": { "type": "string", "enum": ["claude-code", "codex", "hermes", "cursor", "other"] },
+          "display_name": { "type": "string", "maxLength": 128 },
+          "profile": { "type": "string", "minLength": 1 },
+          "enabled": { "type": "boolean" }
+        }
+      }
+    },
+    "client": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["client_id", "principal", "redirect_uris"],
+        "properties": {
+          "client_id": { "type": "string", "minLength": 1 },
+          "client_secret_hash": { "type": "string", "pattern": "^(\\$argon2id\\$.*)?$" },
+          "principal": { "type": "string", "minLength": 1 },
+          "redirect_uris": { "type": "array", "minItems": 1, "items": { "type": "string", "pattern": "^https?://" } }
+        }
+      }
+    },
+    "server": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["alias", "command"],
+        "properties": {
+          "alias": { "type": "string", "pattern": "^[a-z0-9]{1,16}$" },
+          "command": { "type": "string", "minLength": 1 },
+          "args": { "type": "array", "items": { "type": "string" } },
+          "env": { "type": "object", "additionalProperties": { "type": "string" } },
+          "dir": { "type": "string" }
+        }
+      }
+    }
+  },
+  "required": ["admin"]
+}

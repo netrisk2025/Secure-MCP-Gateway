@@ -6,7 +6,7 @@
 
 - `incose_rwg_gtwr_v4_040423_final_drafts.pdf` — INCOSE Guide to Writing Requirements (GtWR) v4
 - `Requirements analysis.docx` — orphan / barren (traceability gap) analysis for sets
-- `/home/netrisk/Projects/Resource.md` — base imperative definitions (SHALL, Should, Will, May)
+- `Resource.md` (owner document, not in this repository) — base imperative definitions (SHALL, Should, Will, May)
 
 **Address the user as Boss.**
 
@@ -74,7 +74,7 @@ Rules of thumb:
 
 **Formatting (mandatory):** every imperative appearing in a requirement statement is written in **ALL CAPS** and **bold** in markdown: `**SHALL**`, `**MUST**`, `**WILL**`, `**SHOULD**`, `**MAY**`.
 
-Base definitions also live in `/home/netrisk/Projects/Resource.md`. Where Resource.md and this skill conflict on **MUST**, **this skill wins**.
+Base definitions also live in the owner's `Resource.md` (not in this repository). Where Resource.md and this skill conflict on **MUST**, **this skill wins**.
 
 ### 2.3 Project correction: when to use **MUST** (overrides naive INCOSE “shall-only” habit)
 
@@ -249,7 +249,7 @@ Unless the task specifies otherwise, emit:
 ## Metadata
 - Generated: <YYYY-MM-DD>
 - Sources: <list>
-- Skill: /home/netrisk/Projects/Requirements/Skills.md
+- Skill: `Skills.md` (this repository)
 
 ## Requirements
 
@@ -287,8 +287,8 @@ If Boss names another format (CSV, JSON, DOORS-like table, SysML-oriented export
 
 When Boss asks for requirements to be created or refined:
 
-1. Follow project `/home/netrisk/Projects/Agent.md` and `/home/netrisk/Projects/FloorPlan.md`.
-2. Enter `/home/netrisk/Projects/Requirements/` for this skill (only directories relevant to the task).
+1. Follow the repository `FloorPlan.md`.
+2. Use this `Skills.md` for requirement work (only directories relevant to the task).
 3. Read this `Skills.md` and apply it to the source text(s) **wherever those texts live**.
 4. Place output in the format and directory the task directs (default format: markdown).
 

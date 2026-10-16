@@ -107,7 +107,7 @@ for r in reqs.values():
         if ref not in reqs and ref != r["id"]:
             errors.append(f"{r['id']}: references unknown {ref}")
     for cp in re.findall(r'\bCP-(\d\d)\b', body):
-        if not 1 <= int(cp) <= 40:
+        if not 1 <= int(cp) <= 43:
             errors.append(f"{r['id']}: unknown CP-{cp}")
     for g in re.findall(r'\bG-\d\d\b', body):
         if g not in arch["G"]:

@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  srs:
+    name: SRS regeneration check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Regenerate the SRS from srs_build and compare with the committed file
+        run: |
+          python3 -I srs_build/gen.py . "$RUNNER_TEMP/srs.md"
+          diff -u Secure_MCP_Gateway_SRS.md "$RUNNER_TEMP/srs.md"
+
+  site:
+    name: Site build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - run: npm ci
+        working-directory: site
+      - run: npm run build
+        working-directory: site
+
+  go:
+    name: Go build and tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: check
+        run: |
+          if [ -f go.mod ]; then echo "present=true" >> "$GITHUB_OUTPUT"; else echo "present=false" >> "$GITHUB_OUTPUT"; fi
+      - if: steps.check.outputs.present == 'true'
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - if: steps.check.outputs.present == 'true'
+        run: go build ./...
+      - if: steps.check.outputs.present == 'true'
+        run: go vet ./...
+      - if: steps.check.outputs.present == 'true'
+        name: Test and map results to requirement IDs (FR-12.10)
+        run: |
+          mkdir -p build
+          set -o pipefail
+          go test -json ./... | tee build/go-test.json | go run ./tools/reqreport -out build/reqreport
+      - if: steps.check.outputs.present == 'true' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: requirement-report
+          path: |
+            build/reqreport.json
+            build/reqreport.md
+            build/go-test.json
+      - if: steps.check.outputs.present == 'true'
+        name: Spike modules still build
+        run: for d in spikes/*/; do (cd "$d" && go vet ./... && go test ./...); done

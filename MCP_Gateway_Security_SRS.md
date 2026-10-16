@@ -1811,7 +1811,7 @@ Primary online sources were reviewed on 2026-10-04. Statements in this SRS are p
 |---|---|---|
 | USER | Owner instructions, 2026-10-04 | Split architecture/SRS; consider Neo4j CE as rules/routing/audit system; MUST controls; SRS V1; inspectable OSS local engineering servers; prior no-paid/no-SaaS scope. |
 | DESIGN | Project-specific derivation | Explicit design choices in architecture.md sections 2–10, derived from the owner needs and identified failure cases; not claimed verbatim from a standard. |
-| REQ-WORKFLOW | Local requirement workflow | /home/netrisk/Projects/Requirements/Skills.md and /home/netrisk/Projects/Resource.md, with user-requested MUST terminology override documented here. |
+| REQ-WORKFLOW | Local requirement workflow | `Skills.md` (this repository) and the owner's `Resource.md`, with user-requested MUST terminology override documented here. |
 | MCP-SEC | MCP security best practices | [MCP security best practices](https://modelcontextprotocol.io/docs/2026-07-28/tutorials/security/security_best_practices) |
 | MCP-AUTH | MCP authorization | [MCP authorization](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization) |
 | MCP-HTTP | MCP Streamable HTTP | [MCP Streamable HTTP](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http) |

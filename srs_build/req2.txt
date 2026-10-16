@@ -462,11 +462,11 @@ R: Detects tool drift before first use.
 
 @FR-5.22 | Backend tool definition validity
 P: FR-5
-S: The Local Server Registry (E-14) SHALL treat as drift a backend tool whose `inputSchema` is null or invalid, or whose `x-mcp-header` annotations violate MCP constraints.
+S: The Local Server Registry (E-14) SHALL treat as drift a backend tool whose `inputSchema` is null or invalid, whose `inputSchema` declares a property name outside 1 to 64 characters of `A-Z a-z 0-9 _ . -`, or whose `x-mcp-header` annotations violate MCP constraints.
 A: E-14; F-37
-V: Test | Serve fixtures with each defect; confirm drift handling.
-SRC: MCP:server/tools §Tool; MCP:basic/transports/streamable-http §Schema Extension
-R: The Gateway must not present invalid tool definitions.
+V: Test | Serve fixtures with each defect, including a 65-character property name and a name containing a space; confirm drift handling.
+SRC: MCP:server/tools §Tool; MCP:basic/transports/streamable-http §Schema Extension; Client-Compatibility-Brief §3
+R: The Gateway must not present invalid tool definitions, and Claude Code drops a tool whose property names fall outside this set. Root-level schema combinators are not treated as drift because Claude Code flattens them itself and the Gateway validates arguments against the manifest schema regardless of presentation.
 
 @FR-5.23 | Result type handling
 P: FR-5

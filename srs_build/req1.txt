@@ -134,19 +134,19 @@ R: Lets harness adapters identify the Gateway without connection state.
 
 @FR-1.16 | Legacy session headers ignored
 P: FR-1
-S: The Protocol Mediator (E-02) SHALL ignore `Mcp-Session-Id` and `Last-Event-ID` request headers and SHALL omit both headers from responses.
+S: The Protocol Mediator (E-02) SHALL ignore `Mcp-Session-Id` and `Last-Event-ID` request headers on requests whose `_meta` declares protocol version 2026-07-28 and SHALL omit both headers from 2026-07-28 responses.
 A: E-02; F-02; X-01
-V: Test | Send requests carrying both headers; confirm processing is unchanged and responses contain neither header.
+V: Test | Send 2026-07-28 requests carrying both headers; confirm processing is unchanged and responses contain neither header.
 SRC: MCP:basic/transports/streamable-http §Earlier Streamable HTTP Revisions
-R: Sessions and resumable streams were removed in 2026-07-28.
+R: Sessions and resumable streams were removed in 2026-07-28. Legacy requests are handled by the legacy handler of FR-1.46.
 
-@FR-1.17 | initialize without legacy profile
+@FR-1.17 | initialize version negotiation
 P: FR-1
-S: When the Legacy Northbound Profile is disabled and a request names method `initialize`, the Protocol Mediator (E-02) SHALL return a JSON-RPC error whose message lists the CP-04 protocol versions.
+S: When an `initialize` request names a protocol version absent from CP-04, the Protocol Mediator (E-02) SHALL respond with an `initialize` result whose `protocolVersion` is `2025-11-25`.
 A: E-02; F-03; X-01
-V: Test | Send a 2025-11-25 `initialize`; confirm the error message names `2026-07-28`.
-SRC: MCP:basic/versioning §Backward Compatibility
-R: Legacy clients have no fall-forward path; the error is their only diagnostic.
+V: Test | Send `initialize` with version `2025-03-26`; confirm the result offers 2025-11-25 and the handshake completes.
+SRC: MCP:basic/versioning §Backward Compatibility; CP-04
+R: The legacy handshake lets a server offer a version it supports. 2025-11-25 is the only qualified legacy era.
 
 @FR-1.18 | JSON-RPC response conformance
 P: FR-1
@@ -214,11 +214,11 @@ R: Deterministic ordering supports client caching and prompt-cache stability.
 
 @FR-1.26 | Public tool names
 P: FR-1
-S: The Access Enforcement Point (E-08) SHALL present each tool under the public name `<serverAlias>.<toolName>` using only the characters `A-Z a-z 0-9 _ - .` and at most 128 characters.
+S: The Access Enforcement Point (E-08) SHALL present each tool under the public name `<serverAlias>_<toolName>` within the CP-42 character set and length limit, replacing each character of the backend tool name outside `A-Z a-z 0-9 _` with `_`.
 A: E-08; E-14; F-19; X-01
-V: Test | Register two servers exposing a `search` tool; confirm distinct conforming public names and successful calls to each.
-SRC: MCP:server/tools §Tool Names; ARCH §4 E-14
-R: The Gateway aggregates many servers and must disambiguate collisions.
+V: Test | Register two servers exposing a `search` tool and one exposing `files.read`; confirm public names `a_search`, `b_search` and `c_files_read` within CP-42 and successful calls to each.
+SRC: MCP:server/tools §Tool Names; ARCH §4 E-14; CP-42; Client-Compatibility-Brief §4.4
+R: Claude Code drops a tool whose prefixed name exceeds 128 characters and Hermes rewrites `.` and `-` to `_`. The public name must survive both.
 
 @FR-1.27 | Tool definition source
 P: FR-1
@@ -372,13 +372,13 @@ V: Inspection | Inspect the decision inputs and the observation record for a req
 SRC: MCP:basic/index §Per-response protocol fields (note)
 R: clientInfo is unverified and must not affect behavior.
 
-@FR-1.46 | Legacy Northbound Profile
+@FR-1.46 | Legacy era service
 P: FR-1
-S: When the Legacy Northbound Profile is enabled, the Protocol Mediator (E-02) SHALL serve 2025-11-25 clients through a separate legacy adapter that implements the `initialize` handshake and `Mcp-Session-Id` sessions of that revision.
+S: The Protocol Mediator (E-02) SHALL serve 2025-11-25 clients on the CP-01 endpoint by answering the `initialize` handshake of that revision and accepting their subsequent requests without requiring an `Mcp-Session-Id` header, binding each request to the Gateway session of its bearer token.
 A: E-02; F-03; X-01
-V: Test | Enable the profile; run the 2025-11-25 conformance fixtures; confirm they pass and that modern requests are unaffected.
-SRC: SEC 5.1; MCP:basic/versioning §Backward Compatibility
-R: Existing harnesses may still speak 2025-11-25.
+V: Test | Run the 2025-11-25 conformance fixtures against the baseline configuration, with and without an `Mcp-Session-Id` header; confirm they pass and that concurrent 2026-07-28 requests on the same endpoint are unaffected.
+SRC: SEC 5.1; MCP:basic/versioning §Backward Compatibility; CP-04; Client-Compatibility-Brief §2; spikes/go-sdk-dual-era
+R: Codex CLI and Cursor have no published 2026-07-28 support. A baseline that rejects them cannot be used. Revision 2025-11-25 makes the transport session ID optional, and the Gateway session is the bearer token, so the stateless mode of the MCP Go SDK, which serves both eras on one handler without issuing `Mcp-Session-Id`, satisfies this requirement.
 
 @FR-1.47 | Unix-domain-socket harness transport
 P: FR-1
@@ -390,11 +390,27 @@ R: Same-host harnesses can avoid TCP while keeping standard framing.
 
 @FR-1.48 | Harness interface specification
 P: FR-1
-S: The Gateway release SHALL include an X-01 interface control document specifying the session API, required headers, error codes and conformance fixtures.
-A: E-01; E-02; E-04; X-01
-V: Inspection | Inspect the release; confirm the ICD exists and covers each listed topic.
-SRC: ARCH §6.1 X-01; ARCH §17 item 4
-R: Harness adapters are built outside the SoI and need a controlled contract.
+S: The Gateway release SHALL include an X-01 interface control document specifying the OAuth endpoints and scopes, the session API, required headers, error codes, both protocol eras and conformance fixtures, and an X-12 interface control document specifying the adapter hooks for each supported framework.
+A: E-01; E-02; E-04; E-33; X-01; X-12
+V: Inspection | Inspect the release; confirm both ICDs exist and cover each listed topic.
+SRC: ARCH §6.1 X-01; ARCH §6.1 X-12; ARCH §17 item 4
+R: Frameworks and third-party adapters need a controlled contract on both sides of the adapter.
+
+@FR-1.49 | Public name collisions
+P: FR-1
+S: When two tools of one server revision map to the same public name under FR-1.26, the Local Server Registry (E-14) SHALL refuse to enable that revision and SHALL report both backend tool names.
+A: E-14; F-36; D-02
+V: Test | Import a manifest with tools `a.b` and `a_b`; confirm enablement is refused with both names reported.
+SRC: CP-42; Client-Compatibility-Brief §4.4
+R: Name sanitization must not silently merge two tools.
+
+@FR-1.50 | Approval hint on presented tools
+P: FR-1
+S: The Access Enforcement Point (E-08) SHALL set `_meta["anthropic/requiresUserInteraction"]` to `true` on each `tools/list` entry whose effective session policy carries an approval obligation for that tool, and SHALL omit the key otherwise.
+A: E-08; F-19; X-01; I-08
+V: Test | Publish a template that requires approval for one of two tools; list tools in a session under it; confirm the key is present and `true` on that tool only, and that calling either tool is still decided by the Policy Decision Service (E-06).
+SRC: Client-Compatibility-Brief §4.5; ARCH §4 E-08; MCP:server/tools §Tool
+R: Claude Code prompts the person before each call of a tool carrying this hint, so the person sees the approval in the harness as well as in the Approvals view. The hint is presentation only and never substitutes for the decision.
 
 ### FR-2 Identity and sessions
 
@@ -416,15 +432,15 @@ R: Policy layers key on principal and framework type.
 
 @FR-2.2 | Session API
 P: FR-2
-S: The Session Manager (E-04) SHALL expose the session API operations `POST /smcp/v1/sessions` (create), `GET /smcp/v1/sessions/{id}` (status) and `DELETE /smcp/v1/sessions/{id}` (terminate) on the harness listener.
+S: The Session Manager (E-04) SHALL establish sessions through the OAuth 2.1 token endpoint of FR-2.20 and SHALL additionally expose the session API operations `POST /smcp/v1/sessions` (create), `GET /smcp/v1/sessions/{id}` (status) and `DELETE /smcp/v1/sessions/{id}` (terminate) on the harness listener for header-helper adapters.
 A: E-04; F-06; F-08; F-09; X-01
-V: Test | Exercise create, status and terminate with a valid credential; confirm each returns its documented response.
-SRC: ARCH §18.2; ARCH §6.1 X-01
-R: MCP 2026-07-28 has no protocol sessions, so session establishment needs its own API.
+V: Test | Establish a session through the token endpoint and through the session API with a valid credential; confirm each returns its documented response and that the two sessions behave identically.
+SRC: ARCH §18.2; ARCH §6.1 X-01; Client-Compatibility-Brief §4.1
+R: MCP 2026-07-28 has no protocol sessions. Shipping clients obtain credentials through OAuth, so the token endpoint is the primary path. The session API remains for the `smcp-session` adapter.
 
 @FR-2.3 | Session create request
 P: FR-2
-S: The Session Manager (E-04) SHALL accept session create requests containing harness type, harness version, purpose tag and, optionally, project root, end-user claim and requested template ID.
+S: The Session Manager (E-04) SHALL accept session creation, through the token endpoint of FR-2.20 or the session API of FR-2.2, with harness type, harness version, purpose tag and, optionally, project root, end-user claim and requested template ID.
 A: E-04; F-06; X-01
 V: Test | Submit create requests with and without each optional field; confirm acceptance and stored values.
 SRC: ARCH §7.1 layer 4; ARCH §18.2
@@ -440,11 +456,11 @@ R: The harness needs the token and the policy context for diagnostics.
 
 @FR-2.5 | Session token presentation
 P: FR-2
-S: The Identity & Authentication Service (E-03) SHALL read the session token from the `Smcp-Session` HTTP header on the TLS listener and from `_meta["local.smcpgw/session"]` on the UDS listener.
+S: The Identity & Authentication Service (E-03) SHALL read the session token from the `Authorization: Bearer` request header on the TLS listener, never from a query parameter, and from `_meta["local.smcpgw/session"]` on the UDS listener.
 A: E-03; F-05; X-01; I-02
-V: Test | Send MCP requests with the token in each documented location; confirm acceptance, and rejection with -31006 when it is absent.
-SRC: Appendix A CP-23; ARCH §6.1 X-01
-R: Binds every MCP request to its session.
+V: Test | Send MCP requests with the token in each documented location and as a query parameter; confirm acceptance of the header and `_meta` forms, and rejection with -31006 when the token is absent or sent only as a query parameter.
+SRC: Appendix A CP-23; RFC 6750; Client-Compatibility-Brief §3
+R: Every shipping client sends bearer tokens in the Authorization header. None can send a custom session header without a helper.
 
 @FR-2.6 | Template selection
 P: FR-2
@@ -512,11 +528,11 @@ R: Scoring needs a stable context key per session.
 
 @FR-2.14 | Credential issuance
 P: FR-2
-S: The Key & Trust Anchor Manager (E-22) SHALL issue framework-instance client certificates by signing a submitted certificate signing request with the Gateway's local client CA.
+S: When the mTLS Harness Profile is enabled, the Key & Trust Anchor Manager (E-22) SHALL issue framework-instance client certificates by signing a submitted certificate signing request with the Gateway's local client CA.
 A: E-22; F-59; I-06
-V: Test | Submit a CSR through G-11; confirm the issued certificate chains to the client CA and names the principal ID.
-SRC: ARCH §4 E-22; ARCH §19 OD-2
-R: mTLS is the recommended framework credential.
+V: Test | Enable the profile; submit a CSR through G-11; confirm the issued certificate chains to the client CA and names the principal ID.
+SRC: ARCH §4 E-22; ARCH §19 OD-2; Client-Compatibility-Brief §4.2
+R: Only Hermes can present a per-server client certificate. mTLS is a hardening option, not the baseline credential.
 
 @FR-2.15 | UDS peer mapping
 P: FR-2
@@ -533,3 +549,51 @@ A: E-04; F-09; D-07
 V: Test | Restart the Gateway with active sessions; confirm the old tokens receive -31006.
 SRC: ARCH §13 D-07
 R: Session recovery has not been qualified.
+
+@FR-2.17 | Authorization metadata
+P: FR-2
+S: The Identity & Authentication Service (E-03) SHALL publish protected-resource metadata at `/.well-known/oauth-protected-resource` and authorization-server metadata at `/.well-known/oauth-authorization-server` on the harness listener, naming the CP-41 resource URI, the Gateway's own authorization and token endpoints, `S256` as the only code-challenge method and the CP-41 scope set.
+A: E-03; F-04; X-01
+V: Test | Fetch both documents; validate them against RFC 9728 and RFC 8414; confirm the listed values.
+SRC: MCP:basic/authorization/authorization-server-discovery; RFC 9728; RFC 8414; CP-41
+R: Clients discover the Gateway's authorization server from these documents without manual configuration.
+
+@FR-2.18 | Client registration
+P: FR-2
+S: The Identity & Authentication Service (E-03) SHALL accept a framework instance as an OAuth client either by a Client ID Metadata Document URL or by a client ID and secret issued through G-11, and SHALL bind each client ID to exactly one principal record.
+A: E-03; E-22; F-04; F-59; X-01; I-06; D-01
+V: Test | Register one instance by metadata URL and one by issued secret; confirm each maps to its principal and that a second principal cannot claim the same client ID.
+SRC: MCP:basic/authorization/client-registration; ARCH §19 OD-2; Client-Compatibility-Brief §4.2
+R: The client registration is the framework credential that every shipping client can present.
+
+@FR-2.19 | Authorization endpoint
+P: FR-2
+S: The Session Manager (E-04) SHALL implement the authorization-code grant at the authorization endpoint with PKCE `S256` required, a `resource` parameter equal to the CP-41 resource URI required, the `iss` parameter in every authorization response, and an administrative sign-in (F-63) that records the approving person on the resulting session.
+A: E-04; E-24; F-06; F-63; X-01; X-04
+V: Test | Run the flow without PKCE, with a wrong `resource`, and correctly; confirm the first two are refused, `iss` is present, and the approver is recorded on the session.
+SRC: MCP:basic/authorization; RFC 9207; RFC 8707; SEC 2.11; CP-41
+R: Claude Code's v2 runtime validates `iss`. PKCE and resource binding are what the MCP authorization specification requires.
+
+@FR-2.20 | Token endpoint as session creation
+P: FR-2
+S: When the token endpoint redeems a valid authorization code, the Session Manager (E-04) SHALL create the session of FR-2.3 from the granted scopes, return the session token as the access token with `expires_in` equal to the CP-18 idle timeout, and return a refresh token valid for the CP-18 maximum lifetime.
+A: E-04; F-06; F-07; X-01; D-07
+V: Test | Redeem a code; confirm a session exists with the scope-derived fields and that the access token is accepted as a session token on the MCP endpoint.
+SRC: ARCH §4 E-04; CP-18; CP-41; Client-Compatibility-Brief §4.1
+R: The access token is the session, so clients need no second mechanism.
+
+@FR-2.21 | Scope mapping
+P: FR-2
+S: The Session Manager (E-04) SHALL map the scopes `smcp:template:<id>`, `smcp:purpose:<tag>`, `smcp:project:<path>` and `smcp:user:<claim>` to the template selection and narrowing parameters of FR-2.6 and FR-2.7, and SHALL reject any other `smcp:` scope with `invalid_scope`.
+A: E-04; F-07; X-01
+V: Test | Request each scope and an unknown `smcp:` scope; confirm the session fields and the `invalid_scope` error.
+SRC: ARCH §7.1 layer 4; CP-41
+R: Scopes carry the session context claims and, like the claims, can only narrow policy.
+
+@FR-2.22 | Token refresh
+P: FR-2
+S: When a valid refresh token is presented, the Session Manager (E-04) SHALL issue a new access token for the same session, extend the idle deadline, and leave the CP-18 maximum lifetime unchanged.
+A: E-04; F-08; X-01
+V: Test | Refresh repeatedly past the idle timeout; confirm the session stays active and still expires at the maximum lifetime.
+SRC: CP-18; CP-41
+R: Refresh keeps long interactive sessions alive within the owner's bounds.

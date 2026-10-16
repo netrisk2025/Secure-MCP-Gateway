@@ -1,0 +1,9 @@
+site/node_modules
+site/.next
+site/out
+work
+archive
+versions
+mcp-spec/2026-07-28/schema
+mcp-spec/2026-07-28/specification
+.git

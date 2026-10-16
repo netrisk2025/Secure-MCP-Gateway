@@ -7,7 +7,7 @@ Values marked **SEC** are inherited from `MCP_Gateway_Security_SRS.md` Appendix 
 | CP-01 | Northbound MCP endpoint path | `/mcp` | New |
 | CP-02 | Harness listeners | TLS: `127.0.0.1:8443`; UDS (profile): `/run/smcp/harness.sock` | New |
 | CP-03 | Admin listener | `127.0.0.1:9443` (TLS) | New |
-| CP-04 | Northbound supported protocol versions | `["2026-07-28"]`; add `"2025-11-25"` only with the Legacy Northbound Profile | SEC 5.1 |
+| CP-04 | Northbound supported protocol versions | `["2026-07-28", "2025-11-25"]`, both served in the baseline | SEC 5.1 |
 | CP-05 | Southbound protocol eras | Modern `2026-07-28`; legacy `2025-11-25` | SEC 5.1 |
 | CP-06 | Header limit / header deadline | 16 KiB / 5 s | SEC |
 | CP-07 | Request body limit / body deadline | 1 MiB / 15 s | SEC |
@@ -26,7 +26,7 @@ Values marked **SEC** are inherited from `MCP_Gateway_Security_SRS.md` Appendix 
 | CP-20 | Listen keep-alive / listen streams per session | 15 s / 2 | New |
 | CP-21 | Progress relay rate | ≤ 10 notifications/s per request | New |
 | CP-22 | Gateway error codes | Appendix B | New |
-| CP-23 | Gateway metadata names | `_meta` prefix `local.smcpgw/`; session header `Smcp-Session`; egress header `Smcp-Egress-Auth` | New |
+| CP-23 | Gateway metadata names | `_meta` prefix `local.smcpgw/`; session token in `Authorization: Bearer` (RFC 6750 header only) on the TLS listener and `_meta["local.smcpgw/session"]` on the UDS listener; egress header `Smcp-Egress-Auth` | New |
 | CP-24 | Default instance budget | 512 MiB RAM, 1 CPU, 128 PIDs | SEC |
 | CP-25 | Retention defaults | Metadata 90 d; payload 7 d; temporary full capture ≤ 24 h | SEC |
 | CP-26 | Audit/evidence quota | 10 GiB; warn at 80% | SEC |
@@ -44,6 +44,9 @@ Values marked **SEC** are inherited from `MCP_Gateway_Security_SRS.md` Appendix 
 | CP-38 | Instance idle teardown | 10 min | New |
 | CP-39 | MRTR `requestState` lifetime | 5 min | New |
 | CP-40 | Research pseudonym function | HMAC-SHA-256, per-dataset key | ARCH §4 E-32 |
+| CP-41 | OAuth parameters | Authorization-code grant; PKCE `S256` only; resource URI `https://127.0.0.1:8443/mcp`; scope prefix `smcp:` with `template`, `purpose`, `project`, `user`; access-token lifetime = CP-18 idle timeout; refresh-token lifetime = CP-18 maximum lifetime; client-secret lifetime = CP-15; `iss` in authorization responses | New |
+| CP-42 | Public tool names | `<alias>_<tool>`; alias `[a-z0-9]{1,16}`; tool part `[A-Za-z0-9_]`; whole name ≤ 64 characters | New |
+| CP-43 | Adapter credential file | `$XDG_CONFIG_HOME/smcp/credentials.toml` (default `~/.config/smcp/`), mode 0600; refresh at 50% of access-token lifetime | New |
 
 ## Appendix B — Gateway error codes
 

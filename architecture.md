@@ -10,7 +10,7 @@
 
 The SRS defines what the system must achieve and how satisfaction will be verified. This architecture defines the selected components, data model, interactions, server sources and integration procedures. It does not maintain a second competing set of requirement IDs. References such as “SRS §1” identify the corresponding requirement hierarchy, not a claim that the design has passed its tests.
 
-This revision supersedes the combined specification/architecture dated 2026-10-04, preserved as `archive/architecture-pre-srs-v1-2026-10-04.md`. The earlier September architecture and research brief remain historical inputs. All development and documentation for this task remain in `/home/netrisk/Projects/mcp-servers`.
+This revision supersedes the combined specification/architecture dated 2026-10-04, preserved as `archive/architecture-pre-srs-v1-2026-10-04.md`. The earlier September architecture and research brief remain historical inputs. All development and documentation remain in this repository.
 
 | Decision | Selected design and reason |
 |---|---|

@@ -492,3 +492,19 @@ V: Inspection | Inspect installed database packages, configuration and licenses.
 SRC: SEC 9.2; ARCH §15
 R: Open-source local baseline.
 
+@FR-12.12 | Session helper adapter
+P: FR-12
+S: The Gateway release SHALL include the `smcp-session` command, which obtains or refreshes a session as the principal named by its CP-43 credential file through the token endpoint (FR-2.20) or the session API (FR-2.2), and prints a JSON object of request headers on standard output in the form consumed by the Claude Code `headersHelper` and Codex `http_headers_helper` hooks.
+A: E-33; F-94; X-01; X-12
+V: Demonstration | Configure Claude Code and Codex CLI with the helper; confirm each connects and lists tools through the Gateway.
+SRC: ARCH §4 E-33; Client-Compatibility-Brief §4.1
+R: Neither client can call a session API itself. Both can run a header helper.
+
+@FR-12.13 | Stdio bridge adapter
+P: FR-12
+S: The Gateway release SHALL include the `smcp-stdio` command, which runs as a stdio MCP server for a framework, obtains a session (F-94), and forwards each JSON-RPC message unchanged between its standard streams and the Gateway harness listener, attaching the session credential and preserving the framework's protocol era.
+A: E-33; F-95; X-01; X-12
+V: Test | Run the northbound conformance fixtures for both eras through the bridge; confirm results identical to a direct connection.
+SRC: ARCH §4 E-33; Client-Compatibility-Brief §4.1
+R: Every shipping client can launch a stdio server. This is the adapter the architecture assumed and now delivers.
+

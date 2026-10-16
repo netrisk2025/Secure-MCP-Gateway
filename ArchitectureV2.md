@@ -1,8 +1,8 @@
 # Secure MCP Gateway — Architecture V2 (Logical Decomposition)
 
 **Document:** `ArchitectureV2.md`
-**Revision:** V2.1 draft (proposed)
-**Date:** 2026-10-14 (America/New_York)
+**Revision:** V2.2 draft (proposed)
+**Date:** 2026-10-16 (America/New_York)
 **Owner:** netrisk
 **Inputs:** `architecture.md` rev 2.0 (problem-space analysis), `MCP_Gateway_Security_SRS.md` V1 (security-control set; renamed from `MCP_Gateway_SRS.md`), `Secure-MCP-Gateway-Research-Brief.md`
 **Intended consumer:** SRS V2. This document gives the elements, functions and interfaces that SRS V2 allocates requirements to.
@@ -57,7 +57,7 @@ Every leaf SHALL should name its element in its subject (e.g., *"The Anomaly Sco
 | ID | Assumption | Consequence for the architecture |
 |---|---|---|
 | A-1 | An external **MCP Curation System** performs source review, build, testing, risk classification and signing. It publishes signed packages, metadata and a revocation feed into the Trusted MCP Server Library. | The V1 in-gateway quarantine/source-viewer/admission workflow (V1 §3, rev 2.0 §7.1) moves **outside** the SoI. The Gateway **verifies** curation evidence; it does not perform curation. |
-| A-2 | Each agentic framework connects through a **Harness Adapter** that is specific to that framework and conforms to the Gateway Harness Interface (X-01). | The Gateway exposes one uniform interface. Framework-specific translation lives in the adapter, outside the SoI. The adapter is **untrusted** for authorization decisions. |
+| A-2 | Each agentic framework connects through a **Harness Adapter** that conforms to the Gateway Harness Interface (X-01). The Gateway release ships reference adapters (E-33) that use the hooks shipping frameworks already provide: OAuth 2.1 sign-in, a header-helper command, or a stdio `command`. | The Gateway exposes one uniform interface. Framework-specific translation lives in the adapter. The adapter runs on the harness host and is **untrusted** for authorization decisions, even though the release ships it. |
 | A-3 | Servers run on the same host as the Gateway (local hosting), or on hosts the Gateway's Server Runtime Manager controls directly. | Run-time controls (sandboxing, egress, resource limits) are Gateway functions, not delegated to third parties. |
 | A-4 | The host kernel, the Gateway's own binaries and the trust-anchor store are trusted. | These form the trusted computing base (TCB, Section 12). A hostile host administrator is out of scope, as in V1. |
 | A-5 | The model behind the agent is untrusted. Its tool requests, arguments and any text it relays are attacker-influenceable. | All authorization derives from authenticated identity plus policy, never from model output. |
@@ -103,11 +103,11 @@ flowchart LR
 
 ## 3. Decomposition overview
 
-The SoI decomposes into **ten subsystems** and **thirty-two elements**. Element IDs are stable. Later revisions retire IDs instead of reusing them.
+The SoI decomposes into **ten subsystems** and **thirty-three elements**. Element IDs are stable. Later revisions retire IDs instead of reusing them.
 
 | Subsystem | Elements |
 |---|---|
-| **SS-1 Harness Edge** | E-01 Harness Interface Endpoint · E-02 Protocol Mediator |
+| **SS-1 Harness Edge** | E-01 Harness Interface Endpoint · E-02 Protocol Mediator · E-33 Harness Adapter Kit |
 | **SS-2 Identity & Session** | E-03 Identity & Authentication Service · E-04 Session Manager |
 | **SS-3 Policy** | E-05 Policy Administration Service · E-06 Policy Decision Service · E-07 Approval Service |
 | **SS-4 Enforcement Pipeline** | E-08 Access Enforcement Point · E-09 Request Inspection Pipeline · E-10 Tool Dispatcher · E-11 Response Inspection Pipeline · E-12 Enforcement Coordinator |
@@ -232,6 +232,13 @@ Trust levels: **T0** = TCB, compromise defeats the security guarantee; **T1** = 
 - **Owned data:** protocol profile definitions (versions, feature allowlist).
 - **Allocation targets:** supported MCP versions; header/body agreement (V1 5.2); no downgrade (V1 5.3); unsupported-feature rejection (resources, sampling, elicitation and similar until qualified); canonicalization rules; malformed-message handling.
 
+#### E-33 Harness Adapter Kit — T1 (runs on the harness host; untrusted for authorization)
+- **Purpose:** Reference adapters shipped with the Gateway release so that shipping frameworks reach X-01 without framework-specific code inside the Gateway. `smcp-session` obtains and refreshes a session through the Gateway's OAuth token endpoint or session API and prints the headers a framework's header-helper hook expects. `smcp-stdio` is launched by a framework as a stdio MCP server and forwards newline-delimited JSON-RPC to the Gateway over X-01, adding only transport and authentication. Adapters hold a principal credential and are security-enforcing for credential custody. The Gateway never trusts them for authorization (A-2).
+- **Functions:** F-94 Obtain and refresh harness session; F-95 Bridge stdio to the harness interface.
+- **Interfaces:** X-01 (consumer), X-12 (provider).
+- **Owned data:** principal credential and refresh token on the harness host (file, mode 0600); no policy, no audit, no tool results.
+- **Allocation targets:** credential file location and mode; refresh before expiry; pass-through of both protocol eras unchanged; exit on session revocation; no caching of tool results; conformance to the framework hooks named in the X-12 ICD (Claude Code `headersHelper`, Codex `http_headers_helper`, stdio `command` for all supported frameworks).
+
 ### SS-2 Identity & Session
 
 #### E-03 Identity & Authentication Service — T0
@@ -239,7 +246,7 @@ Trust levels: **T0** = TCB, compromise defeats the security guarantee; **T1** = 
 - **Functions:** F-04 Authenticate framework instance; F-05 Verify session proof.
 - **Interfaces:** I-02, I-04, I-17 (to E-22).
 - **Owned data:** principal registry and credential verifiers (persisted in E-25 via E-26), revocation epochs.
-- **Allocation targets:** credential type (mTLS client cert and/or signed proof-of-possession token); per-request authentication (V1 2.1); distinct credentials per framework instance (V1 2.2); revocation propagation deadline (V1 2.4); separation of client and backend credentials (V1 2.10); failed-authentication evidence.
+- **Allocation targets:** credential type (OAuth 2.1 client registration bound to a principal in the baseline; mTLS client certificate or UDS peer credential under profiles); per-request authentication (V1 2.1); distinct credentials per framework instance (V1 2.2); revocation propagation deadline (V1 2.4); separation of client and backend credentials (V1 2.10); failed-authentication evidence.
 
 #### E-04 Session Manager — T1
 - **Purpose:** Creates, binds, refreshes and terminates **Gateway sessions**. A session binds {principal, harness type, declared purpose/project, optional end-user attribute, selected Allow policy revision, selected Observation Policy, issued session key, lifetime}. Gateway sessions are a Gateway concept. They are independent of MCP transport sessions, which may be stateless.
@@ -602,6 +609,8 @@ Each function has exactly one **owning element**, which is the allocation target
 | F-91 | Manage research capture campaigns | E-32 | M | Scoped, approved, time-boxed campaigns |
 | F-92 | Extract and pseudonymize datasets | E-32 | O | Consistent keyed pseudonyms; sensitivity rules |
 | F-93 | Export datasets with data dictionary | E-32 | O | Analysis-ready formats + provenance manifest |
+| F-94 | Obtain and refresh harness session | E-33 | A | Authenticate as the principal, obtain a session token, refresh it before expiry, print headers for framework hooks |
+| F-95 | Bridge stdio to the harness interface | E-33 | A | Forward stdio JSON-RPC to X-01 unchanged, attaching the session credential |
 
 ### 5.1 Control-point view (owner's three phases plus observation)
 
@@ -621,7 +630,7 @@ Each function has exactly one **owning element**, which is the allocation target
 
 | ID | Interface | Between | Direction / trust | Content | Key requirement topics |
 |---|---|---|---|---|---|
-| **X-01** | Gateway Harness Interface | Harness Adapter ↔ E-01/E-02 | Bidirectional; adapter **untrusted** | MCP JSON-RPC (qualified profiles); framework credential; session establishment and proof; optional session context claims (purpose, project, end-user) | Transport and TLS; credential format; session handshake; allowed MCP methods; error schema; rate limits; claims may only **narrow** policy |
+| **X-01** | Gateway Harness Interface | Harness Adapter ↔ E-01/E-02 | Bidirectional; adapter **untrusted** | MCP JSON-RPC in both qualified eras (2026-07-28 stateless; 2025-11-25 `initialize` sessions); OAuth 2.1 metadata, authorization and token endpoints; bearer access token as session proof; session API for header-helper adapters; optional session context as scopes (template, purpose, project, end-user) | Transport and TLS; client registration; authorization-code flow with PKCE and resource binding; token presentation; allowed MCP methods per era; error schema; rate limits; scopes may only **narrow** policy |
 | **X-02** | Curation Publication (context only, outside SoI) | Curation System → Library | One-way | Signed package, manifest, attestations, revocation entries | Defined so the X-03 format is fixed; not allocated to the SoI |
 | **X-03** | Library Retrieval | Library → E-13 | Inbound; content **untrusted until verified** | Package archive or image, detached signature, manifest, signer certificate chain, revocation list or feed | Package format; signature scheme; manifest schema (Section 6.3); retrieval transport; feed freshness |
 | **X-04** | Management GUI & API | Operator/Auditor/Researcher ↔ E-24 | Bidirectional; human-authenticated | HTTPS GUI (G-01…G-14) and Control API | Admin authentication; role model; CSRF/Origin/CSP; API operations; usability |
@@ -632,6 +641,7 @@ Each function has exactly one **owning element**, which is the allocation target
 | **X-09** | Evidence Export | E-21 → archive or SIEM | Outbound; optional | Signed journal segments, checkpoints, redacted metadata | Format; signing; redaction; delivery acknowledgment |
 | **X-10** | Time Source | Trusted clock → Gateway | Inbound | Time, monotonic clock for timing spans | Accuracy bound; failure detection (expiry decisions and latency metrics depend on it) |
 | **X-11** | Research Dataset Export | E-32 → offline analytics tools / researcher media | Outbound; researcher-authenticated | Dataset files (Parquet/CSV/JSONL/GraphML), data dictionary, provenance manifest | Formats; schema stability; pseudonymization; export authorization and audit |
+| **X-12** | Framework Adapter Interface | Agentic framework ↔ E-33 | Local; framework **untrusted** | The framework's own MCP configuration hooks: stdio `command` for `smcp-stdio`; header-helper command output (a JSON object of headers) from `smcp-session`; environment variables naming the Gateway URL and credential file | Hook contract per supported framework; credential file location and mode; failure behavior (no session means no tools); no framework-specific logic inside the Gateway |
 
 ### 6.2 Internal interfaces
 
@@ -789,7 +799,7 @@ sequenceDiagram
   S->>X: outbound request + egress authorization
   X->>X: validate destination == bound destination
   X-->>S: response (credential never entered sandbox)
-  Note over B,X: grant expires at call end; E-12 revocation withdraws it immediately
+  Note over B,X: grant expires at call end, and E-12 revocation withdraws it immediately
 ```
 
 ### 8.4 Allocation targets specific to secrets
@@ -965,7 +975,7 @@ flowchart LR
     T0N["E-03 E-05 E-06 E-08 E-12 E-13<br/>E-19 E-20 E-21 E-22 E-25 E-26"]
   end
   subgraph ENF[Security-enforcing: T1]
-    T1N["E-01 E-02 E-04 E-07 E-09 E-10 E-11 E-14<br/>E-15 E-16 E-17 E-18 E-24 E-29 E-30 E-31"]
+    T1N["E-01 E-02 E-04 E-07 E-09 E-10 E-11 E-14<br/>E-15 E-16 E-17 E-18 E-24 E-29 E-30 E-31 E-33"]
   end
   subgraph SUP[Security-supporting: T2]
     T2N["E-23 E-27 E-28 E-32"]
@@ -1116,7 +1126,7 @@ These extend rev 2.0 §10 targets. All are unmeasured design targets.
    - The Gateway **MUST** protect the integrity of policy and behavior baselines held in the Data Server.
    - The Gateway **MUST** protect sensitive observation data captured for audit and research.
 2. **Section 2 — Functional SHALL requirements by function** (F-01…F-93), each tracing to a MUST root or a functional need (e.g., the observation and research functions F-75…F-93 trace to owner needs for characterization and research).
-3. **Section 3 — Element allocation** (E-01…E-32 and G-01…G-14): performance, memory, isolation, failure behavior and usability, using the allocation targets in Section 4.
+3. **Section 3 — Element allocation** (E-01…E-33 and G-01…G-14): performance, memory, isolation, failure behavior and usability, using the allocation targets in Section 4.
 4. **Section 4 — Interface requirements** (X-01…X-11, I-01…I-39), with ICDs for X-01, X-03, X-05 and X-11 first.
 5. **Section 5 — Data requirements** (D-01…D-13), including the Parameter Catalog as a controlled appendix.
 6. **Appendices:** controlled limits (carry forward V1 Appendix A plus Section 14), the statistical method (Section 9.2), acceptance scenarios (re-map V1 Appendix B to the Section 18 scenarios), and a V1→V2 requirement disposition table (retained / reallocated / moved to curation / retired).
@@ -1219,7 +1229,7 @@ E-13 processes a revocation entry (F-35). E-14 suspends the server revision. E-1
 | ID | Decision | Options | Recommendation |
 |---|---|---|---|
 | OD-1 | Package signing scheme | Sigstore/cosign (keyless or key), minisign, X.509 CMS, in-toto/SLSA attestations | Key-based cosign or minisign for an offline local trust root; add in-toto attestations for curation evidence |
-| OD-2 | Framework credential type | mTLS client certificates, signed JWT + DPoP, local Unix-socket peer credentials | mTLS for network harnesses; peer credentials + signed token for same-host harnesses |
+| OD-2 | Framework credential type | OAuth 2.1 client registration (CIMD or issued client ID and secret) with the access token as session; mTLS client certificates; local Unix-socket peer credentials | **Decided 2026-10-16:** OAuth 2.1 is the baseline for every network harness, because Claude Code, Codex CLI and Hermes all implement it and none except Hermes can present a per-server client certificate. mTLS is an optional hardening profile. Peer credentials plus a key remain for same-host UDS harnesses. See `Client-Compatibility-Brief.md` §4 |
 | OD-3 | Server instance scope default | Per-call, per-session, shared | Per-session for any server holding secrets or state; shared only for stateless read-only servers |
 | OD-4 | Graph database engine | Neo4j CE, Memgraph, Apache AGE, FalkorDB | Neo4j CE baseline; benchmark Memgraph and AGE in P0 on write throughput, traversal latency, memory control and license |
 | OD-5 | Approval channel | Console only, mobile push, harness-relayed elicitation | Console-only for V2; harness-relayed approval is rejected because the agent side is untrusted |
@@ -1239,4 +1249,5 @@ E-13 processes a revocation entry (F-35). E-14 suspends the server revision. E-1
 | Revision | Date | Change |
 |---|---|---|
 | V2.0 draft | 2026-10-14 | First logical decomposition: 8 subsystems, 24 elements, 65 functions, 10 external and 28 internal interfaces, 8 data stores; session Allow-policy model; secrets design; V1 traceability. |
+| V2.2 draft | 2026-10-16 | Harness interface revised to match shipping clients (`Client-Compatibility-Brief.md`): OAuth 2.1 becomes the baseline framework credential and session mechanism (OD-2 decided, X-01 content revised, E-03 allocation targets); both protocol eras are served in the baseline; reference adapters enter the SoI as E-33 Harness Adapter Kit with functions F-94–F-95 and interface X-12; A-2 revised accordingly. Fixed the Section 8.3 sequence diagram note that did not parse. |
 | V2.1 draft | 2026-10-14 | Added SS-9 Data Server (E-25 Graph Database Engine, E-26 Data Access Service, E-27 Observation Store, E-28 Data Lifecycle & Memory Manager) and SS-10 Observation & Analytics (E-29 Observation Collector, E-30 Behavior Baseline Engine, E-31 Anomaly Scorer, E-32 Research Dataset Service). Added functions F-66–F-93, interfaces X-11 and I-29–I-39, data stores D-09–D-13, GUI view modules G-01–G-14, behavior characterization and standard-deviation anomaly model (Section 9), Parameter Catalog and meta-metrics including policy time cost (Section 10), workbench design intent (Section 11), performance targets (Section 14), new scenarios and open decisions OD-9–OD-13. `architecture.md` rev 2.0 retained as the problem-space and candidate-technology reference. |
