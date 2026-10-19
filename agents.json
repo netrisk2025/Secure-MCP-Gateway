@@ -1,0 +1,51 @@
+[
+  {
+    "client": "Claude Code",
+    "version": "2.1.302",
+    "mode": "ai-gateway",
+    "result": "not-run",
+    "detail": "AI_GATEWAY_API_KEY is not set; no model credentials (or run with -local)"
+  },
+  {
+    "client": "Codex CLI",
+    "version": "0.142.2",
+    "mode": "ai-gateway",
+    "result": "not-run",
+    "detail": "AI_GATEWAY_API_KEY is not set; no model credentials (or run with -local)"
+  },
+  {
+    "client": "Hermes Agent",
+    "version": "0.17.0",
+    "mode": "ai-gateway",
+    "result": "not-run",
+    "detail": "AI_GATEWAY_API_KEY is not set; no model credentials"
+  },
+  {
+    "client": "OpenCode",
+    "version": "1.15.13",
+    "mode": "ai-gateway",
+    "result": "not-run",
+    "detail": "AI_GATEWAY_API_KEY is not set; no model credentials"
+  },
+  {
+    "client": "Gemini CLI",
+    "version": "0.64.0",
+    "mode": "ai-gateway",
+    "result": "not-run",
+    "detail": "GEMINI_API_KEY is not set; no model credentials"
+  },
+  {
+    "client": "Goose",
+    "version": "1.55.0",
+    "mode": "ai-gateway",
+    "result": "not-run",
+    "detail": "AI_GATEWAY_API_KEY is not set; no model credentials"
+  },
+  {
+    "client": "Grok Build",
+    "version": "",
+    "mode": "ai-gateway",
+    "result": "not-run",
+    "detail": "no publicly installable Grok Build CLI; connection mode is to be confirmed at pinning"
+  }
+]

@@ -6903,7 +6903,57 @@
       "note": "smcp-session, smcp-stdio (both eras, UDS dialing) and smcp-connect (binary and npm) with the CP-43 credential file; smcpctl clients setup, lockdown and doctor for the seven local clients; Tailscale Funnel and Cloudflare tunnel drivers. TestConformanceThroughAdapters runs the northbound conformance checks relayed through smcp-stdio and through smcp-connect behind a test tunnel and requires each response to equal a direct connection's (FR-12.13, FR-16.9). The session helper is demonstrated with Claude Code (headersHelper) and Codex CLI (env_http_headers fed by smcp-session --env) (FR-12.12). The real-agent suite passes Claude Code 2.1.302, Codex CLI 0.142.2, Hermes Agent 0.17.0, OpenCode 1.15.13 and Goose 1.55.0 on every scenario, and its broken-build check turns a client to fail against a deliberately broken smcpd. Gemini CLI is not run (no GEMINI_API_KEY) and Grok Build is not run (no public CLI). Requirement report (main 1a96b1c): 10 of 20 verified; partly verified: FR-15 (parent, 4 of 10 child requirements verified), FR-15.1 (the generated lockdown settings are checked; refusal by each pinned client is not run), FR-15.2 (the generated managed settings are checked; refusal by the pinned client is not run), FR-15.4 (run on a Standalone host only; the Enforced host case is not), FR-15.7 (the per-client trust settings are checked; connecting each pinned client over TLS is not), FR-15.8, FR-15.10, SR-4.9-1 (needs each client started at its pinned version with a second server added), SR-4.11-1 (needs each client started at its pinned version with a second server added); unverified: FR-18.3 (quick starts not followed at the pinned version for every client). Live cloud-agent runs (Grok Bot, ChatGPT agent, Meta Muse) are descoped from release 1.x; FR-15.9 and FR-16.10 are verified by Inspection records of the documented modes and vendor settings, reviewed 2026-10-18."
     }
   ],
-  "agents": [],
+  "agents": [
+    {
+      "client": "Claude Code",
+      "version": "2.1.302",
+      "mode": "ai-gateway",
+      "result": "not-run",
+      "detail": "AI_GATEWAY_API_KEY is not set; no model credentials (or run with -local)"
+    },
+    {
+      "client": "Codex CLI",
+      "version": "0.142.2",
+      "mode": "ai-gateway",
+      "result": "not-run",
+      "detail": "AI_GATEWAY_API_KEY is not set; no model credentials (or run with -local)"
+    },
+    {
+      "client": "Hermes Agent",
+      "version": "0.17.0",
+      "mode": "ai-gateway",
+      "result": "not-run",
+      "detail": "AI_GATEWAY_API_KEY is not set; no model credentials"
+    },
+    {
+      "client": "OpenCode",
+      "version": "1.15.13",
+      "mode": "ai-gateway",
+      "result": "not-run",
+      "detail": "AI_GATEWAY_API_KEY is not set; no model credentials"
+    },
+    {
+      "client": "Gemini CLI",
+      "version": "0.64.0",
+      "mode": "ai-gateway",
+      "result": "not-run",
+      "detail": "GEMINI_API_KEY is not set; no model credentials"
+    },
+    {
+      "client": "Goose",
+      "version": "1.55.0",
+      "mode": "ai-gateway",
+      "result": "not-run",
+      "detail": "AI_GATEWAY_API_KEY is not set; no model credentials"
+    },
+    {
+      "client": "Grok Build",
+      "version": "",
+      "mode": "ai-gateway",
+      "result": "not-run",
+      "detail": "no publicly installable Grok Build CLI; connection mode is to be confirmed at pinning"
+    }
+  ],
   "hostile": [
     {
       "attack": "Poisoned tool description",
