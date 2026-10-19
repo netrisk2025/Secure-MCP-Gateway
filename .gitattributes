@@ -1,0 +1,18 @@
+# Generated files: collapsed in GitHub diffs and excluded from language
+# statistics. Do not hand-edit; regenerate them (see scripts/README.md).
+Secure_MCP_Gateway_SRS.md linguist-generated=true
+go.sum linguist-generated=true
+spikes/*/go.sum linguist-generated=true
+site/package-lock.json linguist-generated=true
+
+# CHANGELOG.md entries from parallel branches are independent; keep both
+# sides on a merge instead of reporting a conflict.
+CHANGELOG.md merge=union
+
+# Shell scripts must keep LF line endings to run.
+*.sh text eol=lf
+install.sh text eol=lf
+
+# Built console (make console), embedded into smcpd.
+console/dist/** linguist-generated=true
+console/package-lock.json linguist-generated=true

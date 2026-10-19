@@ -1,9 +1,13 @@
 import Link from "next/link";
+import { DocHead, Note, Sec } from "@/components/Sheet";
 import { loadSecurity } from "@/lib/parse-sec";
 import { loadRequirements } from "@/lib/parse-reqs";
 import { Inline } from "@/lib/inline";
+import { buildCommit, chapter } from "@/lib/site";
 
-export const metadata = { title: "Security controls, Secure MCP Gateway" };
+export const metadata = { title: "Security controls" };
+
+const CH = chapter("/security/");
 
 export default function SecurityPage() {
   const { controls, groups } = loadSecurity();
@@ -15,36 +19,42 @@ export default function SecurityPage() {
     srByParent.set(pid, [...(srByParent.get(pid) ?? []), r.id]);
   }
   const dispBy = new Map(disps.map((d) => [d.secId, d.text]));
-  const musts = controls.filter((c) => c.imperative === "MUST").length;
+  const musts = controls.filter((c) => c.imperative === "MUST");
+  const realized = musts.filter((c) => (srByParent.get(c.id) ?? []).length > 0).length;
+  const disposed = musts.filter((c) => !(srByParent.get(c.id) ?? []).length && dispBy.has(c.id)).length;
 
   return (
-    <>
-      <div className="page-head">
-        <h1>Security controls</h1>
-        <p className="lede">
-          The security-control SRS states {controls.length} controls in {groups.length} groups, {musts} of them as
-          MUST. Each MUST is realized by one or more SHALL requirements in the implementation SRS, or carries a
-          disposition explaining where outside the Gateway it is met.
+    <article className="sheet">
+      <DocHead
+        chapter={CH.n}
+        title="Security controls"
+        left={["Secure MCP Gateway", "Security-control SRS", "Source: MCP_Gateway_Security_SRS.md"]}
+        right={[`${controls.length} controls`, `${groups.length} groups, ${musts.length} MUST`, `site build ${buildCommit()}`]}
+      >
+        <p>
+          Each MUST is realized by one or more SHALL requirements in the implementation SRS, or carries a disposition
+          that says where outside the Gateway it is met.
         </p>
-      </div>
+      </DocHead>
+      <Note label="Coverage">
+        <p>
+          {realized} of {musts.length} MUST controls are realized by security requirements; {disposed} carry a
+          disposition; the rest are decomposed into child controls.
+        </p>
+      </Note>
 
-      <div className="controls">
-        {groups.map((g) => {
-          const root = controls.find((c) => c.id === g.id);
-          const children = controls.filter((c) => c.group === g.id && c.id !== g.id);
-          return (
-            <section key={g.id} className="control-group" id={`sec-${g.id}`}>
-              <div className="control-root">
-                <h2>
-                  {g.id}. {g.title}
-                </h2>
-                {root && (
-                  <p>
-                    <span className={`badge badge-${root.imperative}`}>{root.imperative}</span>{" "}
-                    <Inline text={root.statement.replace(/\bMUST\b/, "must")} linkIds={false} />
-                  </p>
-                )}
-              </div>
+      {groups.map((g) => {
+        const root = controls.find((c) => c.id === g.id);
+        const children = controls.filter((c) => c.group === g.id && c.id !== g.id);
+        return (
+          <Sec key={g.id} no={`${CH.n}.${g.id}`} id={`sec-${g.id}`} title={g.title}>
+            {root && (
+              <p>
+                <span className={`badge badge-${root.imperative}`}>{root.imperative}</span>{" "}
+                <Inline text={root.statement.replace(/\bMUST\b/, "must")} linkIds={false} />
+              </p>
+            )}
+            <div className="controls wide">
               {children.map((c) => {
                 const srs = srByParent.get(c.id) ?? [];
                 const disp = dispBy.get(c.id);
@@ -68,7 +78,7 @@ export default function SecurityPage() {
                         <span className={`badge badge-${c.imperative}`}>{c.imperative}</span>{" "}
                         <Inline text={c.statement.replace(/\b(MUST|SHALL)\b/, (m) => m.toLowerCase())} linkIds={false} />
                       </p>
-                      <dl>
+                      <dl className="facts">
                         <dt>Verification</dt>
                         <dd>
                           <strong>{c.method}.</strong> {c.verification}
@@ -105,10 +115,10 @@ export default function SecurityPage() {
                   </details>
                 );
               })}
-            </section>
-          );
-        })}
-      </div>
-    </>
+            </div>
+          </Sec>
+        );
+      })}
+    </article>
   );
 }

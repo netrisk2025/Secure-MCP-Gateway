@@ -1,0 +1,32 @@
+{
+  "name": "smcp-connect",
+  "version": "0.1.0",
+  "description": "Stdio MCP relay to a Secure MCP Gateway Remote Access URL, with OAuth device sign-in",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ethan03805/Secure-MCP-Gateway.git",
+    "directory": "packaging/npm/smcp-connect"
+  },
+  "bin": {
+    "smcp-connect": "bin/smcp-connect.js"
+  },
+  "main": "lib/index.js",
+  "files": [
+    "bin/",
+    "lib/",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "gateway",
+    "stdio"
+  ]
+}

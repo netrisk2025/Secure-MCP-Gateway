@@ -1,0 +1,8 @@
+{
+  "name": "smcp-ref-filesystem",
+  "version": "2026.8.31",
+  "private": true,
+  "dependencies": {
+    "@modelcontextprotocol/server-filesystem": "2026.8.31"
+  }
+}

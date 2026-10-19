@@ -1,12 +1,12 @@
 # Secure MCP Gateway — Architecture V2 (Logical Decomposition)
 
 **Document:** `ArchitectureV2.md`
-**Revision:** V2.2 draft (proposed)
-**Date:** 2026-10-16 (America/New_York)
+**Revision:** V2.3 draft (proposed)
+**Date:** 2026-10-16 (America/Chicago)
 **Owner:** netrisk
 **Inputs:** `architecture.md` rev 2.0 (problem-space analysis), `MCP_Gateway_Security_SRS.md` V1 (security-control set; renamed from `MCP_Gateway_SRS.md`), `Secure-MCP-Gateway-Research-Brief.md`
 **Intended consumer:** SRS V2. This document gives the elements, functions and interfaces that SRS V2 allocates requirements to.
-**Status:** Proposed architecture. Nothing in this document has been implemented or verified.
+**Status:** Proposed architecture, partly implemented. The implementation state of each element is recorded in `docs/status/elements.json`; this document states the design, not the progress.
 
 ---
 
@@ -41,14 +41,14 @@ Every leaf SHALL should name its element in its subject (e.g., *"The Anomaly Sco
 
 ### 2.1 Vision (owner statement, restated)
 
-1. **Curated, signed servers only.** MCP servers are curated outside the Gateway. The curation system delivers each one as a **digitally signed package with metadata** into a **Trusted MCP Server Library**. The Gateway hosts and runs only servers whose signature and metadata it has verified.
+1. **Curated, signed servers only.** Each MCP server reaches the Gateway as a **digitally signed package with metadata** in a **Trusted MCP Server Library**. In the baseline the operator curates: the release's packaging command (`smcpctl package`, F-96) pins an artifact by digest, generates the manifest from the server's live tool list and signs the package with an operator key. An external curation system that emits the same package format is also accepted. The Gateway hosts and runs only servers whose signature and metadata it has verified.
 2. **Authenticated agentic frameworks.** Agentic frameworks (Hermes, Codex CLI, Claude Code and others) reach the Gateway through a **harness-specific interface**. The Gateway authenticates the framework instance and establishes a **session**.
 3. **Tailored Allow policy per session.** Each session runs under an **Allow policy** that is tailored to that session. Everything not explicitly allowed is denied.
 4. **Controls at three points.** Security controls apply at **access time** (before dispatch), at **run time** (while the server executes) and on the **tool-call response** (before content is released to the agent).
 5. **Managed secrets.** The Gateway holds the secrets that servers need. It assures that a secret is used only when authorized and only in the way a defined **Secret Use Policy** permits. Secrets are never disclosed to the agent or the harness.
 6. **Audit per policy, normal and abnormal.** Audit is policy-directed. The policy specifies what to capture about both **normal** and **abnormal** behavior. From captured metrics the Gateway **learns to characterize** tool-call and tool-response patterns and classifies new activity as normal or abnormal by its **distance from the mean in standard deviations**.
 7. **Research instrument.** By tuning policy through a GUI, an operator can record tool-use data for **offline analysis**. A user-friendly GUI selects the parameters to record from a catalog that is as broad as practical.
-8. **High-performance graph Data Server.** A graph database hosts the policy, the server registry, audit relationships and the behavior model. Companion components handle high-volume metrics where needed. The Data Server manages its memory.
+8. **High-performance graph Data Server.** A graph database hosts the behavior model and mirrors of the policy, the server registry and audit relationships for graph views and research (the authorities are the signed Policy Store and the Evidence Journal, A-9). Companion components handle high-volume metrics where needed. The Data Server manages its memory.
 9. **Self-measurement.** The Gateway captures **meta-metrics** about itself: throughput, per-stage timing and the time cost of applying each policy element, filter and capture step.
 10. **One control GUI** controls the Gateway, manages policy and tunes audits and capture.
 
@@ -56,47 +56,61 @@ Every leaf SHALL should name its element in its subject (e.g., *"The Anomaly Sco
 
 | ID | Assumption | Consequence for the architecture |
 |---|---|---|
-| A-1 | An external **MCP Curation System** performs source review, build, testing, risk classification and signing. It publishes signed packages, metadata and a revocation feed into the Trusted MCP Server Library. | The V1 in-gateway quarantine/source-viewer/admission workflow (V1 §3, rev 2.0 §7.1) moves **outside** the SoI. The Gateway **verifies** curation evidence; it does not perform curation. |
+| A-1 | Curation is performed by the operator with the release's offline packaging command (F-96), or by an external **MCP Curation System** that emits the same signed package format. Either one publishes signed packages, metadata and revocation entries into the Trusted MCP Server Library, a local directory. | The packaging command is part of the release and is allocated to E-13. The daemon side of E-13 **verifies** packages; it never fetches from a package registry at run time. The operator's signing key is enrolled as a trust anchor limited to the risk classes the operator chooses. |
 | A-2 | Each agentic framework connects through a **Harness Adapter** that conforms to the Gateway Harness Interface (X-01). The Gateway release ships reference adapters (E-33) that use the hooks shipping frameworks already provide: OAuth 2.1 sign-in, a header-helper command, or a stdio `command`. | The Gateway exposes one uniform interface. Framework-specific translation lives in the adapter. The adapter runs on the harness host and is **untrusted** for authorization decisions, even though the release ships it. |
 | A-3 | Servers run on the same host as the Gateway (local hosting), or on hosts the Gateway's Server Runtime Manager controls directly. | Run-time controls (sandboxing, egress, resource limits) are Gateway functions, not delegated to third parties. |
 | A-4 | The host kernel, the Gateway's own binaries and the trust-anchor store are trusted. | These form the trusted computing base (TCB, Section 12). A hostile host administrator is out of scope, as in V1. |
 | A-5 | The model behind the agent is untrusted. Its tool requests, arguments and any text it relays are attacker-influenceable. | All authorization derives from authenticated identity plus policy, never from model output. |
 | A-6 | Behavior baselines are learned from observed traffic, and an attacker who controls traffic can try to shift them (**baseline poisoning**). | Learning is asynchronous, uses versioned baseline snapshots, excludes flagged samples and requires a promotion step before a baseline affects enforcement (Section 9.4). |
 | A-7 | Anomaly classification can **restrict** but never **grant**. | A "normal" score never substitutes for a permit. An "abnormal" score can only add obligations (alert, more capture, approval, withhold, suspend). This preserves V1 1.12 (no semantic authorization). |
+| A-8 | The Gateway runs in one of two platform profiles. The **Enforced profile** runs on Linux (x86_64 or arm64) with rootless Podman, nftables, cgroup v2 and systemd. The **Standalone (unconfined) profile** runs on macOS arm64 or on Linux without those features. | E-16, E-17 and the network part of E-18 exist only in the Enforced profile. In the Standalone profile backends run as ordinary child processes, health reports `degraded` with cause `unconfined`, servers of the high-risk classes are refused, and the release labels the installation "not enforced". |
+| A-9 | **Policy authority** is the signed, schema-validated policy revision held by E-05 in the Policy Store (D-01) and compiled to an in-memory snapshot. **Evidence authority** is the signed, hash-chained Evidence Journal (D-06). | The graph database (E-25, via E-26) and the Observation Store (E-27) are mirrors and indexes for graph views, research and analytics. Their unavailability degrades analytics and never opens or blocks enforcement. Dispatch waits only on the journal write of the decision intent. |
+| A-10 | Some agents run on a vendor's cloud computer and cannot reach the user's loopback address (Grok Bot, ChatGPT agent "dots", Meta Muse). | The **Remote Access profile** exposes the Gateway, still running on the user's computer, through an authenticated tunnel (X-13). Installing the Gateway inside the vendor's virtual machine is not a control, because the agent controls that machine. |
+| A-11 | Backends are local MCP servers that expose **tools**. | Remote (hosted) MCP servers as backends and the resources and prompts capabilities are out of scope for this baseline and are refused (V1 5.6). |
 
 ### 2.3 System context
 
+The context is drawn in three views of the same system of interest: who calls it, what it takes in and runs on, and what it sends out.
+
+**Agents and people**
+
 ```mermaid
 flowchart LR
-  subgraph EXT[External actors and systems]
-    AF[Agentic framework instance<br/>Hermes / Codex / Claude Code ...]
-    HA[Harness Adapter<br/>framework-specific]
-    CUR[MCP Curation System]
-    LIB[(Trusted MCP Server Library)]
-    OP[Operator / Policy Administrator]
-    AP[Approver]
-    AUD[Auditor]
-    RES[Researcher / Analyst]
-    NET[External destinations<br/>APIs, documents, services]
-    SSRC[External secret source<br/>optional]
-    ARC[Evidence archive / SIEM<br/>optional]
-    OFF[Offline analytics tools<br/>notebooks, R, Python, BI]
-  end
-  AF --> HA
+  AF[Agentic framework instance<br/>Hermes / Codex / Claude Code ...] --> HA[Harness Adapter<br/>framework-specific]
   HA -->|X-01 Gateway Harness Interface| GW
-  CUR -->|X-02 Publish signed packages + revocations| LIB
+  CA[Cloud agent on a vendor computer<br/>Grok Bot / ChatGPT dots / Meta Muse] --> TUN[Tunnel provider<br/>Cloudflare / Tailscale / vendor tunnel]
+  TUN -->|X-13 Remote Access Interface| GW
+  OP[Operator / Policy Administrator] -->|X-04 Management GUI| GW
+  AP[Approver] -->|X-05 Approval Interface| GW
+  AUD[Auditor] -->|X-04 read-only roles| GW
+  RES[Researcher / Analyst] -->|X-04 research roles| GW
+  GW[[Secure MCP Gateway — SoI]]
+```
+
+**Inputs and platform**
+
+```mermaid
+flowchart TB
+  REG[Package registries<br/>npm / PyPI / OCI / release URLs] -->|X-17 Package sources, packaging time only| CUR[Operator packaging or<br/>external curation system]
+  CUR -->|X-02 Publish signed packages + revocations| LIB[(Trusted MCP Server Library)]
   LIB -->|X-03 Library Retrieval| GW
-  OP -->|X-04 Management GUI| GW
-  AP -->|X-05 Approval Interface| GW
-  AUD -->|X-04 read-only roles| GW
-  RES -->|X-04 research roles| GW
-  GW -->|X-06 Brokered egress| NET
-  SSRC -->|X-08 Secret Provisioning| GW
-  GW -->|X-09 Evidence Export| ARC
-  GW -->|X-11 Research Dataset Export| OFF
+  REL[Release channel<br/>GitHub Releases / Homebrew] -->|X-16 Release distribution| GW
+  SSRC[External secret source<br/>optional] -->|X-08 Secret Provisioning| GW
+  MET[Local metrics scraper] -->|X-15 Operational metrics| GW
   GW[[Secure MCP Gateway — SoI]]
   GW ---|X-07 Host Platform| HOST[Host OS / kernel / container runtime]
   GW ---|X-10 Time| TIME[Trusted time source]
+```
+
+**Outputs**
+
+```mermaid
+flowchart LR
+  GW[[Secure MCP Gateway — SoI]]
+  GW -->|X-14 Desktop notification| NOTE[OS notification service]
+  GW -->|X-06 Brokered egress| NET[External destinations<br/>APIs, documents, services]
+  GW -->|X-09 Evidence Export| ARC[Evidence archive / SIEM<br/>optional]
+  GW -->|X-11 Research Dataset Export| OFF[Offline analytics tools<br/>notebooks, R, Python, BI]
 ```
 
 ---
@@ -117,6 +131,10 @@ The SoI decomposes into **ten subsystems** and **thirty-three elements**. Elemen
 | **SS-8 Management** | E-24 Management Console & Control API (with GUI view modules G-01…G-14) |
 | **SS-9 Data Server** | E-25 Graph Database Engine · E-26 Data Access Service · E-27 Observation Store · E-28 Data Lifecycle & Memory Manager |
 | **SS-10 Observation & Analytics** | E-29 Observation Collector · E-30 Behavior Baseline Engine · E-31 Anomaly Scorer · E-32 Research Dataset Service |
+
+The overview is drawn in three views. Elements that appear in more than one view are the same element. In the third view a node listing several element IDs stands for one edge from each of them.
+
+**Request path (SS-1 to SS-4)**
 
 ```mermaid
 flowchart TB
@@ -140,6 +158,25 @@ flowchart TB
     E11[E-11 Response Inspection]
     E12[E-12 Enforcement Coordinator]
   end
+  E02 --> E03 --> E04
+  E02 --> E08
+  E08 --> E06
+  E08 --> E09 --> E07
+  E09 --> E12 --> E10
+  E10 --> E11 --> E12
+  E12 --> E02
+  E05 --> E06
+  E04 --> E06
+  E24[E-24 Console & Control API] --> E05
+  E24 --> E07
+```
+
+**Server execution and secrets (SS-5, SS-6)**
+
+```mermaid
+flowchart TB
+  E10[E-10 Tool Dispatcher] --> E15
+  E22[E-22 Key & Trust Anchors] --> E13
   subgraph SS5[SS-5 Server Trust & Execution]
     E13[E-13 Library Trust Verifier]
     E14[E-14 Local Server Registry]
@@ -152,19 +189,24 @@ flowchart TB
     E19[E-19 Secret Vault]
     E20[E-20 Secret Broker]
   end
+  E13 --> E14 --> E15
+  E15 --> E16
+  E17 -.observes.-> E16
+  E16 -->|egress| E18
+  E20 --> E16
+  E20 --> E18
+  E19 --> E20
+```
+
+**Evidence, data and observation (SS-7 to SS-10)**
+
+```mermaid
+flowchart TB
+  EV["E-08, E-09, E-10, E-11, E-15, E-17, E-18, E-20"] --> E21
+  OB["E-06, E-08, E-09, E-10, E-11, E-17, E-18"] --> E29
   subgraph SS7[SS-7 Assurance]
     E21[E-21 Audit & Evidence]
-    E22[E-22 Key & Trust Anchors]
     E23[E-23 Health & Safety Monitor]
-  end
-  subgraph SS8[SS-8 Management]
-    E24[E-24 Console & Control API<br/>G-01…G-14]
-  end
-  subgraph SS9[SS-9 Data Server]
-    E26[E-26 Data Access Service]
-    E25[(E-25 Graph Database Engine)]
-    E27[(E-27 Observation Store)]
-    E28[E-28 Data Lifecycle & Memory Mgr]
   end
   subgraph SS10[SS-10 Observation & Analytics]
     E29[E-29 Observation Collector]
@@ -172,40 +214,23 @@ flowchart TB
     E31[E-31 Anomaly Scorer]
     E32[E-32 Research Dataset Service]
   end
-  E02 --> E03 --> E04
-  E02 --> E08
-  E08 --> E06
-  E08 --> E09 --> E07
-  E09 --> E12 --> E10 --> E15
-  E15 --> E16
-  E17 -.observes.-> E16
-  E16 -->|egress| E18
-  E20 --> E16
-  E20 --> E18
-  E19 --> E20
-  E10 --> E11 --> E12
-  E12 --> E02
-  E13 --> E14 --> E15
-  E22 --> E13
-  E05 --> E06
-  E24 --> E05
-  E24 --> E07
-  E04 --> E06
-  E08 & E09 & E10 & E11 & E15 & E17 & E18 & E20 --> E21
-  E08 & E09 & E10 & E11 & E17 & E18 & E06 --> E29
-  E31 -->|anomaly obligations| E06
+  subgraph SS9[SS-9 Data Server]
+    E26[E-26 Data Access Service]
+    E25[(E-25 Graph Database Engine)]
+    E27[(E-27 Observation Store)]
+    E28[E-28 Data Lifecycle & Memory Mgr]
+  end
+  WR["E-05, E-14, E-24"] --> E26
+  E31 -->|anomaly obligations| E06[E-06 Policy Decision]
   E29 --> E31
   E29 --> E26
   E21 --> E26
-  E05 --> E26
-  E14 --> E26
   E26 --> E25
   E26 --> E27
   E30 --> E26
   E30 -->|published baseline snapshot| E31
   E32 --> E26
   E28 -.manages.-> E25 & E27 & E29
-  E24 --> E26
 ```
 
 ---
@@ -223,7 +248,7 @@ Trust levels: **T0** = TCB, compromise defeats the security guarantee; **T1** = 
 - **Functions:** F-01 Terminate harness transport.
 - **Interfaces:** X-01 (provider), I-01, I-29.
 - **Owned data:** listener configuration, transport certificates (keys held by E-22).
-- **Allocation targets:** listener binding (interface/address restrictions); TLS profile and certificate name validation; Origin/Host validation (V1 2.9); connection, request-size and rate bounds before parsing (V1 7.11); rejection behavior and error schema; emission of transport timing and connection observables.
+- **Allocation targets:** listener binding (interface/address restrictions); TLS profile and certificate name validation; Origin/Host validation (V1 2.9); connection, request-size and rate bounds before parsing (V1 7.11); rejection behavior and error schema; emission of transport timing and connection observables; under the Remote Access profile, a separate loopback listener that only the tunnel connector reaches, with stricter rate limits, lockout and remote-origin marking on every event (X-13).
 
 #### E-02 Protocol Mediator — T1
 - **Purpose:** Parses and validates MCP JSON-RPC traffic against qualified protocol profiles, normalizes it into a canonical internal request, and serializes released responses back to the harness. Advertises only the MCP features the Gateway has qualified.
@@ -233,9 +258,9 @@ Trust levels: **T0** = TCB, compromise defeats the security guarantee; **T1** = 
 - **Allocation targets:** supported MCP versions; header/body agreement (V1 5.2); no downgrade (V1 5.3); unsupported-feature rejection (resources, sampling, elicitation and similar until qualified); canonicalization rules; malformed-message handling.
 
 #### E-33 Harness Adapter Kit — T1 (runs on the harness host; untrusted for authorization)
-- **Purpose:** Reference adapters shipped with the Gateway release so that shipping frameworks reach X-01 without framework-specific code inside the Gateway. `smcp-session` obtains and refreshes a session through the Gateway's OAuth token endpoint or session API and prints the headers a framework's header-helper hook expects. `smcp-stdio` is launched by a framework as a stdio MCP server and forwards newline-delimited JSON-RPC to the Gateway over X-01, adding only transport and authentication. Adapters hold a principal credential and are security-enforcing for credential custody. The Gateway never trusts them for authorization (A-2).
-- **Functions:** F-94 Obtain and refresh harness session; F-95 Bridge stdio to the harness interface.
-- **Interfaces:** X-01 (consumer), X-12 (provider).
+- **Purpose:** Reference adapters and harness tooling shipped with the Gateway release so that shipping frameworks reach X-01 without framework-specific code inside the Gateway. `smcp-session` obtains and refreshes a session through the Gateway's OAuth token endpoint or session API and prints the headers a framework's header-helper hook expects. `smcp-stdio` is launched by a framework as a stdio MCP server and forwards newline-delimited JSON-RPC to the Gateway over X-01, adding only transport and authentication. `smcp-connect` is the same bridge packaged for agents that accept only a command and reach the Gateway through the Remote Access profile (X-13). `smcpctl doctor` and the per-client **lockdown profiles** inspect and harden a framework's own configuration so that the Gateway is its only MCP server and the Gateway's state paths are not readable to it (F-98). Adapters hold a principal credential and are security-enforcing for credential custody. The Gateway never trusts them for authorization (A-2).
+- **Functions:** F-94 Obtain and refresh harness session; F-95 Bridge stdio to the harness interface (`smcp-stdio` locally, `smcp-connect` to a Remote Access URL); F-98 Diagnose and lock down harness configuration.
+- **Interfaces:** X-01 (consumer), X-12 (provider), X-13 (consumer, `smcp-connect`).
 - **Owned data:** principal credential and refresh token on the harness host (file, mode 0600); no policy, no audit, no tool results.
 - **Allocation targets:** credential file location and mode; refresh before expiry; pass-through of both protocol eras unchanged; exit on session revocation; no caching of tool results; conformance to the framework hooks named in the X-12 ICD (Claude Code `headersHelper`, Codex `http_headers_helper`, stdio `command` for all supported frameworks).
 
@@ -243,25 +268,25 @@ Trust levels: **T0** = TCB, compromise defeats the security guarantee; **T1** = 
 
 #### E-03 Identity & Authentication Service — T0
 - **Purpose:** Authenticates the **framework instance** on every request using credentials issued to that instance. Derives the **Principal** (framework identity) from verified credentials only and never from self-asserted `clientInfo` or model text. Optionally accepts a harness-asserted **end-user attribute** that can only narrow policy.
-- **Functions:** F-04 Authenticate framework instance; F-05 Verify session proof.
-- **Interfaces:** I-02, I-04, I-17 (to E-22).
+- **Interfaces:** I-02, I-04, I-17 (to E-22), X-13.
 - **Owned data:** principal registry and credential verifiers (persisted in E-25 via E-26), revocation epochs.
-- **Allocation targets:** credential type (OAuth 2.1 client registration bound to a principal in the baseline; mTLS client certificate or UDS peer credential under profiles); per-request authentication (V1 2.1); distinct credentials per framework instance (V1 2.2); revocation propagation deadline (V1 2.4); separation of client and backend credentials (V1 2.10); failed-authentication evidence.
+- **Functions:** F-04 Authenticate framework instance; F-05 Verify session proof. Dynamic Client Registration under the Remote Access profile is credential issuance (F-59, E-22) that E-03 holds pending until an operator approves it.
+- **Allocation targets:** credential type (OAuth 2.1 client registration bound to a principal in the baseline; mTLS client certificate or UDS peer credential under profiles); per-request authentication (V1 2.1); distinct credentials per framework instance (V1 2.2); revocation propagation deadline (V1 2.4); separation of client and backend credentials (V1 2.10); failed-authentication evidence; Client ID Metadata Document URLs accepted only from an allowlist or pre-registration (no open outbound fetch); sign-in by a **Session Approver** role rather than the Administrator; Dynamic Client Registration only under the Remote Access profile and only after operator approval of each registration; refresh-token rotation.
 
 #### E-04 Session Manager — T1
 - **Purpose:** Creates, binds, refreshes and terminates **Gateway sessions**. A session binds {principal, harness type, declared purpose/project, optional end-user attribute, selected Allow policy revision, selected Observation Policy, issued session key, lifetime}. Gateway sessions are a Gateway concept. They are independent of MCP transport sessions, which may be stateless.
-- **Functions:** F-06 Establish session; F-07 Bind Allow policy to session; F-08 Maintain session state and expiry; F-09 Terminate or revoke session.
+- **Functions:** F-06 Establish session; F-07 Bind Allow policy to session; F-08 Maintain session state and expiry; F-09 Terminate or revoke session; F-99 Track session taint.
 - **Interfaces:** I-04, I-05, I-18, I-29.
 - **Owned data:** D-07 Session Table.
-- **Allocation targets:** session establishment preconditions; session token binding to framework credential (no bearer replay); maximum lifetime and idle timeout; policy-revision pinning and re-evaluation on revision change; session revocation latency; concurrent-session limits per principal; owner-binding of server-side state handles (V1 3.14); binding of the session to a baseline context key (Section 9.3).
+- **Allocation targets:** session establishment preconditions; session token binding to framework credential (no bearer replay); maximum lifetime and idle timeout; policy-revision pinning and re-evaluation on revision change; session revocation latency; concurrent-session limits per principal; owner-binding of server-side state handles (V1 3.14); binding of the session to a baseline context key (Section 9.3); a deterministic, restrict-only **taint** flag set when the session receives output from a tool whose manifest marks its source untrusted (Section 7.1, layer 5); survival of sessions across a restart only through rotated refresh tokens.
 
 ### SS-3 Policy
 
 #### E-05 Policy Administration Service — T0
-- **Purpose:** Authoring, validation, simulation and atomic publication of immutable policy revisions: **Framework Profiles**, **Session Allow Policy templates**, **Secret Use Policies**, **Response Policies**, **Audit Profiles**, **Observation Policies** and **Anomaly Response Policies** (Sections 7 and 9).
+- **Purpose:** Authoring, validation, simulation and atomic publication of immutable policy revisions: **Framework Profiles**, **Session Allow Policy templates**, **Secret Use Policies**, **Response Policies**, **Audit Profiles**, **Observation Policies** and **Anomaly Response Policies** (Sections 7 and 9). E-05 is the **policy authority** (A-9): each published revision is a schema-validated document signed with the policy-signing key held by E-22 and stored in the Policy Store (D-01). The graph copy of a revision is a mirror for views and queries.
 - **Functions:** F-10 Validate policy revision; F-11 Simulate policy; F-12 Publish/activate policy revision; F-66 Estimate observation cost.
-- **Interfaces:** I-06 (from E-24), I-07 (to E-26).
-- **Owned data:** D-01 Policy Graph (hosted in E-25).
+- **Interfaces:** I-06 (from E-24), I-07 (to E-26, mirror only).
+- **Owned data:** D-01 Policy Store (signed revision files; mirrored into E-25).
 - **Allocation targets:** schema/type validation; rejection of ambiguous or overlapping grants (V1 1.9); capability-ceiling check against server manifests (Section 7.3); immutability of published revisions (V1 1.14); atomic activation (V1 1.15); publication ordering under the coordinator (V1 1.16); simulation fixtures before publication; Observation Policy validation against the Parameter Catalog (D-11) and sensitivity rules; storage and overhead estimates shown before publication.
 
 #### E-06 Policy Decision Service — T0
@@ -272,11 +297,11 @@ Trust levels: **T0** = TCB, compromise defeats the security guarantee; **T1** = 
 - **Allocation targets:** default deny (V1 1.3); deny precedence (V1 1.4); typed predicates only (V1 1.7); argument scoping (V1 1.8); obligation combination (V1 1.10); deterministic routing (V1 1.11); no semantic/LLM authorization (V1 1.12); anomaly results restrict-only (A-7); recording of the baseline snapshot ID used in each decision; bounded evaluation work and timeouts (V1 1.20); fail closed on store outage (V1 1.2); explanation output (V1 1.19); per-rule evaluation timing emitted.
 
 #### E-07 Approval Service — T1
-- **Purpose:** Human-in-the-loop approval for actions whose policy obligation requires it, including approvals triggered by anomaly obligations. Approvals are **one-use** and bound to {session, principal, exact server/tool revision, final argument digest, policy revision, expiry}. The approval channel is out-of-band from the harness, so a model cannot approve its own request.
-- **Functions:** F-17 Request approval; F-18 Record and consume approval.
-- **Interfaces:** X-05, I-10, I-18.
-- **Owned data:** approval records (D-01).
-- **Allocation targets:** approval binding fields (V1 1.18); expiry; one-use consumption; re-approval on argument change after redaction; approver authentication separate from harness credentials; denial on timeout; display of anomaly evidence (feature, z-score, baseline) to the approver.
+- **Purpose:** Human-in-the-loop approval for actions whose policy obligation requires it, including approvals triggered by anomaly obligations and by session taint. Approvals are **one-use** and bound to {session, principal, exact server/tool revision, final argument digest, policy revision, expiry}. The approval channel is out-of-band from the harness, so a model cannot approve its own request. In **hold mode** the call is parked for up to a bounded time while progress keep-alives hold the harness connection open; on approval the call proceeds in place, and at the bound it falls back to `-31002` with plain-language retry text and a console link. Approvers are notified through the console (G-13), `smcpctl approvals` and an OS desktop notification.
+- **Functions:** F-17 Request approval (including approver notification and hold mode); F-18 Record and consume approval.
+- **Interfaces:** X-05, X-14, I-10, I-18.
+- **Owned data:** approval records (D-01 approval log; mirrored to E-25).
+- **Allocation targets:** approval binding fields (V1 1.18); expiry; one-use consumption; re-approval on argument change after redaction; approver authentication separate from harness credentials; denial on timeout; display of anomaly evidence (feature, z-score, baseline) to the approver; hold bound and keep-alive interval; plain-language fallback text; notification content limited to tool name, server and console link (no arguments in OS notifications).
 
 ### SS-4 Enforcement Pipeline
 
@@ -312,23 +337,23 @@ Trust levels: **T0** = TCB, compromise defeats the security guarantee; **T1** = 
 - **Purpose:** The serialization point (rev 2.0 §4.3). It owns the **dispatch barrier** and the **release barrier**, policy activation ordering, revocation and the emergency stop. Under the barrier it rechecks policy revision, session validity and epochs, records intent, then hands out a one-use launch capability or release authorization.
 - **Functions:** F-29 Authorize launch under barrier; F-30 Authorize release under barrier; F-31 Execute emergency stop; F-32 Apply revocation.
 - **Interfaces:** I-11, I-15, I-16, I-19, I-20, I-29.
-- **Owned data:** policy-control record (active revision, stop/revocation epochs), persisted in D-01.
-- **Allocation targets:** pre-dispatch and pre-release rechecks (V1 1.17); intent committed before launch (V1 6.2); outcome committed before release (V1 6.3); emergency stop latency (V1 7.6); stop dispatch when audit export lags (V1 6.11) or mandatory audit capacity is exhausted (V1 7.10); invalidation of outstanding capabilities at startup; barrier hold-time emitted as a meta-metric.
+- **Owned data:** policy-control record (active revision, stop/revocation epochs), persisted in D-01 and recorded in D-06.
+- **Allocation targets:** pre-dispatch and pre-release rechecks (V1 1.17); decision intent appended to the Evidence Journal and flushed to stable storage (fsync) before a launch capability is issued (V1 6.2); outcome appended and flushed before release (V1 6.3); emergency stop latency (V1 7.6); stop dispatch when journal signing lags (V1 6.11) or mandatory audit capacity is exhausted (V1 7.10); invalidation of outstanding capabilities at startup; barrier hold-time emitted as a meta-metric.
 
 ### SS-5 Server Trust & Execution
 
 #### E-13 Library Trust Verifier — T0
-- **Purpose:** Imports server packages from the Trusted MCP Server Library. It verifies the **curation signature** against trust anchors from E-22, verifies the artifact digests, validates the **metadata manifest** schema, and checks the revocation feed. Packages that pass are installed into E-14. Every server start is re-verified.
-- **Functions:** F-33 Verify package signature and integrity; F-34 Validate server manifest; F-35 Process revocation feed.
-- **Interfaces:** X-03, I-17, I-21, I-18.
+- **Purpose:** Imports server packages from the Trusted MCP Server Library. It verifies the **curation signature** (minisign, OD-1) against trust anchors from E-22, verifies the artifact digests, validates the **metadata manifest** against the published schema (`docs/schemas/manifest.schema.json`), and checks the revocation list. Packages that pass are installed into E-14. Every server start is re-verified. E-13 also provides the offline packaging command `smcpctl package build|sign|verify` (F-96): it materializes a pinned artifact (npm, PyPI, OCI image or release binary, by digest), starts it once in a throwaway directory with no secrets and no network beyond the package source, reads its live `tools/list`, writes the manifest and signs the package with the operator's minisign key. Packaging is the only step that touches a package registry (X-17); the daemon never does.
+- **Functions:** F-33 Verify package signature and integrity; F-34 Validate server manifest; F-35 Process revocation feed; F-96 Build, sign and verify server package.
+- **Interfaces:** X-02, X-03, X-17, I-17, I-21, I-18.
 - **Owned data:** import receipts (D-02).
-- **Allocation targets:** accepted signature algorithms and key sizes; trust-anchor scoping (which signer may sign which risk class); manifest schema conformance; rejection of unsigned, expired, revoked or digest-mismatched packages; revocation check freshness bound; re-verification at instantiation; downgrade/rollback protection (monotonic version or explicit operator override).
+- **Allocation targets:** accepted signature algorithms and key sizes; trust-anchor scoping (which signer may sign which risk class); manifest schema conformance; rejection of unsigned, expired, revoked or digest-mismatched packages; revocation check freshness bound; re-verification at instantiation; downgrade/rollback protection (monotonic version or explicit operator override); reproducible packaging from a pinned digest; refusal to package floating versions; reference packages for the filesystem, git, fetch and memory servers; scanning of every tool name, title, description and schema property description at import with versioned metadata rule sets (E-08 repeats the scan before presentation).
 
 #### E-14 Local Server Registry — T1
 - **Purpose:** The Gateway's inventory of verified server revisions and their manifests: tools, schemas, declared capabilities, egress needs, secret requirements, risk class, curation attestations, **declared behavior baseline hints** and expiry. It is the source of the **capability ceiling** that policy cannot exceed.
 - **Functions:** F-36 Maintain verified server inventory; F-37 Detect drift and expiry.
 - **Interfaces:** I-21, I-22, I-07.
-- **Owned data:** D-02 Server Registry (hosted in E-25), D-03 Artifact Cache.
+- **Owned data:** D-02 Server Registry (local files beside D-03; mirrored into E-25), D-03 Artifact Cache.
 - **Allocation targets:** immutable revision records; tool schema and description digests (V1 3.7); suspension on drift (V1 3.8); expiry and re-curation date; activation-state control by operator (verified ≠ enabled); baseline reset or carry-forward rule when a server revision changes.
 
 #### E-15 Server Runtime Manager — T1
@@ -378,34 +403,34 @@ Trust levels: **T0** = TCB, compromise defeats the security guarantee; **T1** = 
 ### SS-7 Assurance
 
 #### E-21 Audit & Evidence Service — T0
-- **Purpose:** The **security-evidence** path. Collects mandatory security events from all elements, links them to decisions, policy revisions, server revisions and sessions, persists them to the Data Server via E-26, and produces a signed, chained evidence journal that is independent of the Data Server. It is distinct from E-29: E-21 carries the non-disableable **mandatory floor**, while E-29 carries policy-tunable observation and research data.
+- **Purpose:** The **security-evidence** path and the **evidence authority** (A-9). Collects mandatory security events from all elements, links them to decisions, policy revisions, server revisions and sessions, and appends them to the signed, hash-chained Evidence Journal (D-06), flushing the decision-intent and outcome records before the coordinator proceeds. It then feeds the journal to the audit graph mirror (D-05) through E-26, idempotently by event ID, so graph queries can be rebuilt from the journal at any time. It is distinct from E-29: E-21 carries the non-disableable **mandatory floor**, while E-29 carries policy-tunable observation and research data.
 - **Functions:** F-53 Record security event; F-54 Link evidence; F-55 Produce tamper-evident journal; F-56 Enforce retention and purge; F-57 Serve audit queries.
 - **Interfaces:** I-18 (sink), I-30, X-09, I-06.
-- **Owned data:** D-05 Audit Graph (hosted in E-25), D-06 Evidence Journal, optional encrypted payload blobs.
+- **Owned data:** D-06 Evidence Journal (authority), D-05 Audit Graph (mirror hosted in E-25), optional encrypted payload blobs.
 - **Allocation targets:** mandatory metadata floor (V1 6.1); historical links (V1 6.4); event origin vs target (V1 6.5); payload policy and encryption (V1 6.6, 6.8); secret removal (V1 6.7); export idempotence and lag bound (V1 6.10, 6.11); independent tamper evidence (V1 6.12); retention and purge (V1 6.9, 6.14, 6.15); mandatory-floor priority over observation traffic when resources are constrained.
 
 #### E-22 Key & Trust Anchor Manager — T0
-- **Purpose:** Custody of all Gateway cryptographic material: **curation trust anchors** (keys allowed to sign server packages), framework credential issuance and verification keys, transport certificates, the vault master key, the evidence-signing key, the Data Server credentials and the research pseudonymization key.
+- **Purpose:** Custody of all Gateway cryptographic material: **curation trust anchors** (keys allowed to sign server packages, including the operator's own minisign key), the policy-signing key, framework credential issuance and verification keys, transport certificates (a local CA with name constraints), the vault master key, the evidence-signing key, the Data Server credentials and the research pseudonymization key. It rotates the TLS, CA and evidence keys on operator command and includes key material and trust anchors, encrypted, in backups.
 - **Functions:** F-58 Manage trust anchors; F-59 Issue and revoke framework credentials; F-60 Protect Gateway keys.
 - **Interfaces:** I-17, I-06, X-07 (optional hardware key store/TPM).
 - **Owned data:** D-08 Trust Anchor & Key Store.
 - **Allocation targets:** trust-anchor enrollment requiring an operator ceremony; anchor scope and expiry; key separation by purpose; hardware-backed storage where available; credential lifetime; key rotation and compromise recovery.
 
 #### E-23 Health & Safety Monitor — T2
-- **Purpose:** Monitors the dependencies whose failure makes enforcement unsafe (Data Server availability, audit export lag, mandatory-audit capacity, vault availability, clock sanity, trust-anchor validity, memory pressure reported by E-28) and drives the fail-closed state through E-12.
-- **Functions:** F-61 Monitor enforcement health; F-62 Drive fail-closed state.
-- **Interfaces:** I-19, I-06, I-32.
-- **Owned data:** health state.
-- **Allocation targets:** monitored conditions and thresholds (V1 Appendix A); fail-closed on each critical dependency; health status reporting; recovery preconditions (V1 7.8, 7.9); distinction between degrade-observation (non-critical) and fail-closed (critical) conditions.
+- **Purpose:** Monitors the dependencies whose failure makes enforcement unsafe (policy snapshot currency, evidence journal writability and signing lag, mandatory-audit capacity, vault availability, clock sanity, trust-anchor validity, memory pressure reported by E-28) and drives the fail-closed state through E-12. Graph mirror and Observation Store availability are monitored as non-critical (`degraded`). E-23 also reports the platform profile (A-8), writes the diagnostic log (D-14), which is separate from evidence, and serves operational metrics on a loopback endpoint (X-15).
+- **Functions:** F-61 Monitor enforcement health (including the diagnostic log and the metrics endpoint); F-62 Drive fail-closed state.
+- **Interfaces:** I-19, I-06, I-32, X-15.
+- **Owned data:** health state, D-14 Diagnostic Log.
+- **Allocation targets:** monitored conditions and thresholds (V1 Appendix A); fail-closed on each critical dependency; health status reporting; recovery preconditions (V1 7.8, 7.9); distinction between degrade-observation (non-critical) and fail-closed (critical) conditions; `degraded` with cause `unconfined` in the Standalone profile; diagnostic log levels and rotation; metrics endpoint bound to loopback with no labels carrying arguments or secrets.
 
 ### SS-8 Management
 
 #### E-24 Management Console & Control API — T1
 - **Purpose:** The single GUI and control API for **controlling the Gateway, managing policy, and tuning audits, observation and research capture**. Serves operator, policy-author, approver, auditor and researcher roles, and authenticates human roles separately from framework principals. All mutations go through typed service APIs (E-05, E-07, E-19, E-22, E-28, E-32); E-24 never holds a raw database credential or exposes a query console.
-- **Functions:** F-63 Authenticate administrative user; F-64 Enforce administrative roles; F-65 Present management views; F-67 Provide parameter-selection workbench; F-68 Present behavior analytics; F-69 Present performance and resource views.
-- **Interfaces:** X-04, X-05, I-06.
+- **Functions:** F-63 Authenticate administrative user; F-64 Enforce administrative roles; F-65 Present management views; F-67 Provide parameter-selection workbench; F-68 Present behavior analytics; F-69 Present performance and resource views; F-97 Install, upgrade and remove the Gateway.
+- **Interfaces:** X-04, X-05, X-16, I-06.
 - **Owned data:** admin accounts and verifiers; GUI presets (D-11).
-- **Allocation targets:** admin identity and session protection (V1 2.5–2.7, 8.9); role separation (V1 8.10), including a **Researcher** role without policy-publication rights; no raw store access or query console; revision preconditions on mutation; inert rendering of server-supplied content (V1 6.17); local UI assets (V1 8.8); usability requirements for G-04 (Section 11).
+- **Allocation targets:** admin identity and session protection (V1 2.5–2.7, 8.9); role separation (V1 8.10), including a **Researcher** role without policy-publication rights and a **Session Approver** role that may only approve harness sign-ins and, under the Remote Access profile, dynamic client registrations (tool-call approvals belong to the **Approver** role; SRS Appendix C); no raw store access or query console; revision preconditions on mutation; inert rendering of server-supplied content (V1 6.17); local UI assets (V1 8.8); usability requirements for G-04 (Section 11); console built with React, TypeScript and Vite from hand-built components, meeting WCAG 2.2 AA and operable by keyboard; the `smcpctl` CLI including install, upgrade with pre-upgrade backup and rollback, and uninstall that preserves evidence unless purged.
 
 **GUI view modules** (each is a separately allocatable sub-element of E-24):
 
@@ -428,41 +453,50 @@ Trust levels: **T0** = TCB, compromise defeats the security guarantee; **T1** = 
 
 ### SS-9 Data Server
 
-The Data Server is a subsystem of several cooperating components. A **graph database** is the system of record for policy, registry, sessions, audit relationships and the behavior model, because those are highly connected and queried by relationship (who called what, under which rule, against which baseline). High-volume per-call observation records go to a companion **columnar Observation Store**. Graph engines are fast at traversals and point lookups but slow at wide aggregations over millions of rows, and the columnar store keeps those aggregations fast. **Speed on the enforcement hot path does not depend on a database round-trip.** Policy and baseline snapshots are compiled into memory (E-06, E-31), and the Data Server is written asynchronously except for the commits V1 requires before dispatch and release.
+The Data Server is a subsystem of several cooperating components. A **graph database** holds a **mirror** of policy, registry, sessions and audit relationships, and it is the system of record for the behavior model, because those are highly connected and queried by relationship (who called what, under which rule, against which baseline). High-volume per-call observation records go to a companion **columnar Observation Store**. Graph engines are fast at traversals and point lookups but slow at wide aggregations over millions of rows, and the columnar store keeps those aggregations fast. **Enforcement does not depend on the Data Server** (A-9). Policy authority is the signed revision in the Policy Store (D-01) held by E-05; evidence authority is the Evidence Journal (D-06). Both are files on the Gateway host. The Data Server is written asynchronously from those sources, can be rebuilt from them, and its loss degrades graph views, research and analytics only. Policy and baseline snapshots are compiled into memory (E-06, E-31), so the hot path makes no database round-trip.
 
 ```mermaid
 flowchart LR
+  W1[E-05 / E-14 / E-04 / E-12] -->|I-07| DAS
+  W2[E-21 Audit] -->|I-30| DAS
+  W3[E-29 Observation Collector] -->|I-33| DAS
+  W4[E-30 Baseline Engine] -->|I-34| DAS
+  W5[E-32 Research Service] -->|I-35| DAS
+  W6[E-24 GUI] -->|I-06| DAS
   subgraph SS9[SS-9 Data Server]
     DAS[E-26 Data Access Service<br/>typed ops, single writer,<br/>write batching, query templates]
     GDB[(E-25 Graph Database Engine<br/>D-01 Policy · D-02 Registry · D-05 Audit<br/>D-07 Sessions · D-10 Behavior Model · D-11 Catalog)]
     OBS[(E-27 Observation Store<br/>D-09 Observation records · D-13 Meta-metrics)]
-    DLM[E-28 Data Lifecycle & Memory Manager]
+    DLM[E-28 Data Lifecycle & Memory Manager<br/>budgets, tiering, retention, backup]
     DAS --> GDB
     DAS --> OBS
-    DLM -.budgets, tiering, retention, backup.-> GDB
+    DLM -.-> GDB
     DLM -.-> OBS
   end
-  W1[E-05 / E-14 / E-04 / E-12] -->|I-07 policy, registry, session| DAS
-  W2[E-21 Audit] -->|I-30 audit commits| DAS
-  W3[E-29 Observation Collector] -->|I-33 observation batches| DAS
-  W4[E-30 Baseline Engine] -->|I-34 read features / write baselines| DAS
-  W5[E-32 Research Service] -->|I-35 dataset extraction| DAS
-  W6[E-24 GUI] -->|I-06 typed queries| DAS
 ```
 
-#### E-25 Graph Database Engine — T0
-- **Purpose:** The graph database server. It hosts the policy graph, server registry, principals and sessions, the audit relationship graph, the **behavior model graph** (baseline contexts, baseline snapshots, tool-transition edges, abnormal-event links) and the Parameter Catalog.
+Writers to E-26, by interface:
+
+- I-07 from E-05, E-14, E-04 and E-12: policy, registry and session mirror.
+- I-30 from E-21: journal mirror feed.
+- I-33 from E-29: observation batches.
+- I-34 from E-30: read features, write baselines.
+- I-35 from E-32: dataset extraction.
+- I-06 from E-24 (GUI): typed queries.
+
+#### E-25 Graph Database Engine — T2
+- **Purpose:** The graph database server. It hosts mirrors of the policy, the server registry, principals and sessions and the audit relationship graph, plus the **behavior model graph** (baseline contexts, baseline snapshots, tool-transition edges, abnormal-event links) and the Parameter Catalog. It is optional for enforcement (A-9): when it is absent or down, the Gateway enforces from the Policy Store and the Evidence Journal and reports `degraded`.
 - **Functions:** F-70 Persist and index graph data; F-71 Execute bounded graph queries and transactions.
 - **Interfaces:** I-36 (from E-26 only), X-07.
 - **Owned data:** D-01, D-02, D-05, D-07 (persisted part), D-10, D-11.
-- **Allocation targets:** ACID transactions for decision/intent and outcome/release commits (V1 6.2, 6.3); uniqueness and integrity constraints, plus application validation where the engine lacks them (rev 2.0 §2); private listener reachable only by E-26 (V1 4.3); no telemetry egress; query latency targets (Section 14); memory configuration under E-28's control; offline or online backup per selected edition.
+- **Allocation targets:** idempotent mirror ingest from the journal and the Policy Store; uniqueness and integrity constraints, plus application validation where the engine lacks them (rev 2.0 §2); private listener reachable only by E-26 (V1 4.3); no telemetry egress; query latency targets (Section 14); memory configuration under E-28's control; rebuild from the journal and Policy Store instead of backup when the mirror is lost.
 
-#### E-26 Data Access Service — T0
-- **Purpose:** The only process holding Data Server credentials (rev 2.0 "graph service", generalized). Exposes typed operations to the other elements, maps them to fixed parameterized query templates, enforces per-caller authorization, acts as the single writer, batches high-volume writes and routes each write to the graph engine or the Observation Store.
+#### E-26 Data Access Service — T2
+- **Purpose:** The only process holding Data Server credentials (rev 2.0 "graph service", generalized). Exposes typed operations to the other elements, maps them to fixed parameterized query templates, enforces per-caller authorization, acts as the single writer, batches high-volume writes and routes each write to the graph engine or the Observation Store. It writes mirrors and analytics data only; no enforcement decision waits on it (A-9).
 - **Functions:** F-72 Authorize and execute typed data operations; F-73 Batch and route writes; F-74 Apply backpressure.
 - **Interfaces:** I-07, I-30, I-33, I-34, I-35, I-06, I-36, I-37.
 - **Owned data:** query template set (versioned).
-- **Allocation targets:** fixed query templates only (V1 1.13); no caller-supplied query text, labels or procedure names; per-caller operation allowlist; idempotent writes with application-issued IDs (V1 7.1); priority ordering, so mandatory audit and policy writes outrank observation writes; backpressure signals to E-29 when write queues exceed thresholds; bounded query cost (V1 1.20); per-operation latency emitted.
+- **Allocation targets:** fixed query templates only (V1 1.13); no caller-supplied query text, labels or procedure names; per-caller operation allowlist; idempotent writes with application-issued IDs (V1 7.1); priority ordering, so audit-mirror and policy-mirror writes outrank observation writes; backpressure signals to E-29 when write queues exceed thresholds; bounded query cost (V1 1.20); per-operation latency emitted.
 
 #### E-27 Observation Store — T2
 - **Purpose:** Columnar, append-oriented storage for high-volume per-call observation records (D-09) and Gateway meta-metrics (D-13). Supports fast aggregation for baseline training, the analytics GUI and research extraction.
@@ -475,7 +509,7 @@ flowchart LR
 - **Purpose:** Manages memory and storage across the Data Server and the in-memory analytics caches. Sets and enforces memory budgets (graph engine heap and page cache, Observation Store buffers, E-29 capture queues, E-31 baseline cache). Manages hot/warm/cold tiering, retention execution, compaction, quota enforcement and backup scheduling.
 - **Functions:** F-77 Allocate and enforce memory budgets; F-78 Manage storage tiers, retention and quotas; F-79 Schedule and verify backups.
 - **Interfaces:** I-32 (to E-23), I-38 (to E-25, E-27, E-29, E-31), I-06.
-- **Owned data:** memory and storage budget configuration; tiering state.
+- **Owned data:** memory and storage budget configuration; tiering state; D-15 Backup Archives (encrypted; include the Policy Store, Evidence Journal, configuration, encrypted vault, key material and trust anchors).
 - **Allocation targets:** a host memory budget partitioned by component, with no component exceeding its allocation; graceful-degradation order under memory pressure: (1) reduce optional capture sampling, (2) drop optional payload capture, (3) shed research capture, (4) never drop the mandatory audit floor, and fail closed through E-23 if the floor cannot be written; cache hit-ratio reporting; tier migration rules; quota warning at 80% and stop thresholds (V1 7.10); backup and restore verification (V1 7.7, 7.8).
 
 ### SS-10 Observation & Analytics
@@ -532,7 +566,7 @@ Each function has exactly one **owning element**, which is the allocation target
 | F-14 | Compute effective obligations | E-06 | A | Filters, approval, audit, observation, limits, route, egress, secret grants, anomaly obligations |
 | F-15 | Evaluate secret-use decision | E-06 | A/R | Permit or deny a specific secret use against the Secret Use Policy |
 | F-16 | Explain decision | E-06 | M | Produce a human-readable rule and anomaly trace for a decision |
-| F-17 | Request approval | E-07 | A | Present the exact bound request (and anomaly evidence) to an authenticated approver |
+| F-17 | Request approval | E-07 | A | Present the exact bound request (and anomaly evidence) to an authenticated approver; notify approvers in the console, CLI and OS notifications without exposing arguments; hold the call with keep-alives up to a bound |
 | F-18 | Record and consume approval | E-07 | A | One-use, digest-bound, expiring approval |
 | F-19 | Present session-scoped catalog | E-08 | A | List only tools the session's policy permits |
 | F-20 | Enforce access decision | E-08 | A | Block every call that lacks a permit |
@@ -549,7 +583,7 @@ Each function has exactly one **owning element**, which is the allocation target
 | F-31 | Execute emergency stop | E-12 | S | Halt dispatch and release; cancel in-flight work |
 | F-32 | Apply revocation | E-12 | S | Advance epochs; invalidate sessions, credentials, servers or secrets |
 | F-33 | Verify package signature and integrity | E-13 | M | Signature, digest and anchor-scope verification |
-| F-34 | Validate server manifest | E-13 | M | Manifest schema and consistency with the artifact |
+| F-34 | Validate server manifest | E-13 | M | Manifest schema and consistency with the artifact; scan tool names, descriptions and schema property descriptions with versioned metadata rule sets |
 | F-35 | Process revocation feed | E-13 | S | Suspend revoked packages within a bounded time |
 | F-36 | Maintain verified server inventory | E-14 | M | Immutable revisions; enablement state |
 | F-37 | Detect drift and expiry | E-14 | S | Suspend on digest, tool-list or manifest change, or on expiry |
@@ -574,9 +608,9 @@ Each function has exactly one **owning element**, which is the allocation target
 | F-56 | Enforce retention and purge | E-21 | M | Policy-driven retention; receipted purge |
 | F-57 | Serve audit queries | E-21 | M | Bounded, role-filtered, fixed-template queries |
 | F-58 | Manage trust anchors | E-22 | M | Enroll, scope, expire and revoke curation signers |
-| F-59 | Issue and revoke framework credentials | E-22 | M | Per-instance credentials; revocation |
+| F-59 | Issue and revoke framework credentials | E-22 | M | Per-instance credentials, including operator-approved dynamic registrations under the Remote Access profile; revocation |
 | F-60 | Protect Gateway keys | E-22 | S | Purpose-separated, protected key custody |
-| F-61 | Monitor enforcement health | E-23 | S | Track critical dependencies against thresholds |
+| F-61 | Monitor enforcement health | E-23 | S | Track critical dependencies against thresholds; report the platform profile; write the diagnostic log; serve loopback metrics |
 | F-62 | Drive fail-closed state | E-23 | S | Stop dispatch when a critical dependency fails |
 | F-63 | Authenticate administrative user | E-24 | M | Separate human admin identity and session |
 | F-64 | Enforce administrative roles | E-24 | M | Administrator, policy author, approver, auditor and researcher separation |
@@ -610,13 +644,17 @@ Each function has exactly one **owning element**, which is the allocation target
 | F-92 | Extract and pseudonymize datasets | E-32 | O | Consistent keyed pseudonyms; sensitivity rules |
 | F-93 | Export datasets with data dictionary | E-32 | O | Analysis-ready formats + provenance manifest |
 | F-94 | Obtain and refresh harness session | E-33 | A | Authenticate as the principal, obtain a session token, refresh it before expiry, print headers for framework hooks |
-| F-95 | Bridge stdio to the harness interface | E-33 | A | Forward stdio JSON-RPC to X-01 unchanged, attaching the session credential |
+| F-95 | Bridge stdio to the harness interface | E-33 | A | Forward stdio JSON-RPC to X-01 (or to X-13 for `smcp-connect`) unchanged, attaching the session credential |
+| F-96 | Build, sign and verify server package | E-13 | M | Pin an artifact by digest, generate the manifest from a live tool list, sign with minisign, verify offline |
+| F-97 | Install, upgrade and remove the Gateway | E-24 | M | Idempotent install per platform profile; upgrade with backup and rollback on failed health; uninstall preserving evidence |
+| F-98 | Diagnose and lock down harness configuration | E-33 | M | Report non-Gateway MCP servers and readable Gateway state paths; write per-client lockdown profiles |
+| F-99 | Track session taint | E-04 | A | Mark a session tainted after output from an untrusted-source tool; restrict-only |
 
 ### 5.1 Control-point view (owner's three phases plus observation)
 
 | Control point | Functions | Primary elements |
 |---|---|---|
-| **Access time** (before any server code runs for this call) | F-01–F-07, F-13–F-15, F-17–F-21, F-29, F-88, F-90 | E-01–E-09, E-12, E-31 |
+| **Access time** (before any server code runs for this call) | F-01–F-07, F-13–F-15, F-17–F-21, F-29, F-88, F-90, F-99 | E-01–E-09, E-12, E-31 |
 | **Run time** (while the server executes) | F-23–F-25, F-38–F-46, F-49–F-51 | E-10, E-15–E-18, E-20 |
 | **Response time** (before content reaches the agent) | F-22, F-26–F-28, F-30, F-89, F-90 | E-11, E-12, E-02, E-31 |
 | **Observation & learning** (asynchronous) | F-75, F-76, F-80–F-87, F-91–F-93 | E-27, E-29, E-30, E-32 |
@@ -631,7 +669,7 @@ Each function has exactly one **owning element**, which is the allocation target
 | ID | Interface | Between | Direction / trust | Content | Key requirement topics |
 |---|---|---|---|---|---|
 | **X-01** | Gateway Harness Interface | Harness Adapter ↔ E-01/E-02 | Bidirectional; adapter **untrusted** | MCP JSON-RPC in both qualified eras (2026-07-28 stateless; 2025-11-25 `initialize` sessions); OAuth 2.1 metadata, authorization and token endpoints; bearer access token as session proof; session API for header-helper adapters; optional session context as scopes (template, purpose, project, end-user) | Transport and TLS; client registration; authorization-code flow with PKCE and resource binding; token presentation; allowed MCP methods per era; error schema; rate limits; scopes may only **narrow** policy |
-| **X-02** | Curation Publication (context only, outside SoI) | Curation System → Library | One-way | Signed package, manifest, attestations, revocation entries | Defined so the X-03 format is fixed; not allocated to the SoI |
+| **X-02** | Package Publication | Operator packaging command (F-96) or external curation system → Library | One-way | Signed package, manifest, provenance statement, revocation entries | Package layout and manifest schema (Section 6.3); minisign signature; the packaging command is inside the SoI, an external curation system is not |
 | **X-03** | Library Retrieval | Library → E-13 | Inbound; content **untrusted until verified** | Package archive or image, detached signature, manifest, signer certificate chain, revocation list or feed | Package format; signature scheme; manifest schema (Section 6.3); retrieval transport; feed freshness |
 | **X-04** | Management GUI & API | Operator/Auditor/Researcher ↔ E-24 | Bidirectional; human-authenticated | HTTPS GUI (G-01…G-14) and Control API | Admin authentication; role model; CSRF/Origin/CSP; API operations; usability |
 | **X-05** | Approval Interface | Approver ↔ E-07 (via E-24 G-13 or dedicated channel) | Bidirectional; out-of-band from X-01 | Approval request (bound request summary, argument digest, anomaly evidence), decision | Approver authentication; binding display; timeout; non-repudiation |
@@ -641,7 +679,12 @@ Each function has exactly one **owning element**, which is the allocation target
 | **X-09** | Evidence Export | E-21 → archive or SIEM | Outbound; optional | Signed journal segments, checkpoints, redacted metadata | Format; signing; redaction; delivery acknowledgment |
 | **X-10** | Time Source | Trusted clock → Gateway | Inbound | Time, monotonic clock for timing spans | Accuracy bound; failure detection (expiry decisions and latency metrics depend on it) |
 | **X-11** | Research Dataset Export | E-32 → offline analytics tools / researcher media | Outbound; researcher-authenticated | Dataset files (Parquet/CSV/JSONL/GraphML), data dictionary, provenance manifest | Formats; schema stability; pseudonymization; export authorization and audit |
-| **X-12** | Framework Adapter Interface | Agentic framework ↔ E-33 | Local; framework **untrusted** | The framework's own MCP configuration hooks: stdio `command` for `smcp-stdio`; header-helper command output (a JSON object of headers) from `smcp-session`; environment variables naming the Gateway URL and credential file | Hook contract per supported framework; credential file location and mode; failure behavior (no session means no tools); no framework-specific logic inside the Gateway |
+| **X-12** | Framework Adapter Interface | Agentic framework ↔ E-33 | Local; framework **untrusted** | The framework's own MCP configuration hooks: stdio `command` for `smcp-stdio`; header-helper command output (a JSON object of headers) from `smcp-session`; environment variables naming the Gateway URL and credential file; the framework's settings files that the lockdown profiles write and `smcpctl doctor` reads | Hook contract per supported framework; credential file location and mode; failure behavior (no session means no tools); no framework-specific logic inside the Gateway; lockdown profile per client |
+| **X-13** | Remote Access Interface | Tunnel provider connector on the user's computer ↔ E-01 remote listener; cloud agent ↔ tunnel provider | Inbound; agent and tunnel provider **untrusted** | MCP JSON-RPC and OAuth 2.1 (with operator-approved Dynamic Client Registration) carried by Cloudflare Tunnel, Tailscale Funnel or a vendor-provided MCP tunnel; public TLS terminated by the provider | Enabled only under the Remote Access profile; separate loopback listener; strict rate limits and lockout; request bounds; remote origin recorded on every event; documented provider visibility of traffic |
+| **X-14** | Desktop Notification | E-07 → OS notification service | Outbound, local | Approval notice: public tool name, server alias, approval ID and console link; no arguments | macOS `osascript` or `terminal-notifier`; Linux `notify-send`; failure never blocks the approval flow |
+| **X-15** | Operational Metrics | Local scraper → E-23 | Inbound, loopback only | Prometheus text exposition of counters, gauges and histograms | Loopback binding; no arguments, results, secrets or principal display names in labels; bounded label cardinality |
+| **X-16** | Release Distribution | GitHub Releases, Homebrew tap → installer (F-97) | Inbound; content **untrusted until verified** | Release archives for darwin and linux on amd64 and arm64, checksums, minisign signatures, `install.sh`, Homebrew formula | Signature verification before install; idempotent install; versioned configuration schema |
+| **X-17** | Package Sources | npm, PyPI, OCI registries, release URLs → packaging command (F-96) | Inbound at packaging time only; content **untrusted** | Package tarballs, wheels, images and binaries addressed by digest | Digest pinning; no floating versions; never contacted by the running daemon |
 
 ### 6.2 Internal interfaces
 
@@ -689,7 +732,7 @@ Each function has exactly one **owning element**, which is the allocation target
 
 ### 6.3 Server package manifest (data item crossing X-03)
 
-The manifest is the contract between the curation system and the Gateway. SRS V2 should specify it in the X-03 ICD. Minimum recommended fields:
+The manifest is the contract between the packaging step (operator or external curation) and the Gateway. Its normative JSON Schema is `docs/schemas/manifest.schema.json`, reproduced in SRS Appendix J. Field groups:
 
 | Field group | Contents | Used by |
 |---|---|---|
@@ -727,7 +770,7 @@ flowchart TB
 | 2. Framework Profile | Policy Administrator | Policy revision | Servers/tools a framework instance may use; maximum risk class; secret classes |
 | 3. Session Allow Policy | Policy Administrator (template), E-04 (instance) | Template + session parameters | Tool allowlist, argument predicates (paths, hosts, ranges), approval needs, rate/time limits, audit profile, observation policy, response policy |
 | 4. Session Context Narrowing | Harness (untrusted claim) | X-01 session establishment | Project root, purpose tag, end-user; **can only narrow** |
-| 5. Request-time Conditions | E-06 | Rule predicates | One-use approval, quota state, time window |
+| 5. Request-time Conditions | E-06 | Rule predicates | One-use approval, quota state, time window, session taint (after output from an untrusted-source tool, tools of side-effect class `external` or `write` require approval or are denied, per policy) |
 | 6. Anomaly obligations | E-31 → E-06 | Anomaly Response Policy | Alert, escalate capture, require approval, withhold, suspend |
 
 ### 7.2 Policy object types (E-05 publishes; E-06 evaluates)
@@ -778,21 +821,33 @@ The manifest declares the modes a server supports. The Secret Use Policy selects
 
 ### 8.3 Secret-use sequence
 
+The sequence is drawn in two parts. Step numbers run on from the first part to the second.
+
+**Grant (steps 1–5)**
+
 ```mermaid
 sequenceDiagram
   participant D as E-10 Dispatcher
   participant B as E-20 Secret Broker
   participant P as E-06 Policy Decision
   participant V as E-19 Vault
-  participant X as E-18 Egress Broker
-  participant S as E-16 Sandbox (server)
-  participant R as E-11 Response Inspection
-  participant A as E-21 Audit
   D->>B: secret slot needed (session, call, server rev, tool)
   B->>P: secret-use decision request
   P-->>B: permit + mode S1 + destination + grant TTL
   B->>V: retrieve(secret ref)
   V-->>B: value
+```
+
+**Binding and use (steps 6–11)**
+
+```mermaid
+sequenceDiagram
+  autonumber 6
+  participant B as E-20 Secret Broker
+  participant X as E-18 Egress Broker
+  participant R as E-11 Response Inspection
+  participant A as E-21 Audit
+  participant S as E-16 Sandbox (server)
   B->>X: bind credential to grant (destination-scoped)
   B->>R: register leak fingerprints
   B->>A: secret-use event (no value)
@@ -826,7 +881,7 @@ E-20 registers keyed hashes or similar non-reversible detectors (e.g., HMAC over
 The Gateway audits **per policy** and treats both normal and abnormal behavior as first-class observations. The Observation Policy names the features to capture. E-30 learns the distribution of each feature in each **baseline context**. E-31 scores new activity by its distance from the learned mean in standard deviations, and the Anomaly Response Policy decides what happens at each distance band.
 
 ```mermaid
-flowchart LR
+flowchart TB
   subgraph HOT[Hot path — synchronous, in-memory]
     REQ[Request features] --> SC["E-31 Anomaly Scorer<br/>z = (x − μ) / σ"]
     RSP[Response features] --> SC
@@ -918,7 +973,9 @@ The **Parameter Catalog** (D-11) is the controlled list of every observable the 
 | S2 | Content-identifying derivatives (hashes of arguments, path prefixes, hostnames, schema field names) | Requires a policy-author role; pseudonymized in research exports |
 | S3 | Raw payloads (arguments, response bodies) | Research Campaign or Audit Profile with explicit grant only; encrypted; short retention; secrets stripped |
 
-### 10.3 Starter catalog (representative; the full catalog is a controlled SRS V2 appendix)
+### 10.3 Starter catalog
+
+The controlled catalog is the file `docs/parameters.json` (SRS FR-10.37). It defines every ID in this table with all Section 10.1 attributes; the SRS build checks that the two agree.
 
 | Group | Example parameters (IDs) | Source | Class |
 |---|---|---|---|
@@ -931,8 +988,8 @@ The **Parameter Catalog** (D-11) is the controlled list of every observable the 
 | **Response shape** | P-120 response bytes · P-121 content-part count by type · P-122 output schema conformance · P-123 response text entropy · P-124 token count estimate · P-125 is-error and error code · P-126 structured-field count · P-127 embedded resource/URL count | E-10, E-11 | S0/S1 |
 | **Response content-derived** | P-140 filter hits by filter · P-141 redaction count · P-142 secret-fingerprint matches · P-143 injection-marker scores · P-144 PII detector hits · P-145 raw response body | E-11 | S1/S3 |
 | **Release** | P-160 release outcome (released/redacted/withheld) · P-161 delivery confirmation · P-162 end-to-end latency | E-11, E-12, E-02 | S0 |
-| **Meta-metrics (per call)** | P-200 t_transport · P-201 t_auth · P-202 t_session · P-203 t_decision · P-204 t_per_rule (vector) · P-205 t_request_filters total and per filter · P-206 t_approval_wait · P-207 t_barrier_wait · P-208 t_dispatch_queue · P-209 t_response_filters total and per filter · P-210 t_scoring · P-211 t_capture · P-212 t_db_commit (intent, outcome) · P-213 **gateway-added overhead** = end-to-end − server execution − approval wait | All instrumented elements via I-29 | S0 |
-| **Meta-metrics (system, periodic)** | P-240 throughput (calls/s) · P-241 concurrent calls · P-242 queue depths per stage · P-243 RSS per element · P-244 graph DB heap/page-cache use and hit ratio · P-245 Observation Store ingest rate · P-246 capture drop and sample-down counts · P-247 audit export lag · P-248 baseline cache size · P-249 CPU per element · P-250 store sizes and quota % | E-23, E-26, E-28, E-29 | S0 |
+| **Meta-metrics (per call)** | P-200 t_transport · P-201 t_auth · P-202 t_session · P-203 t_decision · P-204 t_per_rule (vector) · P-205 t_request_filters total and per filter · P-206 t_approval_wait · P-207 t_barrier_wait · P-208 t_dispatch_queue · P-209 t_response_filters total and per filter · P-210 t_scoring · P-211 t_capture · P-212 t_journal_flush (intent, outcome) · P-213 **gateway-added overhead** = end-to-end − server execution − approval wait | All instrumented elements via I-29 | S0 |
+| **Meta-metrics (system, periodic)** | P-240 throughput (calls/s) · P-241 concurrent calls · P-242 queue depths per stage · P-243 RSS per element · P-244 graph DB heap/page-cache use and hit ratio · P-245 Observation Store ingest rate · P-246 capture drop and sample-down counts · P-247 journal signing lag · P-248 baseline cache size · P-249 CPU per element · P-250 store sizes and quota % | E-23, E-26, E-28, E-29 | S0 |
 
 ### 10.4 Policy cost in time
 
@@ -967,18 +1024,18 @@ The workbench is how a non-programmer researcher or policy author tunes audits a
 ## 12. Trust boundaries and TCB
 
 ```mermaid
-flowchart LR
+flowchart TB
   subgraph U1[Untrusted: agent side]
     MODEL[Model] --- AF[Framework] --- HA[Harness Adapter]
   end
   subgraph TCB[Gateway TCB: T0]
-    T0N["E-03 E-05 E-06 E-08 E-12 E-13<br/>E-19 E-20 E-21 E-22 E-25 E-26"]
+    T0N["E-03 E-05 E-06 E-08 E-12 E-13<br/>E-19 E-20 E-21 E-22"]
   end
   subgraph ENF[Security-enforcing: T1]
     T1N["E-01 E-02 E-04 E-07 E-09 E-10 E-11 E-14<br/>E-15 E-16 E-17 E-18 E-24 E-29 E-30 E-31 E-33"]
   end
   subgraph SUP[Security-supporting: T2]
-    T2N["E-23 E-27 E-28 E-32"]
+    T2N["E-23 E-25 E-26 E-27 E-28 E-32"]
   end
   subgraph U2[Untrusted: contained]
     SRV[Signed server code inside E-16]
@@ -1010,7 +1067,9 @@ flowchart LR
 
 **Signed ≠ trusted to behave.** A curation signature establishes **provenance and review**, not runtime safety. Signed server code stays in the untrusted zone (U2) and gets full run-time containment and response inspection.
 
-**The Data Server is in the TCB** because it hosts the active policy. A compromise of E-25/E-26 can alter both policy and audit (rev 2.0 §2 CE risk). The independent evidence journal (D-06) and the separate Secret Vault (D-04) limit the impact.
+**The Data Server is outside the TCB** (A-9, revised in V2.3). It holds mirrors of policy and audit and the behavior model, not the authority. A compromise of E-25/E-26 can falsify graph views and analytics but cannot change what E-06 enforces, because E-06 loads only signed revisions from the Policy Store, and cannot hide evidence, because the signed journal (D-06) is the record that `smcpctl journal verify` checks. The separate Secret Vault (D-04) remains outside the Data Server.
+
+**The Standalone profile has no sandbox boundary** (A-8). B-3 and B-4 then rely on the server's own behavior, which is why high-risk server classes are refused in that profile and the release labels it "not enforced".
 
 **The behavior model is security-enforcing (T1), not TCB:** its worst failure is a missed or false anomaly, because anomaly scoring can only restrict (A-7).
 
@@ -1020,34 +1079,46 @@ flowchart LR
 
 | ID | Store | Host | Owner | Contents | Protection notes |
 |---|---|---|---|---|---|
-| D-01 | Policy Graph | E-25 | E-05 | Immutable policy revisions (all object types in Section 7.2), approvals, campaigns, policy-control record | Single writer via E-26; integrity validation on load; fail closed if unavailable |
-| D-02 | Server Registry | E-25 | E-14 | Verified server revisions, manifests, enablement state, import receipts | Writes only through E-13/E-14 via E-26 |
+| D-01 | Policy Store | Gateway state directory (files); mirrored to E-25 | E-05 | Immutable signed policy revisions (all object types in Section 7.2), approval log, campaigns, policy-control record | Authority for policy (A-9); signature and schema verified on load; fail closed if no valid active revision |
+| D-02 | Server Registry | Gateway state directory (files beside D-03); mirrored to E-25 | E-14 | Verified server revisions, manifests, enablement state, import receipts | Writes only through E-13/E-14 |
 | D-03 | Artifact Cache | Filesystem | E-14 | Verified artifacts and images by digest | Content-addressed; re-verified at launch |
 | D-04 | Secret Vault | Separate encrypted store | E-19 | Encrypted secret values + metadata | **Not in the Data Server.** Master key in E-22; accessible only to E-20 identity |
-| D-05 | Audit Graph | E-25 | E-21 | Decision/event metadata and relationships; optional encrypted payload references | Mandatory floor not disableable; bounded queries |
-| D-06 | Evidence Journal | Separate storage | E-21 | Signed chained segments, checkpoints | Outside the write authority of the Data Server service account |
-| D-07 | Session Table | Memory + E-25 | E-04 | Active sessions, bindings, state handles | Invalidated on restart unless recovery is qualified |
+| D-05 | Audit Graph | E-25 | E-21 | Mirror of journal events and their relationships; optional encrypted payload references | Rebuildable from D-06; bounded queries |
+| D-06 | Evidence Journal | Separate storage | E-21 | Signed chained segments, checkpoints | Authority for evidence (A-9); decision intent and outcome flushed before capability and release; outside the write authority of the Data Server service account |
+| D-07 | Session Table | Memory + refresh-token records on disk; mirrored to E-25 | E-04 | Active sessions, bindings, state handles, taint flag | Access tokens invalid after restart; a session resumes only through a rotated refresh token |
 | D-08 | Trust Anchor & Key Store | Key store / TPM | E-22 | Curation anchors, credential CA, transport, vault, evidence, Data Server and pseudonymization keys | Purpose-separated; hardware-backed where available |
 | D-09 | Observation Records | E-27 | E-29 | Per-call observation records (selected parameters) | Time-partitioned; per-sensitivity retention; S3 fields encrypted |
 | D-10 | Behavior Model | E-25 | E-30 | Baseline contexts, running statistics, immutable snapshots, transition edges, abnormal-event links | Snapshots immutable; promotion audited |
 | D-11 | Parameter Catalog & GUI presets | E-25 | E-05 (catalog), E-24 (presets) | Parameter definitions, sensitivity and cost classes; Observation presets | Catalog is versioned; changes are controlled releases |
 | D-12 | Research Datasets | Export staging area | E-32 | Extracted, pseudonymized datasets + data dictionaries + provenance manifests | Campaign-scoped; expiry; export audited |
 | D-13 | Meta-metrics | E-27 | E-29 | Stage timing spans, system resource and throughput series | Retention by policy; aggregated rollups kept longer |
+| D-14 | Diagnostic Log | Gateway log directory | E-23 | Leveled operational messages for troubleshooting | Separate from evidence; rotated by size and count; no secret values or raw arguments |
+| D-15 | Backup Archives | Operator-chosen directory | E-28 | Encrypted backups of D-01, D-02, D-03 digests, D-04, D-06, D-08 and configuration | Encrypted with an operator passphrase or recipient key; checksummed; restore verified before service |
 
 ### 13.1 Behavior model in the graph (illustrative)
 
+The model is drawn in two views. The second shows how a decision links to the baseline nodes of the first.
+
+**Baselines and their statistics**
+
 ```mermaid
-flowchart LR
+flowchart TB
   P[Principal] -->|HAS_CONTEXT| BC[BaselineContext]
   T[ToolRevision] -->|HAS_CONTEXT| BC
+  OP[ObservationPolicyRevision] -->|DEFINES| BC
   BC -->|HAS_STAT| FS[FeatureStat<br/>feature, n, mean, M2, decay]
   BS[BaselineSnapshot vN] -->|INCLUDES| FS
   BS -->|PROMOTED_BY| A[Actor]
   T -->|NEXT_TOOL count, p| T2[ToolRevision]
-  D[Decision] -->|SCORED_AGAINST| BS
+```
+
+**Scoring a decision**
+
+```mermaid
+flowchart LR
+  D[Decision] -->|SCORED_AGAINST| BS[BaselineSnapshot vN]
   D -->|ANOMALY band, max z| AE[AbnormalEvent]
-  AE -->|IN_CONTEXT| BC
-  OP[ObservationPolicyRevision] -->|DEFINES| BC
+  AE -->|IN_CONTEXT| BC[BaselineContext]
 ```
 
 ---
@@ -1086,9 +1157,9 @@ These extend rev 2.0 §10 targets. All are unmeasured design targets.
 | E-15, E-16 | Rootless Podman, systemd, AppArmor, nftables | Per-trust-scope OS identities |
 | E-18 | Project Go broker (rev 2.0 §6) | Adds S1 credential injection |
 | E-19, E-22 | age-encrypted vault with TPM-sealed master key; OpenBao as a future option | Write-only management UI |
-| E-21, D-06 | Neo4j audit graph + signed chained JSONL segments | Rev 2.0 §5 export design retained |
-| E-24 | React/TypeScript local GUI; Cytoscape.js for graph views; a charting library for distributions and timelines | GUI generated in part from D-11 catalog metadata |
-| E-13 | Sigstore/cosign or minisign/SSH-signature verification | Depends on curation signing scheme (OD-1) |
+| E-21, D-06 | Signed chained JSONL segments (authority) + Neo4j audit graph mirror | Journal written first; mirror fed from the journal |
+| E-24 | React/TypeScript/Vite local GUI built from hand-built components (no component kit); Cytoscape.js for graph views; a charting library for distributions and timelines | GUI generated in part from D-11 catalog metadata |
+| E-13 | minisign signing and verification (OD-1 decided) | Offline; operator key enrolled as a scoped trust anchor |
 
 ---
 
@@ -1096,10 +1167,10 @@ These extend rev 2.0 §10 targets. All are unmeasured design targets.
 
 | V1 root | Topic | Primary V2 elements | Notes for SRS V2 |
 |---|---|---|---|
-| 1 | Graph policy & routing authority | E-05, E-06, E-08, E-12, E-25, E-26 | Re-express as Session Allow-policy requirements (Section 7); graph persistence allocated to E-25/E-26 |
+| 1 | Graph policy & routing authority | E-05, E-06, E-08, E-12, E-25, E-26 | Re-express as Session Allow-policy requirements (Section 7); policy authority is the signed Policy Store (A-9); graph mirror persistence allocated to E-25/E-26 |
 | 2 | Identity & administration separation | E-03, E-04, E-22, E-24, E-19 | Add session binding and proof-of-possession (new); add Researcher role |
-| 3 | Source-inspectable server admission | **E-13, E-14** (verification only); rest moves to the Curation System | V1 3.1–3.5 and 3.9 become **curation-system requirements** or X-03 manifest content requirements; 3.6–3.8 and 3.10–3.14 stay with E-13/E-14/E-15 |
-| 4 | Contained local execution | E-15, E-16, E-18, E-01, E-25 | Harness-specific items (4.9, 4.11, 4.13) move to the Harness Adapter ICD (X-01); 4.2/4.3 (private graph access) allocated to E-25/E-26 |
+| 3 | Source-inspectable server admission | **E-13, E-14** (verification and the packaging command F-96) | V1 3.1, 3.2 and 3.4 are met by manifest content that F-96 records; 3.5 (quarantine probing) is met by the throwaway packaging run; 3.6–3.14 stay with E-13/E-14/E-15 |
+| 4 | Contained local execution | E-15, E-16, E-18, E-01, E-25 | Harness-specific items (4.9, 4.11, 4.13) are realized by the lockdown profiles and `smcpctl doctor` of E-33 (F-98); 4.2/4.3 (private graph access) allocated to E-25/E-26 |
 | 5 | Protocol & content boundary | E-02, E-09, E-11, E-18 | Split into request-side (E-09), response-side (E-11), egress (E-18) |
 | 6 | Policy-linked audit integrity & privacy | E-21, E-12, E-26, E-29 | Mandatory floor stays with E-21; policy-tunable capture moves to Observation Policy (E-29) |
 | 7 | Safe operation & recovery | E-12, E-23, E-10, E-21, E-28 | Backup/restore and capacity (7.7, 7.8, 7.10) allocated to E-28 |
@@ -1125,7 +1196,7 @@ These extend rev 2.0 §10 targets. All are unmeasured design targets.
    - The Gateway **MUST** produce tamper-evident evidence of every security-relevant decision.
    - The Gateway **MUST** protect the integrity of policy and behavior baselines held in the Data Server.
    - The Gateway **MUST** protect sensitive observation data captured for audit and research.
-2. **Section 2 — Functional SHALL requirements by function** (F-01…F-93), each tracing to a MUST root or a functional need (e.g., the observation and research functions F-75…F-93 trace to owner needs for characterization and research).
+2. **Section 2 — Functional SHALL requirements by function** (F-01…F-99), each tracing to a MUST root or a functional need (e.g., the observation and research functions F-75…F-93 trace to owner needs for characterization and research).
 3. **Section 3 — Element allocation** (E-01…E-33 and G-01…G-14): performance, memory, isolation, failure behavior and usability, using the allocation targets in Section 4.
 4. **Section 4 — Interface requirements** (X-01…X-11, I-01…I-39), with ICDs for X-01, X-03, X-05 and X-11 first.
 5. **Section 5 — Data requirements** (D-01…D-13), including the Parameter Catalog as a controlled appendix.
@@ -1135,8 +1206,9 @@ These extend rev 2.0 §10 targets. All are unmeasured design targets.
 
 ## 18. Principal scenarios (for allocation and verification design)
 
-### 18.1 Server import (curation → Gateway)
+### 18.1 Server packaging and import
 
+0. The operator runs `smcpctl package build` (F-96) with a pinned artifact reference (for example `npm:@modelcontextprotocol/server-filesystem@<version>` with its integrity digest). The command fetches the artifact over X-17, stores it by SHA-256 digest, starts it once in a throwaway directory without secrets, reads `tools/list`, writes the manifest and the provenance statement, and `smcpctl package sign` signs the package with the operator's minisign key. The package is copied into the local library directory (X-02).
 1. E-13 retrieves package, signature and manifest over X-03.
 2. E-13 verifies the signature against an E-22 anchor that is scoped for this risk class, verifies the digests, validates the manifest and checks revocation.
 3. E-14 records an immutable server revision in the **verified, disabled** state.
@@ -1147,10 +1219,14 @@ These extend rev 2.0 §10 targets. All are unmeasured design targets.
 
 1. The harness adapter connects over X-01. E-01 terminates TLS; E-03 authenticates the framework credential.
 2. The adapter presents session context claims. E-04 selects the Session Allow Policy template and Observation Policy allowed by the Framework Profile and applies the claims as narrowing parameters.
-3. E-04 issues a session key bound to the framework credential and pins the policy revision.
+3. E-04 issues the access token (the session key) and a refresh token bound to the OAuth client, and pins the policy revision. A Session Approver signs in at the browser step (F-63).
 4. E-08 builds the session-scoped catalog (F-19).
 
 ### 18.3 Tool call (all three control points plus observation)
+
+The sequence is drawn in four parts. Step numbers run on from one part to the next.
+
+**Admission and decision (steps 1–6)**
 
 ```mermaid
 sequenceDiagram
@@ -1160,36 +1236,66 @@ sequenceDiagram
   participant AEP as E-08 Access EP
   participant PDS as E-06 Decision
   participant RQ as E-09 Request Insp.
-  participant AS as E-31 Anomaly Scorer
-  participant AP as E-07 Approval
-  participant C as E-12 Coordinator
-  participant D as E-10 Dispatcher
-  participant RM as E-15/E-16 Runtime
-  participant RS as E-11 Response Insp.
-  participant OC as E-29 Observation
-  participant AU as E-21 Audit
   H->>G: tools/call (X-01)
   G->>I: authenticate + session proof
   G->>AEP: canonical request
   AEP->>PDS: evaluate
   PDS-->>AEP: permit + obligations + route
   AEP->>RQ: apply request filters
+```
+
+**Request scoring, approval and launch (steps 7–12)**
+
+```mermaid
+sequenceDiagram
+  autonumber 7
+  participant RQ as E-09 Request Insp.
+  participant AS as E-31 Anomaly Scorer
+  participant AP as E-07 Approval
+  participant C as E-12 Coordinator
+  participant AU as E-21 Audit
+  participant D as E-10 Dispatcher
   RQ->>AS: score request features
   AS-->>RQ: band + z-scores (restrict-only obligations)
-  RQ->>AP: approval (if obligated)
+  RQ->>AP: approval if obligated (hold mode, Section 18.10)
   RQ->>C: request launch
-  C->>AU: commit decision + intent
+  C->>AU: append decision + intent to journal D-06, flush
   C-->>D: one-use launch capability
+```
+
+**Dispatch and response inspection (steps 13–18)**
+
+```mermaid
+sequenceDiagram
+  autonumber 13
+  participant D as E-10 Dispatcher
+  participant RM as E-15/E-16 Runtime
+  participant RS as E-11 Response Insp.
+  participant AS as E-31 Anomaly Scorer
+  participant C as E-12 Coordinator
   D->>RM: acquire instance, call tool
   RM-->>D: response (buffered, bounded)
   D->>RS: validate + inspect
   RS->>AS: score response features
   AS-->>RS: band (may withhold)
   RS->>C: request release
-  C->>AU: commit outcome
+```
+
+**Release (steps 19–21)**
+
+```mermaid
+sequenceDiagram
+  autonumber 19
+  participant H as Harness Adapter
+  participant G as E-01/E-02 Edge
+  participant C as E-12 Coordinator
+  participant AU as E-21 Audit
+  participant OC as E-29 Observation
+  C->>AU: append outcome to journal D-06, flush
   C-->>G: release authorization
   G-->>H: filtered response
   Note over G,OC: every stage emits observables and timing spans to E-29 (I-29), persisted asynchronously via E-26
+  Note over AU: E-21 feeds the graph mirror from the journal asynchronously. No step waits on E-25
 ```
 
 ### 18.4 Baseline learning and promotion
@@ -1222,25 +1328,42 @@ E-24 or E-23 signals E-12. E-12 advances the epoch under the barrier, refuses ne
 
 E-13 processes a revocation entry (F-35). E-14 suspends the server revision. E-12 applies revocation to running instances. Sessions whose catalogs contained the revoked server's tools receive a catalog change on their next request.
 
+### 18.9 Cloud agent through the Remote Access profile
+
+1. The operator enables the Remote Access profile, which starts a second loopback listener, and runs a tunnel connector (Cloudflare Tunnel, Tailscale Funnel or a vendor tunnel) that forwards a public HTTPS name to it (X-13).
+2. In the vendor's admin settings, where offered, the operator restricts the agent's MCP allowlist to the Gateway URL.
+3. The agent discovers the Gateway's OAuth metadata. If it registers dynamically, E-03 holds the registration pending until the operator approves it (F-59); otherwise it uses a pre-registered client.
+4. A Session Approver signs in at the browser step, the session is created, and every subsequent call follows Section 18.3 with `origin=remote` recorded on every event and the remote rate limits applied.
+5. Agents that accept only a command run `smcp-connect` (F-95), which forwards stdio to the Remote Access URL.
+
+### 18.10 Approval in hold mode
+
+1. A call carries an approval obligation. E-07 creates the pending approval and notifies approvers (F-17) in G-13, `smcpctl approvals` and an OS notification (X-14).
+2. E-07 parks the call (F-17) and E-02 sends progress keep-alives to the harness at the CP-45 interval.
+3. On approval within the hold bound, the call continues to launch authorization (F-29). On denial it ends with `-31001`. At the bound it ends with `-31002`, whose message tells the person in plain language how to approve and retry and links to G-13.
+
 ---
 
 ## 19. Open decisions
 
 | ID | Decision | Options | Recommendation |
 |---|---|---|---|
-| OD-1 | Package signing scheme | Sigstore/cosign (keyless or key), minisign, X.509 CMS, in-toto/SLSA attestations | Key-based cosign or minisign for an offline local trust root; add in-toto attestations for curation evidence |
+| OD-1 | Package signing scheme | Sigstore/cosign (keyless or key), minisign, X.509 CMS, in-toto/SLSA attestations | **Decided 2026-10-16:** minisign (Ed25519), offline. The packaging command signs the package and its provenance statement; the operator's key is enrolled as a trust anchor scoped to operator-chosen risk classes |
 | OD-2 | Framework credential type | OAuth 2.1 client registration (CIMD or issued client ID and secret) with the access token as session; mTLS client certificates; local Unix-socket peer credentials | **Decided 2026-10-16:** OAuth 2.1 is the baseline for every network harness, because Claude Code, Codex CLI and Hermes all implement it and none except Hermes can present a per-server client certificate. mTLS is an optional hardening profile. Peer credentials plus a key remain for same-host UDS harnesses. See `Client-Compatibility-Brief.md` §4 |
 | OD-3 | Server instance scope default | Per-call, per-session, shared | Per-session for any server holding secrets or state; shared only for stateless read-only servers |
 | OD-4 | Graph database engine | Neo4j CE, Memgraph, Apache AGE, FalkorDB | Neo4j CE baseline; benchmark Memgraph and AGE in P0 on write throughput, traversal latency, memory control and license |
-| OD-5 | Approval channel | Console only, mobile push, harness-relayed elicitation | Console-only for V2; harness-relayed approval is rejected because the agent side is untrusted |
+| OD-5 | Approval channel | Console only, mobile push, harness-relayed elicitation | **Decided 2026-10-16:** console (G-13), `smcpctl approvals` and an OS desktop notification, with hold mode. Harness-relayed approval is rejected because the agent side is untrusted |
 | OD-6 | Runtime monitoring depth | Namespace/LSM events only; eBPF tracing | LSM + audit events for V2; eBPF as a later enhancement (adds many runtime parameters) |
-| OD-7 | Library location and transport | Local directory, local OCI registry, signed tarball drop | Local OCI registry or content-addressed directory; X-03 ICD must fix one |
+| OD-7 | Library location and transport | Local directory, local OCI registry, signed tarball drop | **Decided 2026-10-16:** local content-addressed directory written by the packaging command; a local OCI registry remains an option for OCI artifacts |
 | OD-8 | End-user identity | None; harness-asserted claim (narrow-only); verified user token | Harness-asserted narrow-only claim for V2 |
 | OD-9 | Observation Store | Graph only; embedded DuckDB/Parquet; ClickHouse; time-series DB | Embedded DuckDB/Parquet companion to the graph; graph-only is not recommended at research capture volumes |
 | OD-10 | Anomaly scoring mode default | Synchronous (can block); asynchronous (alert only) | Asynchronous by default; synchronous per Observation Policy for high-risk tools |
 | OD-11 | Baseline promotion | Manual only; automatic within limits | Manual for the first deployment; automatic within limits once drift behavior is understood |
 | OD-12 | Multi-feature scoring | Max \|z\|; weighted sum; Mahalanobis | Max \|z\| for V2 (explainable); evaluate Mahalanobis with research data |
 | OD-13 | Research data governance | Local-only datasets; exportable with pseudonymization; raw export allowed | Exportable with pseudonymization; raw (S3) export only by an explicit campaign grant |
+| OD-14 | Platform support | Linux only; Linux plus macOS without containment | **Decided 2026-10-16:** Enforced profile on Linux with rootless Podman, nftables, cgroup v2 and systemd; Standalone (unconfined) profile on macOS arm64 and Linux, labelled "not enforced" (A-8) |
+| OD-15 | Policy and evidence authority | Graph database as system of record; signed files plus journal | **Decided 2026-10-16:** signed Policy Store and Evidence Journal are the authorities; the graph and Observation Store are mirrors (A-9) |
+| OD-16 | Cloud agents | Unsupported; Gateway inside the vendor VM; Remote Access through a tunnel | **Decided 2026-10-16:** Remote Access profile through an authenticated tunnel (A-10, X-13); inside-VM installation is not a control |
 
 ---
 
@@ -1248,6 +1371,7 @@ E-13 processes a revocation entry (F-35). E-14 suspends the server revision. E-1
 
 | Revision | Date | Change |
 |---|---|---|
+| V2.3 draft | 2026-10-16 | Re-baseline for a shippable v1. Authority decoupled from the graph (A-9, OD-15): the signed Policy Store (D-01) and the Evidence Journal (D-06) are authorities; E-25 and E-26 move from T0 to T2 and hold mirrors. Platform profiles (A-8, OD-14). Operator self-curation: packaging command F-96 on E-13, X-02 inside the SoI, X-17 package sources, OD-1 and OD-7 decided. Approval hold mode and notification (F-17 extended, X-14; OD-5 decided). Session taint (F-99) and tool-metadata scanning (F-34 extended). Remote Access profile for cloud agents (A-10, X-13; dynamic registration under F-59, `smcp-connect` under F-95; OD-16). Installation and upgrade (F-97, X-16), harness doctor and lockdown profiles (F-98), diagnostic log and metrics (F-61 extended, X-15, D-14), encrypted backup archives (D-15). Function IDs stay within two digits so that existing tools that parse `F-dd` keep working. Scope: tools only and local backends only (A-11). |
 | V2.0 draft | 2026-10-14 | First logical decomposition: 8 subsystems, 24 elements, 65 functions, 10 external and 28 internal interfaces, 8 data stores; session Allow-policy model; secrets design; V1 traceability. |
 | V2.2 draft | 2026-10-16 | Harness interface revised to match shipping clients (`Client-Compatibility-Brief.md`): OAuth 2.1 becomes the baseline framework credential and session mechanism (OD-2 decided, X-01 content revised, E-03 allocation targets); both protocol eras are served in the baseline; reference adapters enter the SoI as E-33 Harness Adapter Kit with functions F-94–F-95 and interface X-12; A-2 revised accordingly. Fixed the Section 8.3 sequence diagram note that did not parse. |
 | V2.1 draft | 2026-10-14 | Added SS-9 Data Server (E-25 Graph Database Engine, E-26 Data Access Service, E-27 Observation Store, E-28 Data Lifecycle & Memory Manager) and SS-10 Observation & Analytics (E-29 Observation Collector, E-30 Behavior Baseline Engine, E-31 Anomaly Scorer, E-32 Research Dataset Service). Added functions F-66–F-93, interfaces X-11 and I-29–I-39, data stores D-09–D-13, GUI view modules G-01–G-14, behavior characterization and standard-deviation anomaly model (Section 9), Parameter Catalog and meta-metrics including policy time cost (Section 10), workbench design intent (Section 11), performance targets (Section 14), new scenarios and open decisions OD-9–OD-13. `architecture.md` rev 2.0 retained as the problem-space and candidate-technology reference. |

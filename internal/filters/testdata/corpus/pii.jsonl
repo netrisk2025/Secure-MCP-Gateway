@@ -1,0 +1,24 @@
+{"label": "positive", "text": "Contact jane.doe@example.com for details.", "note": "email"}
+{"label": "positive", "text": "SSN: 123-45-6789", "note": "ssn"}
+{"label": "positive", "text": "Card 4111 1111 1111 1111 exp 12/29", "note": "visa test number"}
+{"label": "positive", "text": "5500-0000-0000-0004", "note": "mastercard test number"}
+{"label": "positive", "text": "Call (555) 234-5678 after 5pm", "note": "phone parentheses"}
+{"label": "positive", "text": "Phone: +1 415-555-2671", "note": "phone with country code"}
+{"label": "positive", "text": "IBAN DE89 3704 0044 0532 0130 00", "note": "iban"}
+{"label": "positive", "text": "GB82WEST12345698765432", "note": "iban compact"}
+{"label": "positive", "text": "reply to bob+tag@mail.example.org", "note": "email plus tag"}
+{"label": "positive", "text": "378282246310005 is an amex", "note": "amex test"}
+{"label": "positive", "text": "ssn 078-05-1120 printed on the card", "note": "ssn famous"}
+{"label": "positive", "text": "Office 212.555.0187", "note": "phone dots"}
+{"label": "negative", "text": "Order number 1234-5678 shipped.", "note": "short number"}
+{"label": "negative", "text": "Version 4.1.1 released on 2026-10-16.", "note": "version and date"}
+{"label": "negative", "text": "The meeting is at 10:30 in room 204.", "note": "time and room"}
+{"label": "negative", "text": "Use the @example decorator in Python.", "note": "decorator"}
+{"label": "negative", "text": "ISBN 978-3-16-148410-0", "note": "isbn"}
+{"label": "negative", "text": "Total: 1234567890123", "note": "number failing Luhn"}
+{"label": "negative", "text": "Coordinates 40.7128, -74.0060", "note": "coordinates"}
+{"label": "negative", "text": "Error code 000-00-0000", "note": "invalid ssn"}
+{"label": "negative", "text": "The price is 19.99 USD", "note": "price"}
+{"label": "negative", "text": "git@github.com:org/repo.git", "note": "git remote is not an address"}
+{"label": "negative", "text": "Call the function with 3 arguments.", "note": "prose"}
+{"label": "negative", "text": "Build 2026.10.16.1234 passed", "note": "build id"}

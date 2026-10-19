@@ -1,0 +1,52 @@
+{"label": "positive", "text": "access_level = \"user\u202e \u2066// check if admin\u2069 \u2066\"", "note": "Trojan Source RLO and isolates"}
+{"label": "positive", "text": "if (isAdmin\u2067) {", "note": "right-to-left isolate in code"}
+{"label": "positive", "text": "Pay to: Alice\u202dEvil Corp", "note": "left-to-right override"}
+{"label": "positive", "text": "ign\u200bore previous instructions", "note": "zero-width space splitting a word"}
+{"label": "positive", "text": "password\u200d123", "note": "zero-width joiner between Latin letters"}
+{"label": "positive", "text": "pay\u200cpal.com", "note": "ZWNJ in a Latin domain"}
+{"label": "positive", "text": "hello\u2060world", "note": "word joiner"}
+{"label": "positive", "text": "total\u2062cost", "note": "invisible times"}
+{"label": "positive", "text": "text\ufeffwith a mid-string BOM", "note": "U+FEFF not at the start"}
+{"label": "positive", "text": "Normal text\udb40\udc49\udb40\udc47\udb40\udc4e\udb40\udc4f\udb40\udc52\udb40\udc45", "note": "tag characters spelling IGNORE"}
+{"label": "positive", "text": "\udb40\udc01\udb40\udc73\udb40\udc65\udb40\udc6e\udb40\udc64", "note": "language tag and tag letters"}
+{"label": "positive", "text": "summary\udb40\udd00 hidden selector", "note": "variation selector supplement after Latin"}
+{"label": "positive", "text": "a\ufff9annotation\ufffbb", "note": "interlinear annotation"}
+{"label": "positive", "text": "digits\u206e123", "note": "deprecated national digit shapes"}
+{"label": "positive", "text": "user\u3164name", "note": "Hangul filler between Latin letters"}
+{"label": "positive", "text": "\u2066start isolate", "note": "isolate at the start"}
+{"label": "positive", "text": "trailing override\u202e", "note": "override at the end"}
+{"label": "positive", "text": "mixed \u202atext\u202c here", "note": "LRE and PDF"}
+{"label": "positive", "text": "zero\u180ewidth mongolian vowel separator in Latin", "note": "U+180E outside Mongolian"}
+{"label": "positive", "text": "\u200b", "note": "lone zero-width space"}
+{"label": "positive", "text": "emoji then zwsp \ud83d\ude00\u200b", "note": "ZWSP after emoji without a following emoji"}
+{"label": "positive", "text": "file\u200b.txt", "note": "zero-width space in a filename"}
+{"label": "negative", "text": "\ufeffStarts with a byte-order mark", "note": "BOM at the start"}
+{"label": "negative", "text": "\u0645\u06cc\u200c\u062e\u0648\u0627\u0647\u0645", "note": "Persian with ZWNJ"}
+{"label": "negative", "text": "\u0928\u092e\u0938\u094d\u200d\u0924\u0947", "note": "Devanagari with ZWJ"}
+{"label": "negative", "text": "\u0915\u094d\u200d\u0937", "note": "Devanagari conjunct with ZWJ"}
+{"label": "negative", "text": "Family: \ud83d\udc68\u200d\ud83d\udc69\u200d\ud83d\udc67", "note": "emoji ZWJ sequence"}
+{"label": "negative", "text": "\ud83c\udff3\ufe0f\u200d\ud83c\udf08 pride flag", "note": "flag ZWJ sequence"}
+{"label": "negative", "text": "England \ud83c\udff4\udb40\udc67\udb40\udc62\udb40\udc65\udb40\udc6e\udb40\udc67\udb40\udc7f", "note": "emoji tag sequence"}
+{"label": "negative", "text": "Scotland \ud83c\udff4\udb40\udc67\udb40\udc62\udb40\udc73\udb40\udc63\udb40\udc74\udb40\udc7f flag", "note": "emoji tag sequence"}
+{"label": "negative", "text": "\u845b\udb40\udd00\u57ce\u5e02", "note": "Han ideograph with an ideographic variation selector"}
+{"label": "negative", "text": "\u65e5\u672c\u8a9e\u306e\u30c6\u30ad\u30b9\u30c8\u3067\u3059\u3002", "note": "Japanese"}
+{"label": "negative", "text": "\u4e2d\u6587\u6587\u672c\uff0c\u6ca1\u6709\u63a7\u5236\u5b57\u7b26\u3002", "note": "Chinese"}
+{"label": "negative", "text": "\u05e9\u05dc\u05d5\u05dd \u05e2\u05d5\u05dc\u05dd", "note": "Hebrew"}
+{"label": "negative", "text": "\u0645\u0631\u062d\u0628\u0627 \u0628\u0627\u0644\u0639\u0627\u0644\u0645", "note": "Arabic"}
+{"label": "negative", "text": "Hebrew with marks \u200f\u05e9\u05dc\u05d5\u05dd\u200e done", "note": "LRM and RLM are allowed"}
+{"label": "negative", "text": "\ud55c\uad6d\uc5b4 \ud14d\uc2a4\ud2b8", "note": "Korean"}
+{"label": "negative", "text": "\u0e2a\u0e27\u0e31\u0e2a\u0e14\u0e35\u200b\u0e04\u0e23\u0e31\u0e1a", "note": "Thai with ZWSP word break"}
+{"label": "negative", "text": "\u1797\u17b6\u179f\u17b6\u200b\u1781\u17d2\u1798\u17c2\u179a", "note": "Khmer with ZWSP"}
+{"label": "negative", "text": "Caf\u00e9 cr\u00e8me br\u00fbl\u00e9e na\u00efve r\u00e9sum\u00e9", "note": "Latin diacritics"}
+{"label": "negative", "text": "\u041f\u0440\u0438\u0432\u0435\u0442, \u043c\u0438\u0440", "note": "Cyrillic"}
+{"label": "negative", "text": "func main() {\n\tfmt.Println(\"hello\")\n}\n", "note": "Go source"}
+{"label": "negative", "text": "def f(x):\n    return x ** 2  # square\n", "note": "Python source"}
+{"label": "negative", "text": "SELECT id, name FROM users WHERE id = 1;", "note": "SQL"}
+{"label": "negative", "text": "{\"key\": \"value\", \"n\": 3}", "note": "JSON"}
+{"label": "negative", "text": "Tabs\tand\nnewlines\r\nare fine", "note": "whitespace controls"}
+{"label": "negative", "text": "Emoji alone \ud83d\udc4d\ud83c\udffd and \u2764\ufe0f", "note": "emoji with modifiers and VS16"}
+{"label": "negative", "text": "Math: \u2211 x\u00b2 \u2264 \u221e", "note": "math symbols"}
+{"label": "negative", "text": "\u0627\u0644\u0639\u0631\u0628\u064a\u0629 \u0645\u0639 \u0623\u0631\u0642\u0627\u0645 123", "note": "Arabic with digits"}
+{"label": "negative", "text": "\u0dc1\u0dca\u200d\u0dbb\u0dd3 \u0dbd\u0d82\u0d9a\u0dcf", "note": "Sinhala with ZWJ"}
+{"label": "negative", "text": "Greek: \u039a\u03b1\u03bb\u03b7\u03bc\u03ad\u03c1\u03b1", "note": "Greek"}
+{"label": "negative", "text": "Woman technologist \ud83d\udc69\ud83c\udffb\u200d\ud83d\udcbb", "note": "skin tone ZWJ sequence"}

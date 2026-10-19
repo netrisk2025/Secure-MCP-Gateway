@@ -1,0 +1,609 @@
+{
+ "comment": "Package license fields of smcp_1.0.0_linux_amd64.tar.gz.sbom.json, the v1.0.0 release asset (other fields removed).",
+ "spdxVersion": "SPDX-2.3",
+ "creationInfo": {
+  "licenseListVersion": "3.29",
+  "creators": [
+   "Organization: Anchore, Inc",
+   "Tool: syft-1.54.0"
+  ],
+  "created": "2026-10-18T04:21:18Z"
+ },
+ "packages": [
+  {
+   "SPDXID": "SPDXRef-Package-go-module-aead.dev-minisign-27a55ae5806dfb2e",
+   "name": "aead.dev/minisign",
+   "versionInfo": "v0.3.0",
+   "licenseConcluded": "MIT",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-aead.dev-minisign-4a2d7b9c09ac8433",
+   "name": "aead.dev/minisign",
+   "versionInfo": "v0.3.0",
+   "licenseConcluded": "MIT",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-filippo.io-age-c5cf3bf41cdec251",
+   "name": "filippo.io/age",
+   "versionInfo": "v1.3.2",
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-filippo.io-age-f2c721d9de9ccc94",
+   "name": "filippo.io/age",
+   "versionInfo": "v1.3.2",
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-filippo.io-hpke-27c0a9414d391bf9",
+   "name": "filippo.io/hpke",
+   "versionInfo": "v0.4.0",
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-filippo.io-hpke-e874e1bbfffbb226",
+   "name": "filippo.io/hpke",
+   "versionInfo": "v0.4.0",
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-ethan03805-secure-mcp-gateway-d3c77ce7485de8c2",
+   "name": "github.com/ethan03805/secure-mcp-gateway",
+   "versionInfo": "v1.0.0",
+   "licenseConcluded": "Apache-2.0 AND LicenseRef-0382b0057770ca05e9c350a50aa3b1c1fea84da0bc81d723bf00b9aa841be58a AND LicenseRef-562a7dc6c159c0521c272f0c7d78e9b071fa0f83c0054cd2b530a2e3fe45f456",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-ethan03805-secure-mcp-gateway-2723bb573d39be83",
+   "name": "github.com/ethan03805/secure-mcp-gateway",
+   "versionInfo": "v1.0.0",
+   "licenseConcluded": "Apache-2.0 AND LicenseRef-0382b0057770ca05e9c350a50aa3b1c1fea84da0bc81d723bf00b9aa841be58a AND LicenseRef-562a7dc6c159c0521c272f0c7d78e9b071fa0f83c0054cd2b530a2e3fe45f456",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-ethan03805-secure-mcp-gateway-fbcedb8de1bd5a9c",
+   "name": "github.com/ethan03805/secure-mcp-gateway",
+   "versionInfo": "v1.0.0",
+   "licenseConcluded": "Apache-2.0 AND LicenseRef-0382b0057770ca05e9c350a50aa3b1c1fea84da0bc81d723bf00b9aa841be58a AND LicenseRef-562a7dc6c159c0521c272f0c7d78e9b071fa0f83c0054cd2b530a2e3fe45f456",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-ethan03805-secure-mcp-gateway-3a6c57671c73f30e",
+   "name": "github.com/ethan03805/secure-mcp-gateway",
+   "versionInfo": "v1.0.0",
+   "licenseConcluded": "Apache-2.0 AND LicenseRef-0382b0057770ca05e9c350a50aa3b1c1fea84da0bc81d723bf00b9aa841be58a AND LicenseRef-562a7dc6c159c0521c272f0c7d78e9b071fa0f83c0054cd2b530a2e3fe45f456",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-ethan03805-secure-mcp-gateway-241dbe214bdbd75f",
+   "name": "github.com/ethan03805/secure-mcp-gateway",
+   "versionInfo": "v1.0.0",
+   "licenseConcluded": "Apache-2.0 AND LicenseRef-0382b0057770ca05e9c350a50aa3b1c1fea84da0bc81d723bf00b9aa841be58a AND LicenseRef-562a7dc6c159c0521c272f0c7d78e9b071fa0f83c0054cd2b530a2e3fe45f456",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-ethan03805-secure-mcp-gateway-289ca71883231eb4",
+   "name": "github.com/ethan03805/secure-mcp-gateway",
+   "versionInfo": "v1.0.0",
+   "licenseConcluded": "Apache-2.0 AND LicenseRef-0382b0057770ca05e9c350a50aa3b1c1fea84da0bc81d723bf00b9aa841be58a AND LicenseRef-562a7dc6c159c0521c272f0c7d78e9b071fa0f83c0054cd2b530a2e3fe45f456",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-ethan03805-secure-mcp-gateway-94c76397d8f5a1ed",
+   "name": "github.com/ethan03805/secure-mcp-gateway",
+   "versionInfo": "v1.0.0",
+   "licenseConcluded": "Apache-2.0 AND LicenseRef-0382b0057770ca05e9c350a50aa3b1c1fea84da0bc81d723bf00b9aa841be58a AND LicenseRef-562a7dc6c159c0521c272f0c7d78e9b071fa0f83c0054cd2b530a2e3fe45f456",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-google-jsonschema-go-71b5355a6494442c",
+   "name": "github.com/google/jsonschema-go",
+   "versionInfo": "v0.4.3",
+   "licenseConcluded": "MIT",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-google-jsonschema-go-4ca1c8c4bd678b5c",
+   "name": "github.com/google/jsonschema-go",
+   "versionInfo": "v0.4.3",
+   "licenseConcluded": "MIT",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-google-jsonschema-go-a567f71d66d33865",
+   "name": "github.com/google/jsonschema-go",
+   "versionInfo": "v0.4.3",
+   "licenseConcluded": "MIT",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-google-jsonschema-go-1fcc4d8fa5040c23",
+   "name": "github.com/google/jsonschema-go",
+   "versionInfo": "v0.4.3",
+   "licenseConcluded": "MIT",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-google-nftables-c2afcc8d0702d64c",
+   "name": "github.com/google/nftables",
+   "versionInfo": "v0.3.0",
+   "licenseConcluded": "Apache-2.0",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-google-nftables-d774d72b98540a81",
+   "name": "github.com/google/nftables",
+   "versionInfo": "v0.3.0",
+   "licenseConcluded": "Apache-2.0",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-google-uuid-c99842cb60f1d3d0",
+   "name": "github.com/google/uuid",
+   "versionInfo": "v1.6.0",
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-google-uuid-24fd78f66a05fbb7",
+   "name": "github.com/google/uuid",
+   "versionInfo": "v1.6.0",
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-google-uuid-d17437289b19f1fa",
+   "name": "github.com/google/uuid",
+   "versionInfo": "v1.6.0",
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-mdlayher-netlink-6d314702f1a07743",
+   "name": "github.com/mdlayher/netlink",
+   "versionInfo": "v1.7.3-0.20250113171957-fbb4dce95f42",
+   "licenseConcluded": "MIT",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-mdlayher-netlink-44ff04aa0e294b7d",
+   "name": "github.com/mdlayher/netlink",
+   "versionInfo": "v1.7.3-0.20250113171957-fbb4dce95f42",
+   "licenseConcluded": "MIT",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-mdlayher-socket-05cf284b363fd9a0",
+   "name": "github.com/mdlayher/socket",
+   "versionInfo": "v0.5.0",
+   "licenseConcluded": "MIT",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-mdlayher-socket-42ac68998ad669c0",
+   "name": "github.com/mdlayher/socket",
+   "versionInfo": "v0.5.0",
+   "licenseConcluded": "MIT",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-modelcontextprotocol-go-sdk-82d2c1cbf9715e92",
+   "name": "github.com/modelcontextprotocol/go-sdk",
+   "versionInfo": "v1.8.0",
+   "licenseConcluded": "Apache-2.0 AND CC-BY-4.0 AND MIT",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-modelcontextprotocol-go-sdk-7db9bd269a848b64",
+   "name": "github.com/modelcontextprotocol/go-sdk",
+   "versionInfo": "v1.8.0",
+   "licenseConcluded": "Apache-2.0 AND CC-BY-4.0 AND MIT",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-modelcontextprotocol-go-sdk-12aaf09ea08ebe2c",
+   "name": "github.com/modelcontextprotocol/go-sdk",
+   "versionInfo": "v1.8.0",
+   "licenseConcluded": "Apache-2.0 AND CC-BY-4.0 AND MIT",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-modelcontextprotocol-go-sdk-078c64151c6d49bb",
+   "name": "github.com/modelcontextprotocol/go-sdk",
+   "versionInfo": "v1.8.0",
+   "licenseConcluded": "Apache-2.0 AND CC-BY-4.0 AND MIT",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-neo4j-neo4j-go-driver-v6-464bb3e2082dfa5e",
+   "name": "github.com/neo4j/neo4j-go-driver/v6",
+   "versionInfo": "v6.3.0",
+   "licenseConcluded": "Apache-2.0",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-neo4j-neo4j-go-driver-v6-bec4c3d59667c5c3",
+   "name": "github.com/neo4j/neo4j-go-driver/v6",
+   "versionInfo": "v6.3.0",
+   "licenseConcluded": "Apache-2.0",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-pelletier-go-toml-v2-afc6d7315e829ada",
+   "name": "github.com/pelletier/go-toml/v2",
+   "versionInfo": "v2.4.3",
+   "licenseConcluded": "MIT",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-pelletier-go-toml-v2-383578a776baa0e1",
+   "name": "github.com/pelletier/go-toml/v2",
+   "versionInfo": "v2.4.3",
+   "licenseConcluded": "MIT",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-pelletier-go-toml-v2-1a183feb875cf6ce",
+   "name": "github.com/pelletier/go-toml/v2",
+   "versionInfo": "v2.4.3",
+   "licenseConcluded": "MIT",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-pelletier-go-toml-v2-b9c16e568fccad7a",
+   "name": "github.com/pelletier/go-toml/v2",
+   "versionInfo": "v2.4.3",
+   "licenseConcluded": "MIT",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-pelletier-go-toml-v2-04bff13879a04917",
+   "name": "github.com/pelletier/go-toml/v2",
+   "versionInfo": "v2.4.3",
+   "licenseConcluded": "MIT",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-santhosh-tekuri-jsonschema-v6-5758445be9e1894c",
+   "name": "github.com/santhosh-tekuri/jsonschema/v6",
+   "versionInfo": "v6.0.3",
+   "licenseConcluded": "Apache-2.0",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-santhosh-tekuri-jsonschema-v6-039d0e237e283e2e",
+   "name": "github.com/santhosh-tekuri/jsonschema/v6",
+   "versionInfo": "v6.0.3",
+   "licenseConcluded": "Apache-2.0",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-santhosh-tekuri-jsonschema-v6-113122897a4d7791",
+   "name": "github.com/santhosh-tekuri/jsonschema/v6",
+   "versionInfo": "v6.0.3",
+   "licenseConcluded": "Apache-2.0",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-segmentio-asm-4a0fd90e519aad82",
+   "name": "github.com/segmentio/asm",
+   "versionInfo": "v1.1.3",
+   "licenseConcluded": "MIT",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-segmentio-asm-5f90e2ceee187e0f",
+   "name": "github.com/segmentio/asm",
+   "versionInfo": "v1.1.3",
+   "licenseConcluded": "MIT",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-segmentio-asm-48fe1eee72043d0a",
+   "name": "github.com/segmentio/asm",
+   "versionInfo": "v1.1.3",
+   "licenseConcluded": "MIT",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-segmentio-asm-bcc8fb1eff13c6ce",
+   "name": "github.com/segmentio/asm",
+   "versionInfo": "v1.1.3",
+   "licenseConcluded": "MIT",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-segmentio-encoding-d7b34cd977e1d67a",
+   "name": "github.com/segmentio/encoding",
+   "versionInfo": "v0.5.4",
+   "licenseConcluded": "Apache-2.0 AND MIT",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-segmentio-encoding-b061c207340a7959",
+   "name": "github.com/segmentio/encoding",
+   "versionInfo": "v0.5.4",
+   "licenseConcluded": "Apache-2.0 AND MIT",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-segmentio-encoding-d00281df379df17f",
+   "name": "github.com/segmentio/encoding",
+   "versionInfo": "v0.5.4",
+   "licenseConcluded": "Apache-2.0 AND MIT",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-segmentio-encoding-db43bb58dc9283ac",
+   "name": "github.com/segmentio/encoding",
+   "versionInfo": "v0.5.4",
+   "licenseConcluded": "Apache-2.0 AND MIT",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-yosida95-uritemplate-v3-789cd3cd497d1078",
+   "name": "github.com/yosida95/uritemplate/v3",
+   "versionInfo": "v3.0.2",
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-yosida95-uritemplate-v3-a4b1a93ae82fde28",
+   "name": "github.com/yosida95/uritemplate/v3",
+   "versionInfo": "v3.0.2",
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-yosida95-uritemplate-v3-daabc88cbb0f1569",
+   "name": "github.com/yosida95/uritemplate/v3",
+   "versionInfo": "v3.0.2",
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-yosida95-uritemplate-v3-11c35cb4f1875d6d",
+   "name": "github.com/yosida95/uritemplate/v3",
+   "versionInfo": "v3.0.2",
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-crypto-5142c034885f04b1",
+   "name": "golang.org/x/crypto",
+   "versionInfo": "v0.58.0",
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-crypto-6fa6af9baeec1d6d",
+   "name": "golang.org/x/crypto",
+   "versionInfo": "v0.58.0",
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-crypto-ce13d38b1e5de429",
+   "name": "golang.org/x/crypto",
+   "versionInfo": "v0.58.0",
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-net-32057b1ad03d82a5",
+   "name": "golang.org/x/net",
+   "versionInfo": "v0.60.0",
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-net-b5dee30c9d533edb",
+   "name": "golang.org/x/net",
+   "versionInfo": "v0.60.0",
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-oauth2-71c749d67584ccbd",
+   "name": "golang.org/x/oauth2",
+   "versionInfo": "v0.35.0",
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-oauth2-e691e42e29d1fb3c",
+   "name": "golang.org/x/oauth2",
+   "versionInfo": "v0.35.0",
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-oauth2-585b3bac3237ec11",
+   "name": "golang.org/x/oauth2",
+   "versionInfo": "v0.35.0",
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-oauth2-b2e15e1c0451fa0c",
+   "name": "golang.org/x/oauth2",
+   "versionInfo": "v0.35.0",
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-sync-2d21f473e44eafd8",
+   "name": "golang.org/x/sync",
+   "versionInfo": "v0.24.0",
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-sync-018f5b93554f3d79",
+   "name": "golang.org/x/sync",
+   "versionInfo": "v0.24.0",
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-sync-0ba36582787114b4",
+   "name": "golang.org/x/sync",
+   "versionInfo": "v0.24.0",
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-sync-eced895bdb1963bf",
+   "name": "golang.org/x/sync",
+   "versionInfo": "v0.24.0",
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-sys-d10758ecfff3a1f2",
+   "name": "golang.org/x/sys",
+   "versionInfo": "v0.49.0",
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-sys-213e19da837d16ec",
+   "name": "golang.org/x/sys",
+   "versionInfo": "v0.49.0",
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-sys-3744af4d595fd91b",
+   "name": "golang.org/x/sys",
+   "versionInfo": "v0.49.0",
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-sys-b3bb583652cd9a38",
+   "name": "golang.org/x/sys",
+   "versionInfo": "v0.49.0",
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-term-4f20d5d762fa4136",
+   "name": "golang.org/x/term",
+   "versionInfo": "v0.47.0",
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-text-f507b2fdbc3f30dc",
+   "name": "golang.org/x/text",
+   "versionInfo": "v0.43.0",
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-text-e32b281edbf1b136",
+   "name": "golang.org/x/text",
+   "versionInfo": "v0.43.0",
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-text-d55713333629bec1",
+   "name": "golang.org/x/text",
+   "versionInfo": "v0.43.0",
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-time-7bd23fdaeceea170",
+   "name": "golang.org/x/time",
+   "versionInfo": "v0.15.0",
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-time-75aeb04e98737d4d",
+   "name": "golang.org/x/time",
+   "versionInfo": "v0.15.0",
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-time-9c8437b4d5b75266",
+   "name": "golang.org/x/time",
+   "versionInfo": "v0.15.0",
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-time-79cc994e8255f2c3",
+   "name": "golang.org/x/time",
+   "versionInfo": "v0.15.0",
+   "licenseConcluded": "BSD-3-Clause",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-stdlib-b45ccc09f1b81c2f",
+   "name": "stdlib",
+   "versionInfo": "go1.26.9",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "BSD-3-Clause"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-stdlib-c1306ae446a44e0a",
+   "name": "stdlib",
+   "versionInfo": "go1.26.9",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "BSD-3-Clause"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-stdlib-5b7e248ec32d88f9",
+   "name": "stdlib",
+   "versionInfo": "go1.26.9",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "BSD-3-Clause"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-stdlib-62282ba78a2bf3df",
+   "name": "stdlib",
+   "versionInfo": "go1.26.9",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "BSD-3-Clause"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-stdlib-18aa4d5963e3893a",
+   "name": "stdlib",
+   "versionInfo": "go1.26.9",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "BSD-3-Clause"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-stdlib-d7f1b84595a22b0a",
+   "name": "stdlib",
+   "versionInfo": "go1.26.9",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "BSD-3-Clause"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-stdlib-44d21d950523a81d",
+   "name": "stdlib",
+   "versionInfo": "go1.26.9",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "BSD-3-Clause"
+  },
+  {
+   "SPDXID": "SPDXRef-DocumentRoot-File-smcp-1.0.0-linux-amd64.tar.gz",
+   "name": "smcp_1.0.0_linux_amd64.tar.gz",
+   "versionInfo": "sha256:36be153bded9ed34dddaac8bcdba1966c9d9bb43e8cfd385ec725c1c3669747a",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  }
+ ]
+}

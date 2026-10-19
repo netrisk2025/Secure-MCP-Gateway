@@ -1,0 +1,78 @@
+# golangci-lint v2 configuration.
+#
+# CI pins the linter version in .github/workflows/ci.yml (job "lint") and the
+# Makefile pins the same version for `make lint`; keep the two in step.
+#
+# Every exclusion below states why it exists. Exclusions marked FOLLOWUP cover
+# a finding in existing code that should be fixed; delete the rule with the
+# fix.
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  default: none
+  enable:
+    - bodyclose
+    - copyloopvar
+    - durationcheck
+    - errcheck
+    - errorlint
+    - gosec
+    - govet
+    - ineffassign
+    - misspell
+    - nilerr
+    - staticcheck
+    - unconvert
+    - unused
+  settings:
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment # struct layout is chosen for readability, not padding
+        - shadow         # `err` shadowing is idiomatic in this code base
+    staticcheck:
+      checks:
+        - all
+        - -ST1000 # package comments are not required on every package
+        - -ST1003 # initialisms follow the SRS spelling (e.g. Url in JSON names)
+        - -ST1016 # receiver names
+        - -ST1020 # comment form on exported functions
+        - -ST1021
+        - -ST1022
+        - -QF*    # quick-fix suggestions are style, not defects
+    gosec:
+      excludes:
+        - G101 # flags URL paths such as "/oauth/token" as hard-coded credentials
+        - G104 # duplicates errcheck, which applies the std-error-handling preset (Close etc.)
+        - G204 # launching operator-configured MCP servers is the function of E-15; containment is E-16
+        - G301 # state and build directories; secret files are written 0600 explicitly
+        - G304 # file paths come from the operator's configuration or CLI flags
+        - G306 # public outputs (reports, public keys, policy examples) are world-readable by design
+        - G703 # same as G304 for the taint-analysis variant
+  exclusions:
+    generated: strict
+    presets:
+      - std-error-handling
+    paths:
+      - spikes/
+    rules:
+      # Tests: setup errors surface as assertion failures, and response
+      # bodies of throwaway requests are not closed. Production code keeps
+      # the full rule set.
+      - path: _test\.go
+        linters: [errcheck, errorlint, gosec, bodyclose]
+      # smcpctl sends requests only to the configured loopback control API;
+      # operator-supplied IDs (such as a policy revision) are path-escaped.
+      - path: cmd/smcpctl/control\.go
+        text: G704
+
+formatters:
+  enable:
+    - gofmt
+  exclusions:
+    paths:
+      - spikes/

@@ -1,35 +1,22 @@
-import Mermaid from "@/components/Mermaid";
+import DocPage from "@/components/DocPage";
 import { readDoc } from "@/lib/content";
-import { renderMarkdown, toc } from "@/lib/markdown";
+import { loadArch } from "@/lib/parse-arch";
+import { chapter } from "@/lib/site";
 
-export const metadata = { title: "Architecture V2, Secure MCP Gateway" };
+export const metadata = { title: "Architecture" };
 
-export default async function ArchitecturePage() {
+const CH = chapter("/architecture/");
+
+export default function ArchitecturePage() {
   const md = readDoc("ArchitectureV2.md");
-  const html = await renderMarkdown(md, { dropTitle: true });
-  const entries = toc(md, 3);
+  const arch = loadArch();
   return (
-    <div className="doc-layout">
-      <aside className="toc" aria-label="Sections">
-        <ol>
-          {entries.map((e) => (
-            <li key={e.id} className={`d${e.depth}`}>
-              <a href={`#${e.id}`}>{e.text}</a>
-            </li>
-          ))}
-        </ol>
-      </aside>
-      <article className="prose">
-        <div className="page-head">
-          <h1>Architecture V2</h1>
-          <p className="lede">
-            The logical decomposition of the Gateway: ten subsystems, their elements, functions, interfaces and data,
-            rendered directly from the architecture document.
-          </p>
-        </div>
-        <div dangerouslySetInnerHTML={{ __html: html }} />
-      </article>
-      <Mermaid />
-    </div>
+    <DocPage file="ArchitectureV2.md" md={md} title="Architecture" chapter={CH.n} left={[`Revision ${arch.revision}`]}>
+      <p>
+        The logical decomposition of the Gateway into {arch.subsystems.length} subsystems and {arch.elements.length}{" "}
+        elements, with {arch.functions.length} functions, {arch.external.length + arch.internal.length} interfaces and{" "}
+        {arch.stores.length} data stores, rendered from the architecture document dated {arch.date}.
+      </p>
+    </DocPage>
   );
 }

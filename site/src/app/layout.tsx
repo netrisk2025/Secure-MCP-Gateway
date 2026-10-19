@@ -1,52 +1,50 @@
-import type { Metadata } from "next";
-import { Newsreader, Instrument_Sans } from "next/font/google";
-import { execSync } from "node:child_process";
+import type { Metadata, Viewport } from "next";
+import "@fontsource-variable/newsreader/opsz.css";
+import "@fontsource-variable/newsreader/opsz-italic.css";
+import "@fontsource/ibm-plex-mono/latin-400.css";
+import "@fontsource/ibm-plex-mono/latin-500.css";
 import Nav from "@/components/Nav";
+import ChartTips from "@/components/charts/ChartTips";
+import { loadStatus } from "@/lib/status";
+import { REPO_URL, buildCommit, dataSourceLine, fmtDate } from "@/lib/site";
 import "./globals.css";
 
-const serif = Newsreader({
-  subsets: ["latin"],
-  variable: "--font-serif",
-  style: ["normal", "italic"],
-  weight: "variable",
-});
-const ui = Instrument_Sans({ subsets: ["latin"], variable: "--font-ui", weight: ["400", "500", "600"] });
-
 export const metadata: Metadata = {
-  title: "Secure MCP Gateway",
+  title: { default: "Secure MCP Gateway", template: "%s, Secure MCP Gateway" },
   description:
-    "A local reference monitor and research instrument for agentic frameworks: specification, architecture and requirements, rendered from the repository.",
+    "Reference for the Secure MCP Gateway: status, flows, architecture, elements, interfaces, requirements and security controls, built from the repository.",
 };
 
-function buildStamp(): string {
-  const sha = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7);
-  if (sha) return sha;
-  try {
-    return execSync("git rev-parse --short HEAD", { cwd: process.cwd(), stdio: ["ignore", "pipe", "ignore"] })
-      .toString()
-      .trim();
-  } catch {
-    return "local build";
-  }
-}
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f4f5f0" },
+    { media: "(prefers-color-scheme: dark)", color: "#121614" },
+  ],
+};
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const stamp = buildStamp();
-  const date = new Date().toISOString().slice(0, 10);
+  const snap = loadStatus();
+  const commit = buildCommit();
   return (
-    <html lang="en" className={`${serif.variable} ${ui.variable}`}>
+    <html lang="en">
       <body>
-        <Nav />
-        <main>{children}</main>
+        <a className="skip" href="#main">
+          Skip to content
+        </a>
+        <Nav commit={commit} sample={snap.source === "sample"} />
+        <main id="main" tabIndex={-1}>
+          {children}
+        </main>
         <footer className="footer">
           <p>
-            Built from the repository documents at commit {stamp} on {date}. The Gateway is specified, not
-            implemented.
+            Site built from <a href={`${REPO_URL}/commit/${commit}`}>commit {commit}</a> on {fmtDate(new Date().toISOString())}.
+            Status figures: {dataSourceLine(snap)}.
           </p>
           <p>
-            <a href="https://github.com/ethan03805/Secure-MCP-Gateway">Repository on GitHub</a>
+            <a href={REPO_URL}>Repository</a>
           </p>
         </footer>
+        <ChartTips />
       </body>
     </html>
   );

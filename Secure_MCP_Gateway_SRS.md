@@ -3,32 +3,37 @@
 | Field | Value |
 |---|---|
 | File | `Secure_MCP_Gateway_SRS.md` |
-| Baseline | V1.1 draft (implementation SRS; harness authentication, protocol eras, adapters and tool naming revised) |
-| Date | 2026-10-16 (America/New_York) |
+| Baseline | V1.2 draft (implementation SRS; re-baselined so that the product built as specified is a finished, shippable v1) |
+| Date | 2026-10-16 (America/Chicago) |
 | Owner | netrisk |
-| System of Interest | Secure MCP Gateway (local, single PC) |
-| Architecture | `ArchitectureV2.md` V2.2 draft — elements E-01…E-33, functions F-01…F-95, interfaces X-01…X-12 and I-01…I-39, GUI modules G-01…G-14, data stores D-01…D-13 |
+| System of Interest | Secure MCP Gateway (local, single computer) |
+| Architecture | `ArchitectureV2.md` V2.3 draft — elements E-01…E-33, functions F-01…F-99, interfaces X-01…X-17 and I-01…I-39, GUI modules G-01…G-14, data stores D-01…D-15 |
 | Security control root | `MCP_Gateway_Security_SRS.md` (V1 security-control baseline; cited as `SEC`) |
 | Protocol baseline | MCP specification and schema 2026-07-28 (`mcp-spec/2026-07-28/`; cited as `MCP:` and `SCHEMA:`) |
 | Skill | `Skills.md` (INCOSE GtWR + project rules) |
-| Status | Draft for owner review. Requirements are not yet implemented or verified. |
+| Status | Draft. Implementation is in progress. This document does not state which requirements are met; the requirement report (FR-12.10) does, and `docs/status/elements.json` records the implementation state of each element. |
 
 ## Contents
 
 1. Purpose, scope and intended use
 2. Conventions and traceability rules
 3. Recommended technology stack (open source only)
-4. Functional requirements (FR-1 … FR-12)
+4. Functional requirements (FR-1 … FR-19)
 5. Security requirements (SR, parented to `SEC` MUSTs)
 6. Appendix A — Controlled parameters (CP)
-7. Appendix B — Gateway error codes
+7. Appendix B — Gateway error codes and reason codes
 8. Appendix C — Application role matrix
-9. Appendix D — Graph data model
+9. Appendix D — Graph data model (mirror)
 10. Appendix E — Security-control coverage (SEC → SR)
 11. Appendix F — Allocation matrix (element → requirements)
 12. Appendix G — Architecture coverage (functions, interfaces, data stores, GUI modules)
 13. Appendix H — Requirement index
 14. Appendix I — Requirement-set checks
+15. Appendix J — Server package manifest schema
+16. Appendix K — Client matrix
+17. Appendix L — Hostile backend fixture suite
+18. Appendix M — Acceptance scenarios and the enforced label
+19. Appendix N — Requirements deferred from release 1.0
 
 ## 1. Purpose, scope and intended use
 
@@ -36,34 +41,78 @@
 
 This SRS is the **implementation baseline** for coding the Secure MCP Gateway. It states what each architectural element must do (functional requirements, **FR**) and which concrete security controls each element must enforce (security requirements, **SR**). Every requirement is allocated to an element, a function and, where one is crossed, an interface in `ArchitectureV2.md`, and every SR traces to a parent **MUST** in `MCP_Gateway_Security_SRS.md`.
 
+Baseline V1.2 adds what a person needs to install, operate, upgrade and remove the product, admit servers without an external curation system, connect every supported agent (including agents that run on a vendor's cloud computer), approve calls, and judge from published evidence whether enforcement claims hold.
+
 ### 1.2 Intended use of the Gateway
 
-Per the owner, the Gateway is a local secure MCP gateway on a single PC whose **primary purpose is research**. It is a vehicle for developing effective security policies, new run-time policies and longer-term trend-analysis techniques. That is why this SRS gives first-class functional weight to the policy studio and simulation, observation capture, behavior baselines, meta-metrics and dataset export, alongside enforcement.
+Per the owner, the Gateway is a local secure MCP gateway on a single computer whose **primary purpose is research**. It is a vehicle for developing effective security policies, new run-time policies and longer-term trend-analysis techniques. That is why this SRS gives first-class functional weight to the policy studio and simulation, observation capture, behavior baselines, meta-metrics and dataset export, alongside enforcement.
 
 ### 1.3 Scope
 
-**In scope:** all elements E-01…E-33 of `ArchitectureV2.md` and their interfaces.
-**Outside the SoI (interfaces only):** the MCP Curation System and Trusted MCP Server Library (X-02/X-03), agentic frameworks (X-12), offline analytics tools (X-11), and the host platform (X-07). The reference harness adapters (E-33) are inside the SoI and are delivered with the release.
+**In scope:** all elements E-01…E-33 of `ArchitectureV2.md` and their interfaces, on the platforms of Section 1.6.
+
+**Outside the SoI (interfaces only):** an external MCP Curation System, when one is used instead of the packaging command (X-02), package registries (X-17), agentic frameworks (X-12), tunnel providers (X-13), offline analytics tools (X-11), and the host platform (X-07). The reference harness adapters and harness tooling (E-33) and the packaging command (F-96) are inside the SoI and are delivered with the release.
+
+**Out of scope for v1 (refused or not provided):**
+
+| Item | Behavior in v1 |
+|---|---|
+| Remote (hosted) MCP servers as backends | Not supported. Every backend is a packaged local server launched by E-15. A manifest naming a remote URL as the server endpoint is rejected (FR-14.4). |
+| MCP resources and prompts | Not served northbound and not requested southbound. The Gateway relays tools only (FR-1.11, SR-5.6-1). |
+| Sampling, elicitation and roots | Refused unless the MRTR Relay Profile is enabled (Section 1.5). |
+| Windows hosts | Not supported. |
+| An agent's non-MCP native tools | Not mediated. Built-in shell, file, browser and connector tools of an agent bypass the Gateway; the lockdown profiles (FR-15) reduce this for local harnesses and the Security Limitations document (FR-18.2) states it. |
+| Running the Gateway inside a vendor's cloud agent machine | Not a control and not supported; cloud agents use the Remote Access profile. |
 
 ### 1.4 Relationship to other documents
 
 | Document | Role |
 |---|---|
-| `MCP_Gateway_Security_SRS.md` | **Root of security controls.** Its MUSTs parent the SRs in Section 5. Its SHALL roots 8, 9 and 10 are cited as sources of FRs. Its Appendices A and F supply controlled values and frozen semantics reused here. |
+| `MCP_Gateway_Security_SRS.md` | **Root of security controls.** Its MUSTs parent the SRs in Section 5. Its SHALL roots 8, 9 and 10 are cited as sources of FRs. Its Appendices A and F supply controlled values and frozen semantics reused here. Its Appendix B acceptance scenarios are mapped in Appendix M. |
 | `ArchitectureV2.md` | Element, function and interface definitions used for allocation. |
 | `architecture.md` rev 2.0 | Problem-space analysis (cited as `A2`). |
+| `Client-Compatibility-Brief.md` | Evidence for client hooks and the client matrix (cited as `CCB`). |
+| `docs/` | Normative data files referenced by requirements: `docs/schemas/manifest.schema.json` (Appendix J), `docs/parameters.json` (Parameter Catalog, FR-10.37) and `docs/status/elements.json` (implementation state). |
 | `mcp-spec/2026-07-28/` | Normative protocol text and schema. When this SRS and the MCP specification disagree on protocol behavior, the specification governs unless an SR intentionally restricts it. |
 
-### 1.5 Conditional profiles
+### 1.5 Profiles
 
-Some requirements apply only when a profile is enabled. Profiles are disabled in the baseline configuration and are enabled only after their requirements pass verification.
+A **platform profile** is always active; exactly one of the two applies to an installation. **Conditional profiles** are disabled in the baseline configuration and are enabled only after their requirements pass verification.
+
+#### 1.5.1 Platform profiles
+
+| Aspect | Enforced profile | Standalone (unconfined) profile |
+|---|---|---|
+| Platforms | Linux x86_64 or arm64, kernel 6.8 or later, cgroup v2, unprivileged user namespaces, rootless Podman with `crun`, nftables, systemd, AppArmor or SELinux, subordinate UID and GID ranges | macOS arm64 (macOS 14 or later); Linux x86_64 or arm64 without one or more Enforced prerequisites |
+| Selection | `profile = "enforced"` in the configuration. The daemon refuses to start when a prerequisite is missing; it never falls back silently (FR-13.9). | `profile = "standalone"` in the configuration, written by the installer when Enforced prerequisites are absent or when the operator chooses it. |
+| Backend execution | One rootless Podman container per instance under the E-16 sandbox profile; egress only through E-18 | Ordinary child process of the daemon with the environment allowlist (SR-2.14-1), a private working directory and the CP-24 resource limits the operating system supports; no namespace, LSM or network isolation |
+| Server admission | All risk classes, subject to trust-anchor scope | Packages whose manifest risk class is `high` are refused at enablement (SR-4-1) |
+| Egress | Default deny; E-18 mediates each operation | Not mediated; a server's network access is the host's |
+| Service identities and layout | Distinct system identities; `/etc/smcp`, `/var/lib/smcp`, `/run/smcp`, `/var/log/smcp` (FR-12.4) | The installing user's identity; per-user directories (FR-12.4) |
+| Service manager | systemd system units | launchd user agent (macOS); systemd user unit (Linux) |
+| Health | `healthy`, `degraded` or `fail-closed` (FR-7.12) | Never `healthy`: at best `degraded` with cause `unconfined` (FR-13.10) |
+| Release label | "enforced", only when the Appendix M acceptance evidence is complete and passing (FR-19.3); otherwise "not enforced" | "not enforced" in `smcpctl health`, `smcpctl version`, the console banner and the startup log (FR-13.10) |
+| Controls that still hold | All | Authentication, sessions, policy decisions, catalog filtering, request and response inspection, approvals, session taint, the evidence journal, secret storage and delivery modes S2 to S4 |
+
+#### 1.5.2 Conditional profiles
 
 | Profile | Enables | Requirements |
 |---|---|---|
 | UDS Harness Profile | Unix-domain-socket harness transport | FR-1.47, FR-2.15, SR-2.8-3 |
-| MRTR Relay Profile | Relaying backend `InputRequiredResult` (elicitation, sampling, roots) | FR-5.25, SR-5.6-2 |
-| mTLS Harness Profile | Client-certificate authentication on the TLS harness listener, in addition to the bearer token | FR-2.14, SR-2.8-2 |
-| Overlay Profile | Non-loopback listeners for owned remote devices | SR-2.9-3, SR-4.14-1 |
+| MRTR Relay Profile | Relaying backend `InputRequiredResult` (elicitation, sampling, roots). Deferred from release 1.0 (Appendix N); release 1.0 refuses such results with `-31010`. | FR-5.25 (deferred), SR-5.6-2 |
+| mTLS Harness Profile | Client-certificate authentication on the TLS harness listener, in addition to the bearer token. Deferred from release 1.0 (Appendix N). | FR-2.14, SR-2.8-2 (both deferred) |
+| Remote Access Profile | A second loopback listener reached only through an authenticated tunnel (Cloudflare Tunnel, Tailscale Funnel or a vendor MCP tunnel), operator-approved Dynamic Client Registration, remote rate limits and lockout, and the `smcp-connect` relay, for agents that run on a vendor's computer. It replaces the V1.1 Overlay Profile. | FR-16.1 to FR-16.12, SR-2.9-3, SR-2.11-2, SR-4.14-1, SR-4.14-2 |
+
+### 1.6 Platform and distribution matrix
+
+| Platform | Profile | Distribution | Service manager | Sandbox (E-16) | Egress broker (E-18) |
+|---|---|---|---|---|---|
+| macOS arm64 | Standalone | GitHub Releases archive, `install.sh`, Homebrew tap | launchd user agent | No | No |
+| Linux x86_64 | Enforced, or Standalone when prerequisites are absent | GitHub Releases archive, `install.sh`, Homebrew tap | systemd (system units for Enforced, user unit for Standalone) | Enforced only | Enforced only |
+| Linux arm64 | Enforced, or Standalone when prerequisites are absent | GitHub Releases archive, `install.sh`, Homebrew tap | systemd | Enforced only | Enforced only |
+| macOS amd64 | Standalone (archive built; not part of the qualified set) | GitHub Releases archive | launchd user agent | No | No |
+
+The continuous-integration qualification of the Enforced profile runs on GitHub-hosted Ubuntu runners. The supported client matrix is Appendix K.
 
 ## 2. Conventions and traceability rules
 
@@ -94,48 +143,63 @@ Every requirement record carries: **ID**, **Parent ID**, **Statement**, **Alloca
 | `ARCH §x` | `ArchitectureV2.md` section x |
 | `SEC n.n` | `MCP_Gateway_Security_SRS.md` requirement or appendix |
 | `A2 §x` | `architecture.md` rev 2.0 section x |
+| `CCB §x` | `Client-Compatibility-Brief.md` section x |
 | `MCP:<page>` | `mcp-spec/2026-07-28/specification/<page>.mdx` |
 | `SCHEMA:<type>` | `mcp-spec/2026-07-28/schema/schema.ts` type |
 | `CP-nn` | Appendix A controlled parameter |
-| `OWNER` | Owner direction in the tasking for this SRS |
+| `OWNER` | Owner direction in the tasking for this SRS, including the owner decisions of 2026-10-16 recorded in `CHANGELOG.md` |
+| `REVIEW` | A gap found by the V1.1 completeness review and closed in V1.2 (`CHANGELOG.md`) |
 
 ### 2.5 Subjects
 
 Each statement names its allocated element as the subject, for example *"The Session Manager (E-04) SHALL …"*. Requirements on the release, rather than on run-time behavior, name *"The Gateway release"* or the delivered command.
 
+### 2.6 Verification claims
+
+A requirement is **verified** only when at least one passing automated test claims it in full and no claiming test fails, or when its Inspection, Analysis or Demonstration record is checked in under `docs/verification/` and passes. A test that exercises part of a requirement claims it as **partial**. The requirement report lists verified, partial, failing and unverified requirements separately (FR-12.10). Nothing in this document is a claim that a requirement is met.
+
+### 2.7 Deferred requirements
+
+A requirement record that carries a deferral rationale is **deferred from release 1.0**. It keeps its ID and text, and Appendix N lists it with the reason it is deferred and what release 1.0 does instead. A deferred requirement is not part of the requirement set of release 1.0: Appendices E to I, the requirement report (FR-12.10) and the release label (FR-19.3) leave it out. No requirement of release 1.0 has a deferred parent. Deferring a requirement, or restoring one, is a controlled change recorded in `CHANGELOG.md`.
+
 ## 3. Recommended technology stack (open source only)
 
-All selections carry OSI-approved licenses. Exact versions, digests and transitive licenses are frozen at qualification (FR-12.1, FR-12.8). License statements here describe the upstream projects and must be re-verified at the pinned version.
+All selections carry OSI-approved licenses. Exact versions, digests and transitive licenses are frozen at qualification (FR-12.1, FR-12.8). License statements here describe the upstream projects and must be re-verified at the pinned version. The Gateway's own source is licensed Apache-2.0.
 
 ### 3.1 Selections
 
 | Layer | Recommendation | License | Elements | Why |
 |---|---|---|---|---|
-| Host OS | Linux, kernel ≥ 6.8 (e.g., Ubuntu 24.04 LTS or Debian 13) with cgroup v2 and unprivileged user namespaces | GPL-2.0 | All, X-07 | Isolation primitives the design relies on |
-| Service management | systemd | LGPL-2.1+ | All | Ordering, restart, sandboxing directives |
-| Implementation language | **Go** (current stable release) | BSD-3-Clause | E-01…E-23, E-25 integration, E-26…E-32 | One memory-safe language for the core; strong concurrency, static binaries |
-| MCP protocol | Official MCP Go SDK (`modelcontextprotocol/go-sdk`), only if its pinned release implements 2026-07-28; otherwise a project protocol layer generated from `schema.json` | Apache-2.0 (with retained MIT notices) | E-02, E-10 | Conformance with the stateless 2026-07-28 revision; see risk note 3.3 |
-| JSON Schema validation | `santhosh-tekuri/jsonschema` v6 | Apache-2.0 | E-05, E-09, E-11, E-14 | Supports 2020-12 and draft-07; no remote `$ref` by default |
-| HTTP | Go `net/http` + `go-chi/chi` router | BSD-3 / MIT | E-01, E-04, E-07, E-18, E-24 | Mature HTTP/1.1 and HTTP/2 with TLS 1.3 |
-| Cryptography | Go `crypto/*` (TLS 1.3, Ed25519, HMAC-SHA-256), `golang.org/x/crypto/argon2` | BSD-3 | E-03, E-21, E-22, E-24 | Standard library primitives |
-| Secret and payload encryption | `filippo.io/age` | BSD-3 | E-19, E-21 | Simple, audited file encryption |
+| Host OS (Enforced profile) | Linux, kernel ≥ 6.8 (for example Ubuntu 24.04 LTS or Debian 13), x86_64 or arm64, with cgroup v2 and unprivileged user namespaces | GPL-2.0 | All, X-07 | Isolation primitives the Enforced profile relies on |
+| Host OS (Standalone profile) | macOS 14 or later on arm64; Linux without the Enforced prerequisites | Proprietary (macOS); GPL-2.0 | All except E-16, E-18 network mediation | Owner decision: the product runs on the developer's own computer, labelled "not enforced" |
+| Service management | systemd (Linux); launchd user agent (macOS) | LGPL-2.1+; part of macOS | All | Ordering, restart, sandboxing directives |
+| Implementation language | **Go** 1.26 | BSD-3-Clause | E-01…E-33 except E-24 front end | One memory-safe language for the core; strong concurrency, static binaries |
+| MCP protocol | Official MCP Go SDK (`modelcontextprotocol/go-sdk`) in stateless mode (Section 3.3, risk 1) | Apache-2.0 (with retained MIT notices) | E-02, E-10, E-33 | Serves both protocol eras on one handler |
+| JSON Schema validation | `santhosh-tekuri/jsonschema` v6 | Apache-2.0 | E-05, E-09, E-11, E-13, E-14 | Supports 2020-12 and draft-07; no remote `$ref` by default |
+| HTTP | Go `net/http` | BSD-3 | E-01, E-03, E-04, E-07, E-23, E-24 | Mature HTTP/1.1 and HTTP/2 with TLS 1.3 |
+| Cryptography | Go `crypto/*` (TLS 1.3, Ed25519, HMAC-SHA-256), `golang.org/x/crypto/argon2` | BSD-3 | E-03, E-05, E-21, E-22, E-24 | Standard library primitives |
+| Secret, payload and backup encryption | `filippo.io/age` | BSD-3 | E-19, E-21, E-28 | Simple, audited file encryption |
 | TPM sealing | `google/go-tpm` | Apache-2.0 | E-22 | Hardware-backed key sealing where available |
-| Package signature verification | `sigstore/sigstore-go` (cosign bundles, offline trust root) **or** minisign verification (`aead.dev/minisign`) — per ARCH OD-1 | Apache-2.0 / MIT | E-13 | Offline verification of curation signatures |
-| Graph database | **Neo4j Community Edition** (pinned release) on an OpenJDK 21 build | GPL-3.0 (Neo4j CE); GPL-2.0 + Classpath Exception (OpenJDK) | E-25 | Owner-selected graph DB; mature Cypher, ACID, local |
+| Package and release signatures | minisign format via `aead.dev/minisign` (OD-1 decided) | MIT | E-13, E-24 (installer) | Offline Ed25519 signatures with a small key format the operator can manage |
+| Graph database (mirror, optional) | **Neo4j Community Edition** (pinned release) on an OpenJDK 21 build | GPL-3.0 (Neo4j CE); GPL-2.0 + Classpath Exception (OpenJDK) | E-25 | Owner-selected graph DB for graph views and the behavior model; not on the enforcement path (A-9) |
 | Graph driver | Neo4j Go driver | Apache-2.0 | E-26 | Parameterized queries, managed transactions |
 | Columnar Observation Store | **DuckDB** with Parquet files, via the official DuckDB Go driver | MIT | E-27 | Embedded, fast aggregation, native Parquet export |
 | Statistics | `gonum` (stats), `influxdata/tdigest` (quantile sketches) | BSD-3 / Apache-2.0 | E-30, E-31 | Welford, transforms, robust statistics in Go |
 | Internal tracing | OpenTelemetry Go SDK with an in-process exporter to E-29 (no network exporter) | Apache-2.0 | E-29, all instrumented | Standard span model; matches MCP `_meta` trace keys |
+| Operational metrics | Prometheus text exposition format via `prometheus/client_golang` | Apache-2.0 | E-23 | Loopback scrape endpoint (X-15) |
 | Sandbox | **Podman** (rootless) with `crun`, `conmon`, `netavark`; default seccomp; AppArmor or SELinux | Apache-2.0; GPL-2.0+ / LGPL-2.1+; GPL-2.0 | E-15, E-16 | Rootless OCI isolation without a privileged daemon socket |
 | Network enforcement | nftables (via `google/nftables` Go library) | GPL-2.0 (nftables); Apache-2.0 (library) | E-16, E-18, E-25 | Per-identity and per-namespace rules |
-| Configuration | TOML (`pelletier/go-toml` v2) validated by JSON Schema | MIT | All | Readable, schema-validated configuration |
+| Desktop notification | macOS `osascript` or `terminal-notifier`; Linux `notify-send` (libnotify) | Part of macOS; MIT; LGPL-2.1+ | E-07 | Approval notices on the operator's desktop (X-14) |
+| Tunnel connectors (Remote Access profile, operator-installed) | `cloudflared`; Tailscale client; a vendor MCP tunnel where the vendor offers one | Apache-2.0; BSD-3-Clause; vendor terms | X-13 | Reach a loopback listener from a vendor cloud without opening an inbound port. Not bundled with the release. |
+| Configuration | TOML (`pelletier/go-toml` v2) validated by JSON Schema, with a `schema_version` field | MIT | All | Readable, schema-validated, versioned configuration |
 | IDs | UUIDv7 (`google/uuid`) | BSD-3 | All | Time-ordered unique IDs |
-| GUI | **React** + **TypeScript** + **Vite**; Mantine UI components; TanStack Query | MIT; Apache-2.0; MIT; MIT; MIT | E-24 | Mainstream, local-bundled SPA |
+| GUI | **React** + **TypeScript** + **Vite**, hand-built components (no component kit), TanStack Query | MIT; Apache-2.0; MIT; MIT | E-24 | Mainstream, local-bundled SPA with full control of density, typography and accessibility |
 | Graph visualization | Cytoscape.js | MIT | E-24 (G-05, G-14) | Bounded graph rendering |
 | Charts | Apache ECharts | Apache-2.0 | E-24 (G-05, G-07, G-08) | Distributions, timelines, heatmaps |
 | API contract | OpenAPI 3.1; `oapi-codegen` (Go), `openapi-typescript` (TS) | Apache-2.0 / MIT | E-24 | Generated, consistent client and server |
-| Testing | Go `testing`; Playwright (GUI end-to-end); `vegeta` (load) | BSD-3; Apache-2.0; MIT | All | Requirement-tagged automated verification (FR-12.10) |
-| Supply chain | Syft (SBOM), Grype and `govulncheck` (vulnerabilities), cosign (release signing) | Apache-2.0; Apache-2.0; BSD-3; Apache-2.0 | Release | FR-12.8 provenance |
+| Testing | Go `testing`; Playwright (GUI end-to-end and accessibility with `axe-core`); `vegeta` (load) | BSD-3; Apache-2.0; MPL-2.0; MIT | All | Requirement-tagged automated verification (FR-12.10) |
+| Supply chain | Syft (SBOM), Grype and `govulncheck` (vulnerabilities), minisign (release signing) | Apache-2.0; Apache-2.0; BSD-3; ISC | Release | FR-12.8 provenance |
+| Distribution | GitHub Releases, `install.sh`, a Homebrew tap | — | Release | Owner decision (FR-13) |
 
 ### 3.2 Explicitly excluded
 
@@ -145,13 +209,16 @@ All selections carry OSI-approved licenses. Exact versions, digests and transiti
 | Memgraph, FalkorDB | Licenses are source-available rather than OSI-approved (verify at evaluation; ARCH OD-4) |
 | HashiCorp Vault | Business Source License (not OSI-approved); OpenBao (MPL-2.0) remains a future option |
 | Docker Desktop | Proprietary distribution terms; privileged daemon socket model |
+| Mantine and other component kits | Owner decision: console components are hand-built |
 | External telemetry, SaaS logging or hosted identity | Violates local, offline baseline (FR-12.2) |
 
 ### 3.3 Stack risks to retire in the first prototype phase
 
 1. **MCP SDK revision support.** *Retired 2026-10-16.* The 2026-07-28 revision removed `initialize`, sessions and the GET stream. The spike in `spikes/go-sdk-dual-era/` shows that `modelcontextprotocol/go-sdk` v1.8.0 serves both eras on one `StreamableHTTPHandler` when `Stateless` is set: 2026-07-28 `server/discover`, `tools/list`, `tools/call` and `subscriptions/listen` (with `notifications/tools/list_changed` delivered on the listen stream) and 2025-11-25 `initialize`, `notifications/initialized`, `tools/list` and `tools/call`, with an `initialize` naming an older version answered with `2025-11-25` as FR-1.17 requires. In the default stateful mode the handler rejects every 2026-07-28 request, so the Gateway uses stateless mode. Legacy clients receive no `Mcp-Session-Id`, which revision 2025-11-25 permits; FR-1.46 is worded accordingly. The SDK's default `cacheScope`, `ttlMs` and `logging` capability must be overridden to meet FR-1.12, FR-1.13 and FR-1.42.
-2. **Neo4j CE write throughput.** Measure the decision-intent and outcome transactions (SR-6.2-1, SR-6.3-1) at the FR-11 reference load. If they miss, keep CE as the system of record and batch non-mandatory graph writes.
+2. **Journal flush latency.** *Replaces the V1.1 Neo4j write-throughput risk*, which no longer applies because the graph is off the enforcement path (A-9). SR-6.2-1 and SR-6.3-1 put two flushes to stable storage on every call. Measure them on the reference hosts at the FR-11 load. If the CP-32 overhead target is missed, use group commit: concurrent intents share one flush, and no capability is issued before the flush that covers its intent returns.
 3. **Rootless Podman start latency.** Measure per-session instance cold start. If it is excessive, prefer the `shared` scope for stateless, read-only servers (ARCH OD-3).
+4. **No containment on macOS.** The Standalone profile has no sandbox. This is accepted by the owner and stated in the Security Limitations document (FR-18.2); it is not a risk to retire but a limit to keep visible.
+5. **Cloud agent vendor features.** Whether Grok Bot, ChatGPT "dots" and Meta Muse offer an admin MCP allowlist, Dynamic Client Registration or a command-launched relay is recorded per version in Appendix K and confirmed by the client matrix runs (FR-15.8). Any feature a vendor lacks is listed as a limitation rather than assumed.
 
 ## 4. Functional requirements (FR)
 
@@ -347,12 +414,12 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 |---|---|
 | ID | FR-1.14 |
 | Parent ID | FR-1 — Northbound MCP server |
-| Statement | The Protocol Mediator (E-02) **SHALL** set `resultType` to `"complete"` in every result the Gateway originates. |
+| Statement | The Protocol Mediator (E-02) **SHALL** set `resultType` to `"complete"` in every result the Gateway originates for a 2026-07-28 request. |
 | Allocation | Elements: E-02 Protocol Mediator; Functions: F-22; External interfaces: X-01 |
 | Verification Method | Test |
 | Verification Statement | Collect results from all baseline methods; confirm each carries `resultType: "complete"`. |
 | Source | MCP:basic/index §ResultType |
-| Rationale | `resultType` is mandatory on 2026-07-28 results. |
+| Rationale | `resultType` is mandatory on 2026-07-28 results. The 2025-11-25 schema does not define it, so legacy-era results (FR-1.46) do not carry it. |
 
 #### FR-1.15 — Result serverInfo
 
@@ -360,12 +427,12 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 |---|---|
 | ID | FR-1.15 |
 | Parent ID | FR-1 — Northbound MCP server |
-| Statement | The Protocol Mediator (E-02) **SHALL** include `_meta.io.modelcontextprotocol/serverInfo` identifying the Gateway in every result the Gateway returns. |
+| Statement | The Protocol Mediator (E-02) **SHALL** include `_meta.io.modelcontextprotocol/serverInfo` identifying the Gateway in every result the Gateway returns for a 2026-07-28 request. |
 | Allocation | Elements: E-02 Protocol Mediator; Functions: F-22; External interfaces: X-01 |
 | Verification Method | Inspection |
 | Verification Statement | Inspect results from each baseline method; confirm the field is present and names the Gateway. |
 | Source | MCP:basic/index §Per-response protocol fields |
-| Rationale | Lets harness adapters identify the Gateway without connection state. |
+| Rationale | Lets harness adapters identify the Gateway without connection state. In the 2025-11-25 era the Gateway is identified once, by `serverInfo` in the `initialize` result (FR-1.46), and the per-response field does not exist. |
 
 #### FR-1.16 — Legacy session headers ignored
 
@@ -519,9 +586,9 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 | Statement | The Access Enforcement Point (E-08) **SHALL** build each presented tool definition (`title`, `description`, `inputSchema`, `outputSchema`, `annotations`) from the verified manifest of the enabled server revision. |
 | Allocation | Elements: E-08 Access Enforcement Point, E-14 Local Server Registry; Functions: F-19; External interfaces: X-01; Internal interfaces: I-07 |
 | Verification Method | Test |
-| Verification Statement | Change a backend's live tool description without changing the manifest; confirm the presented description still matches the manifest. |
+| Verification Statement | Compare a packaged server's presented tool definitions with its verified manifest; then change the backend's live tool description without changing the manifest; confirm the changed description is never presented (the drift check of SR-3.8-1 suspends the revision and withdraws its tools). |
 | Source | ARCH §6.3; SEC 3.7 |
-| Rationale | Presented definitions must be the curated, signed definitions. |
+| Rationale | Presented definitions must be the curated, signed definitions. A changed live description is drift, so the revision is suspended (SR-3.8-1) rather than presented with the manifest's description; either way the live text never reaches the harness. |
 
 #### FR-1.28 — x-mcp-header removal
 
@@ -822,6 +889,32 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 | Source | Client-Compatibility-Brief §4.5; ARCH §4 E-08; MCP:server/tools §Tool |
 | Rationale | Claude Code prompts the person before each call of a tool carrying this hint, so the person sees the approval in the harness as well as in the Approvals view. The hint is presentation only and never substitutes for the decision. |
 
+#### FR-1.51 — Plain-language error message
+
+| Field | Value |
+|---|---|
+| ID | FR-1.51 |
+| Parent ID | FR-1 — Northbound MCP server |
+| Statement | The Protocol Mediator (E-02) **SHALL** include in every Gateway-specific error a `data.message` string taken from the Appendix B reason-code table that states in one or two plain sentences what happened and what the person can do next, and, for `-31002`, the console URL of the pending approval in `data.approvalUrl`. |
+| Allocation | Elements: E-02 Protocol Mediator; Functions: F-22; External interfaces: X-01 |
+| Verification Method | Test |
+| Verification Statement | Trigger every Appendix B code and every listed reason code that a request can produce (Table B.3 lists the codes no request reaches); confirm each error carries the table's message text, and that `-31002` carries an `approvalUrl` that opens the approval in G-13. For the Table B.3 codes, confirm the error builder produces the table's message text. |
+| Source | REVIEW (C5); OWNER (approvals: plain-language retry text and a console deep link) |
+| Rationale | The harness shows error text to a person who may not know the Gateway exists. A code alone does not tell them to approve and retry. |
+
+#### FR-1.52 — Tool metadata presentation scan
+
+| Field | Value |
+|---|---|
+| ID | FR-1.52 |
+| Parent ID | FR-1 — Northbound MCP server |
+| Statement | Before presenting a tool in a session catalog, the Access Enforcement Point (E-08) **SHALL** re-apply the active metadata rule set (SR-5.9-2) to the tool's name, title, description and every schema property description, and **SHALL** omit from the catalog any tool with a blocking finding. |
+| Allocation | Elements: E-08 Access Enforcement Point; Functions: F-19, F-34; External interfaces: X-01 |
+| Verification Method | Test |
+| Verification Statement | Import a fixture server, then activate a rule set version that blocks one of its descriptions; list tools; confirm that tool is absent, the others are present, and a `metadata_blocked` event names the rule. |
+| Source | REVIEW (I2); SEC 5.9; ARCH §4 E-14 |
+| Rationale | Rule sets change after import. Scanning again at presentation applies the current rules to every tool an agent can see. |
+
 ### FR-2 Identity and sessions
 
 #### FR-2 — Identity and sessions
@@ -895,12 +988,12 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 |---|---|
 | ID | FR-2.5 |
 | Parent ID | FR-2 — Identity and sessions |
-| Statement | The Identity & Authentication Service (E-03) **SHALL** read the session token from the `Authorization: Bearer` request header on the TLS listener, never from a query parameter, and from `_meta["local.smcpgw/session"]` on the UDS listener. |
+| Statement | The Identity & Authentication Service (E-03) **SHALL** read the session token from the `Authorization: Bearer` request header on the TLS listener, never from a query parameter, and on the UDS listener **SHALL** bind the session to the connection that authenticated under FR-2.15, reading no token from the messages it carries. |
 | Allocation | Elements: E-03 Identity & Authentication Service; Functions: F-05; External interfaces: X-01; Internal interfaces: I-02 |
 | Verification Method | Test |
-| Verification Statement | Send MCP requests with the token in each documented location and as a query parameter; confirm acceptance of the header and `_meta` forms, and rejection with -31006 when the token is absent or sent only as a query parameter. |
+| Verification Statement | Send MCP requests with the token in the header, as a query parameter and without a token; confirm acceptance of the header form and rejection with -31006 otherwise; on the UDS listener confirm that messages on an authenticated connection are served without a token. |
 | Source | Appendix A CP-23; RFC 6750; Client-Compatibility-Brief §3 |
-| Rationale | Every shipping client sends bearer tokens in the Authorization header. None can send a custom session header without a helper. |
+| Rationale | Every shipping client sends bearer tokens in the Authorization header. None can send a custom session header without a helper. On the UDS socket the kernel peer credentials and the key authenticate the connection once (FR-2.15); a per-message token would add no assurance and would stop relays such as smcp-stdio from forwarding messages unchanged (FR-12.13). |
 
 #### FR-2.6 — Template selection
 
@@ -921,12 +1014,12 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 |---|---|
 | ID | FR-2.7 |
 | Parent ID | FR-2 — Identity and sessions |
-| Statement | The Session Manager (E-04) **SHALL** apply the project-root, purpose and end-user claims as narrowing parameters of the selected template. |
+| Statement | The Session Manager (E-04) **SHALL** apply the project-root claim as a narrowing parameter of the selected template, so that path arguments are confined to the project root within the granted roots, and **SHALL** record the purpose and end-user claims with the session and its creation evidence. |
 | Allocation | Elements: E-04 Session Manager; Functions: F-07; Internal interfaces: I-05 |
 | Verification Method | Test |
 | Verification Statement | Create a session with project root `/p/a` under a template allowing `/p`; confirm paths outside `/p/a` are denied. |
 | Source | ARCH §7.1 layer 4 |
-| Rationale | Session context tailors the Allow policy. |
+| Rationale | Session context tailors the Allow policy. The project root narrows what the template grants (the path roots of `path-canonicalize`); a project root outside every granted root leaves no path granted. Release 1.0 policy rules have no purpose or end-user predicates, so those claims do not narrow a template; they are recorded with the session, in its creation event and in the observation context key (FR-2.13), where policy authors and analytics can use them. |
 
 #### FR-2.8 — Session state model
 
@@ -973,12 +1066,12 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 |---|---|
 | ID | FR-2.11 |
 | Parent ID | FR-2 — Identity and sessions |
-| Statement | When a session terminates, expires or is revoked, the Session Manager (E-04) **SHALL** close its listen streams, cancel its in-flight calls, release its session-scoped server instances and request withdrawal of its secret grants. |
+| Statement | When a session terminates, expires or is revoked, the Session Manager (E-04) **SHALL** close its listen streams and cancel its in-flight calls. |
 | Allocation | Elements: E-04 Session Manager; Functions: F-09; Internal interfaces: I-20 |
 | Verification Method | Test |
-| Verification Statement | Terminate a session with an open stream, an in-flight call, a session-scoped instance and a grant; confirm each is released. |
+| Verification Statement | Terminate, expire and revoke sessions that each have an open listen stream and an in-flight call; confirm each stream is closed and each call is cancelled. |
 | Source | ARCH §4 E-04; ARCH §18.7 |
-| Rationale | Prevents orphaned authority after session end. |
+| Rationale | Prevents orphaned authority after session end. In release 1.0 server instances are shared per server revision, not owned by a session, and secret deliveries are bound to server instances and withdrawn at instance teardown (FR-6.8), so a session holds no instance or secret grant of its own to release. |
 
 #### FR-2.12 — Revision change handling
 
@@ -1006,19 +1099,6 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 | Source | ARCH §9.3 |
 | Rationale | Scoring needs a stable context key per session. |
 
-#### FR-2.14 — Credential issuance
-
-| Field | Value |
-|---|---|
-| ID | FR-2.14 |
-| Parent ID | FR-2 — Identity and sessions |
-| Statement | When the mTLS Harness Profile is enabled, the Key & Trust Anchor Manager (E-22) **SHALL** issue framework-instance client certificates by signing a submitted certificate signing request with the Gateway's local client CA. |
-| Allocation | Elements: E-22 Key & Trust Anchor Manager; Functions: F-59; Internal interfaces: I-06 |
-| Verification Method | Test |
-| Verification Statement | Enable the profile; submit a CSR through G-11; confirm the issued certificate chains to the client CA and names the principal ID. |
-| Source | ARCH §4 E-22; ARCH §19 OD-2; Client-Compatibility-Brief §4.2 |
-| Rationale | Only Hermes can present a per-server client certificate. mTLS is a hardening option, not the baseline credential. |
-
 #### FR-2.15 — UDS peer mapping
 
 | Field | Value |
@@ -1031,19 +1111,6 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 | Verification Statement | Connect with a registered UID and wrong key, and with an unregistered UID and right key; confirm both are rejected. |
 | Source | ARCH §19 OD-2 |
 | Rationale | Same-host harnesses use kernel peer credentials plus a key. |
-
-#### FR-2.16 — Restart invalidation
-
-| Field | Value |
-|---|---|
-| ID | FR-2.16 |
-| Parent ID | FR-2 — Identity and sessions |
-| Statement | When the Gateway restarts, the Session Manager (E-04) **SHALL** mark every session existing before the restart as `terminated`. |
-| Allocation | Elements: E-04 Session Manager; Functions: F-09; Data stores: D-07 |
-| Verification Method | Test |
-| Verification Statement | Restart the Gateway with active sessions; confirm the old tokens receive -31006. |
-| Source | ARCH §13 D-07 |
-| Rationale | Session recovery has not been qualified. |
 
 #### FR-2.17 — Authorization metadata
 
@@ -1064,10 +1131,10 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 |---|---|
 | ID | FR-2.18 |
 | Parent ID | FR-2 — Identity and sessions |
-| Statement | The Identity & Authentication Service (E-03) **SHALL** accept a framework instance as an OAuth client either by a Client ID Metadata Document URL or by a client ID and secret issued through G-11, and **SHALL** bind each client ID to exactly one principal record. |
+| Statement | The Identity & Authentication Service (E-03) **SHALL** accept a framework instance as an OAuth client by one of: a Client ID Metadata Document URL that is pre-registered in the configuration or matches the CP-52 allowlist; a client ID and secret issued through G-11 or `smcpctl clients add`; or, under the Remote Access Profile only, an operator-approved Dynamic Client Registration (FR-16.5); and **SHALL** bind each client ID to exactly one principal record. |
 | Allocation | Elements: E-03 Identity & Authentication Service, E-22 Key & Trust Anchor Manager; Functions: F-04, F-59; External interfaces: X-01; Internal interfaces: I-06; Data stores: D-01 |
 | Verification Method | Test |
-| Verification Statement | Register one instance by metadata URL and one by issued secret; confirm each maps to its principal and that a second principal cannot claim the same client ID. |
+| Verification Statement | Register one instance by an allowlisted metadata URL, one by issued secret and, with the Remote Access Profile enabled, one by approved registration; confirm each maps to its principal, that a second principal cannot claim the same client ID, and that a metadata URL outside the allowlist is refused without any outbound fetch. |
 | Source | MCP:basic/authorization/client-registration; ARCH §19 OD-2; Client-Compatibility-Brief §4.2 |
 | Rationale | The client registration is the framework credential that every shipping client can present. |
 
@@ -1077,10 +1144,10 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 |---|---|
 | ID | FR-2.19 |
 | Parent ID | FR-2 — Identity and sessions |
-| Statement | The Session Manager (E-04) **SHALL** implement the authorization-code grant at the authorization endpoint with PKCE `S256` required, a `resource` parameter equal to the CP-41 resource URI required, the `iss` parameter in every authorization response, and an administrative sign-in (F-63) that records the approving person on the resulting session. |
+| Statement | The Session Manager (E-04) **SHALL** implement the authorization-code grant at the authorization endpoint with PKCE `S256` required, a `resource` parameter equal to the CP-41 resource URI required, the `iss` parameter in every authorization response, and a sign-in by a person holding a Session Approver account (F-63), refusing the Administrator account, that records the approving person on the resulting session. |
 | Allocation | Elements: E-04 Session Manager, E-24 Management Console & Control API; Functions: F-06, F-63; External interfaces: X-01, X-04 |
 | Verification Method | Test |
-| Verification Statement | Run the flow without PKCE, with a wrong `resource`, and correctly; confirm the first two are refused, `iss` is present, and the approver is recorded on the session. |
+| Verification Statement | Run the flow without PKCE, with a wrong `resource`, and correctly as a Session Approver; confirm the first two are refused, `iss` is present, the approver is recorded on the session, and the Administrator, Auditor or Researcher account cannot complete the sign-in. |
 | Source | MCP:basic/authorization; RFC 9207; RFC 8707; SEC 2.11; CP-41 |
 | Rationale | Claude Code's v2 runtime validates `iss`. PKCE and resource binding are what the MCP authorization specification requires. |
 
@@ -1116,12 +1183,25 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 |---|---|
 | ID | FR-2.22 |
 | Parent ID | FR-2 — Identity and sessions |
-| Statement | When a valid refresh token is presented, the Session Manager (E-04) **SHALL** issue a new access token for the same session, extend the idle deadline, and leave the CP-18 maximum lifetime unchanged. |
+| Statement | When a valid refresh token is presented, the Session Manager (E-04) **SHALL** issue a new access token and a new refresh token for the same session, invalidate the presented refresh token, extend the idle deadline, and leave the CP-18 maximum lifetime unchanged. |
 | Allocation | Elements: E-04 Session Manager; Functions: F-08; External interfaces: X-01 |
 | Verification Method | Test |
-| Verification Statement | Refresh repeatedly past the idle timeout; confirm the session stays active and still expires at the maximum lifetime. |
-| Source | CP-18; CP-41 |
-| Rationale | Refresh keeps long interactive sessions alive within the owner's bounds. |
+| Verification Statement | Refresh repeatedly past the idle timeout; confirm the session stays active, each refresh returns a new refresh token, the previous one no longer works, and the session still expires at the maximum lifetime. |
+| Source | CP-18; CP-41; OWNER (rotate refresh tokens) |
+| Rationale | Refresh keeps long interactive sessions alive within the owner's bounds. Rotation limits a stolen refresh token to one use before the theft is detected (SR-2.11-4). |
+
+#### FR-2.23 — Session Approver sign-in account
+
+| Field | Value |
+|---|---|
+| ID | FR-2.23 |
+| Parent ID | FR-2 — Identity and sessions |
+| Statement | The Management Console & Control API (E-24) **SHALL** let an Administrator create Session Approver accounts whose password is distinct from the Administrator password, and the sign-in page of FR-2.19 **SHALL** identify the client, principal, requested template and scopes before the person approves. |
+| Allocation | Elements: E-24 Management Console & Control API, E-03 Identity & Authentication Service; Functions: F-63, F-64; External interfaces: X-01, X-04 |
+| Verification Method | Test |
+| Verification Statement | Create a Session Approver; sign in a harness with it; confirm the page lists client, principal, template and scopes, the session records the Session Approver, and the Session Approver cannot reach any other control API operation. |
+| Source | OWNER (harness sign-in uses a lower-privilege Session Approver role); REVIEW (I4) |
+| Rationale | Signing in a harness is a daily action. Doing it with the Administrator password exposes the most powerful credential on every sign-in. |
 
 ### FR-3 Policy administration, decision and approval
 
@@ -1144,12 +1224,12 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 |---|---|
 | ID | FR-3.1 |
 | Parent ID | FR-3 — Policy capability |
-| Statement | The Policy Administration Service (E-05) **SHALL** support the policy object types Framework Profile, Session Allow Policy Template, Secret Use Policy, Response Policy, Audit Profile, Observation Policy, Anomaly Response Policy, Research Campaign and Runtime Profile. |
-| Allocation | Elements: E-05 Policy Administration Service; Functions: F-10; Internal interfaces: I-06, I-07; Data stores: D-01 |
+| Statement | The Gateway **SHALL** support the policy object types Framework Profile and Session Allow Policy Template in the signed policy document of the Policy Administration Service (E-05), Secret Use Policy in the Secret Broker (E-20), Audit Profile, Observation Policy and Anomaly Response Policy as published observation objects of the Management Console & Control API (E-24), and Research Campaign in the Research Dataset Service (E-32), each validated before it takes effect and kept under a revision or object identifier. |
+| Allocation | Elements: E-05 Policy Administration Service, E-20 Secret Broker, E-24 Management Console & Control API, E-32 Research Dataset Service; Functions: F-10; Internal interfaces: I-06, I-07; Data stores: D-01 |
 | Verification Method | Test |
-| Verification Statement | Create, validate and publish one object of each type; confirm each is stored and evaluable. |
-| Source | ARCH §7.2 |
-| Rationale | These objects compose the Allow-policy model. |
+| Verification Statement | Create, validate and publish or activate one object of each type; confirm each is stored under its identifier and evaluated by its element. |
+| Source | ARCH §7.2; OWNER (release 1.0 object homes) |
+| Rationale | These objects compose the Allow-policy model. Release 1.0 keeps each object with the element that evaluates it rather than in one document: the policy document holds what the decision path evaluates, and secret-use, observation and research objects are validated and versioned by their own services with their own control API routes and roles (Appendix C). Response Policy and Runtime Profile objects are deferred (FR-3.26). |
 
 #### FR-3.2 — Policy schema
 
@@ -1164,29 +1244,16 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 | Source | ARCH §4 E-05; SEC 7.3 |
 | Rationale | Typed records make evaluation deterministic. |
 
-#### FR-3.3 — Draft workspace
-
-| Field | Value |
-|---|---|
-| ID | FR-3.3 |
-| Parent ID | FR-3 — Policy capability |
-| Statement | The Policy Administration Service (E-05) **SHALL** hold edits in a named draft derived from a stated parent revision until the draft is published or discarded. |
-| Allocation | Elements: E-05 Policy Administration Service; Functions: F-10; Internal interfaces: I-06 |
-| Verification Method | Demonstration |
-| Verification Statement | Create a draft, edit it in two sessions of G-02, discard one and publish the other; confirm the active revision changes only on publish. |
-| Source | ARCH §4 E-05 |
-| Rationale | Authors iterate on policy without affecting enforcement. |
-
 #### FR-3.4 — Revision record
 
 | Field | Value |
 |---|---|
 | ID | FR-3.4 |
 | Parent ID | FR-3 — Policy capability |
-| Statement | The Policy Administration Service (E-05) **SHALL** record for each published revision its ID, parent revision ID, content digest, policy-schema version, evaluator version, publishing actor, publication time and simulation result reference. |
+| Statement | The Policy Administration Service (E-05) **SHALL** record for each published revision its ID, parent revision ID, content digest, policy-schema version, evaluator version, publishing actor, publication time, simulation result reference and policy-signing key ID. |
 | Allocation | Elements: E-05 Policy Administration Service; Functions: F-12; Data stores: D-01 |
 | Verification Method | Inspection |
-| Verification Statement | Publish a revision; inspect the stored record for each field. |
+| Verification Statement | Publish a revision; inspect the record in the Policy Store for each field. |
 | Source | A2 §4.1 PolicyRevision; SEC 1.14 |
 | Rationale | Supports reproducible research and audit linkage. |
 
@@ -1215,19 +1282,6 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 | Verification Statement | Generate the report for a fixture principal; compare against hand-computed expected permissions. |
 | Source | A2 §7.2 (Effective tools by principal) |
 | Rationale | Makes the tailored Allow policy reviewable. |
-
-#### FR-3.7 — Observation cost estimate
-
-| Field | Value |
-|---|---|
-| ID | FR-3.7 |
-| Parent ID | FR-3 — Policy capability |
-| Statement | The Policy Administration Service (E-05) **SHALL** estimate records per day, storage per day and added p95 latency for a draft Observation Policy or Research Campaign from the trailing 7 days of call rates. |
-| Allocation | Elements: E-05 Policy Administration Service; Functions: F-66; Internal interfaces: I-06 |
-| Verification Method | Test |
-| Verification Statement | Estimate a policy over a replayed 7-day fixture traffic set; confirm estimates are within ±25% of the measured values after one replayed day. |
-| Source | ARCH §11 item 6; ARCH §5 F-66 |
-| Rationale | Researchers must know the cost of a capture choice before publishing it. |
 
 #### FR-3.8 — Policy export and import
 
@@ -1264,7 +1318,7 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 | Statement | The Policy Decision Service (E-06) **SHALL** compile the active revision into an in-memory decision snapshot when the revision is activated, and **SHALL** evaluate requests against that snapshot. |
 | Allocation | Elements: E-06 Policy Decision Service; Functions: F-13; Internal interfaces: I-07 |
 | Verification Method | Test |
-| Verification Statement | Activate a revision; confirm decisions continue during a 10-second Data Server read pause, with no store access per decision. |
+| Verification Statement | Activate a revision; stop the graph database and the Observation Store; confirm decisions continue unchanged for 60 seconds with no Data Server access per decision. |
 | Source | ARCH §15 E-05/E-06; ARCH §14 |
 | Rationale | Decision latency must not depend on a database round-trip. |
 
@@ -1313,12 +1367,12 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 |---|---|
 | ID | FR-3.14 |
 | Parent ID | FR-3 — Policy capability |
-| Statement | When a decision carries an approval obligation and no matching unconsumed approval exists, the Approval Service (E-07) **SHALL** create a pending approval record and the Protocol Mediator (E-02) **SHALL** return Gateway error `-31002` with `data.approvalId` and `data.expiresAt`. |
+| Statement | When a decision carries an approval obligation and no matching unconsumed approval exists, the Approval Service (E-07) **SHALL** create a pending approval record bound per SR-1.18-2, notify approvers (FR-3.23) and hold the call (FR-3.19). |
 | Allocation | Elements: E-07 Approval Service, E-02 Protocol Mediator; Functions: F-17; External interfaces: X-01; Internal interfaces: I-10 |
 | Verification Method | Test |
-| Verification Statement | Call a tool that requires approval; confirm -31002 with both data members and a pending record visible in G-13. |
-| Source | ARCH §4 E-07; SEC 1.18 |
-| Rationale | Approval is out-of-band; the harness learns the approval ID and retries. |
+| Verification Statement | Call a tool that requires approval; confirm a pending record visible in G-13 and in `smcpctl approvals list`, a desktop notification through the test notifier, and that the call is held rather than answered. |
+| Source | ARCH §4 E-07; SEC 1.18; OWNER (approvals: hold mode) |
+| Rationale | Approval is out-of-band. Holding the call lets an approved call finish in the same turn of the agent; the retry path remains for calls that outlast the hold. |
 
 #### FR-3.15 — Approval consumption on retry
 
@@ -1371,6 +1425,97 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 | Verification Statement | Open a pending approval triggered by an anomaly obligation in G-13; confirm each item is displayed. |
 | Source | ARCH §4 E-07; ARCH §9.6 |
 | Rationale | Approvers need the evidence to decide. |
+
+#### FR-3.19 — Approval hold mode
+
+| Field | Value |
+|---|---|
+| ID | FR-3.19 |
+| Parent ID | FR-3 — Policy capability |
+| Statement | While an approval-obligated call is pending, the Approval Service (E-07) **SHALL** keep the call parked for at most the CP-45 hold bound, and the Protocol Mediator (E-02) **SHALL** send a keep-alive every CP-45 keep-alive interval: a `notifications/progress` message when the request carries a progress token, and an SSE comment line otherwise. |
+| Allocation | Elements: E-07 Approval Service, E-02 Protocol Mediator; Functions: F-17; External interfaces: X-01 |
+| Verification Method | Test |
+| Verification Statement | Call an approval-obligated tool with and without a progress token and leave it pending; confirm keep-alives at the interval in both forms and no response before the hold bound. |
+| Source | OWNER (approvals: hold mode with progress keep-alives); MCP:basic/utilities/progress |
+| Rationale | Harnesses close idle requests. Keep-alives hold the call open while a person decides. |
+
+#### FR-3.20 — Approval during hold
+
+| Field | Value |
+|---|---|
+| ID | FR-3.20 |
+| Parent ID | FR-3 — Policy capability |
+| Statement | When a held call's approval is granted before the CP-45 hold bound, the Approval Service (E-07) **SHALL** consume the approval and continue the same call to launch authorization (F-29), so that the harness receives the tool result as the response to its original request. |
+| Allocation | Elements: E-07 Approval Service, E-12 Enforcement Coordinator; Functions: F-18, F-17; Internal interfaces: I-10, I-11 |
+| Verification Method | Test |
+| Verification Statement | Hold a call; approve it from G-13; confirm the original request returns the tool result, the approval is `consumed`, and a second identical call creates a new approval. |
+| Source | OWNER (approvals: hold mode) |
+| Rationale | The agent's turn completes without a retry when the person answers in time. |
+
+#### FR-3.21 — Denial during hold
+
+| Field | Value |
+|---|---|
+| ID | FR-3.21 |
+| Parent ID | FR-3 — Policy capability |
+| Statement | When a held call's approval is denied, the Approval Service (E-07) **SHALL** end the call with Gateway error `-31001` and reason code `APPROVAL_DENIED`. |
+| Allocation | Elements: E-07 Approval Service, E-02 Protocol Mediator; Functions: F-18; External interfaces: X-01 |
+| Verification Method | Test |
+| Verification Statement | Hold a call; deny it; confirm `-31001` with `APPROVAL_DENIED` and no dispatch event. |
+| Source | OWNER (approvals: approve or deny) |
+| Rationale | A denial is a policy outcome and is reported as one. |
+
+#### FR-3.22 — Hold bound fallback
+
+| Field | Value |
+|---|---|
+| ID | FR-3.22 |
+| Parent ID | FR-3 — Policy capability |
+| Statement | When a held call reaches the CP-45 hold bound without a decision, the Protocol Mediator (E-02) **SHALL** end the call with Gateway error `-31002` carrying `data.approvalId`, `data.expiresAt`, the plain-language `data.message` and `data.approvalUrl` (FR-1.51), and the Approval Service (E-07) **SHALL** keep the approval pending until its CP-17 expiry so that a retry after approval consumes it (FR-3.15). |
+| Allocation | Elements: E-07 Approval Service, E-02 Protocol Mediator; Functions: F-17; External interfaces: X-01 |
+| Verification Method | Test |
+| Verification Statement | Hold a call past the bound; confirm the `-31002` data members; approve; retry the identical call; confirm dispatch. |
+| Source | OWNER (approvals: fallback to -31002 with plain-language retry text and a console deep link) |
+| Rationale | The hold is bounded so a harness never waits indefinitely; the approval survives the fallback. |
+
+#### FR-3.23 — Approver notification
+
+| Field | Value |
+|---|---|
+| ID | FR-3.23 |
+| Parent ID | FR-3 — Policy capability |
+| Statement | Within 2 seconds of creating a pending approval, the Approval Service (E-07) **SHALL** notify approvers in the Approvals view (G-13), in the `smcpctl approvals watch` stream and through an OS desktop notification (X-14) whose text contains only the public tool name, the server alias, the approval ID and the console URL. |
+| Allocation | Elements: E-07 Approval Service, E-24 Management Console & Control API; Functions: F-17; External interfaces: X-05, X-14 |
+| Verification Method | Test |
+| Verification Statement | Create an approval with the test notifier attached; confirm the three notices within 2 seconds and that the desktop notification text contains no argument value; remove the notifier binary and confirm the approval flow is unaffected and a diagnostic log warning is written. |
+| Source | OWNER (approvals: console, CLI and OS desktop notification) |
+| Rationale | A held call is only useful if a person learns about it while the hold lasts. Arguments stay out of OS notifications because notification centers persist and display them outside the Gateway's control. |
+
+#### FR-3.24 — Approval CLI
+
+| Field | Value |
+|---|---|
+| ID | FR-3.24 |
+| Parent ID | FR-3 — Policy capability |
+| Statement | The `smcpctl approvals` command **SHALL** provide `list`, `show`, `approve`, `deny` and `watch` subcommands that authenticate to the control API as a person holding the Approver or Administrator role and display the FR-3.18 evidence before an approve or deny takes effect. |
+| Allocation | Elements: E-24 Management Console & Control API, E-07 Approval Service; Functions: F-18; External interfaces: X-05 |
+| Verification Method | Test |
+| Verification Statement | Approve and deny held calls with the CLI as an Approver; confirm the evidence is printed, the decisions are recorded with the approver identity, and an Auditor account is refused. |
+| Source | OWNER (approve and deny via smcpctl approvals) |
+| Rationale | Operators who work in a terminal need an approval path that does not require the browser. |
+
+#### FR-3.25 — Real-harness approval acceptance
+
+| Field | Value |
+|---|---|
+| ID | FR-3.25 |
+| Parent ID | FR-3 — Policy capability |
+| Statement | The Gateway project **SHALL** verify the approval flow end to end with Claude Code at its Appendix K pinned version, covering a held call approved from G-13, a held call approved with `smcpctl approvals`, a denied call and a call that reaches the hold bound, and **SHALL** record the harness-visible text of each outcome. |
+| Allocation | Elements: E-07 Approval Service, E-02 Protocol Mediator, E-24 Management Console & Control API; Functions: F-17, F-18; External interfaces: X-01, X-05 |
+| Verification Method | Demonstration |
+| Verification Statement | Run the four cases with the pinned Claude Code build against a Gateway at the release commit; confirm each outcome and file the recorded transcript in `docs/verification/`. |
+| Source | REVIEW (C5) |
+| Rationale | Hold mode depends on harness timeout and progress behavior that unit tests cannot show. |
 
 ### FR-4 Enforcement pipeline
 
@@ -1582,6 +1727,45 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 | Source | ARCH §9.5 (Scoring mode); ARCH §18.3 |
 | Rationale | Anomaly obligations must act at the control points. |
 
+#### FR-4.16 — Versioned detection rule sets
+
+| Field | Value |
+|---|---|
+| ID | FR-4.16 |
+| Parent ID | FR-4 — Enforcement pipeline |
+| Statement | The Request Inspection Pipeline (E-09) and the Response Inspection Pipeline (E-11) **SHALL** load the rules of the `secret-fingerprint`, `injection-detect`, `injection-marker`, `pii-detect` and `unicode-control` filters and of the metadata scan from versioned rule-set files, each with an ID, version and SHA-256 digest, and **SHALL** record the rule-set ID and version in every finding. |
+| Allocation | Elements: E-09 Request Inspection Pipeline, E-11 Response Inspection Pipeline, E-14 Local Server Registry; Functions: F-21, F-27, F-34 |
+| Verification Method | Test |
+| Verification Statement | Load two versions of a rule set; run the same input under each; confirm the findings name the version in effect and that a rule-set file whose digest does not match its index is refused at load. |
+| Source | REVIEW (I1); SEC 5.14 |
+| Rationale | Detection quality can only be measured and compared per version (FR-19.5). |
+
+#### FR-4.17 — Injection findings as tags
+
+| Field | Value |
+|---|---|
+| ID | FR-4.17 |
+| Parent ID | FR-4 — Enforcement pipeline |
+| Statement | The `injection-detect` and `injection-marker` filters **SHALL** record each finding as a provenance tag on the released result and as observation parameters P-043 and P-143, and **SHALL** leave the release disposition unchanged. |
+| Allocation | Elements: E-09 Request Inspection Pipeline, E-11 Response Inspection Pipeline; Functions: F-21, F-27, F-28 |
+| Verification Method | Test |
+| Verification Statement | Run the injection corpus through both filters; confirm every positive sample yields a tag and parameter value and that each result is released with the same disposition as without the filter. |
+| Source | OWNER (injection-marker tags only in v1); REVIEW (I1) |
+| Rationale | Prompt-injection detection has false positives and false negatives that are not yet measured well enough to block on. Tags give the agent and the researcher the signal without claiming a control. |
+
+#### FR-4.18 — Untrusted-content delimiting
+
+| Field | Value |
+|---|---|
+| ID | FR-4.18 |
+| Parent ID | FR-4 — Enforcement pipeline |
+| Statement | When the Response Policy carries the `delimit-untrusted` obligation, the Response Inspection Pipeline (E-11) **SHALL** enclose each text content item from a tool whose manifest `source_trust` is `untrusted` between delimiter lines that carry a per-response random nonce of at least 96 bits, and **SHALL** remove from the enclosed text any line matching the delimiter pattern. |
+| Allocation | Elements: E-11 Response Inspection Pipeline; Functions: F-27, F-28 |
+| Verification Method | Test |
+| Verification Statement | Enable the obligation; return text containing a forged delimiter line from an untrusted-source fixture; confirm the released text is enclosed with a fresh nonce and the forged line is removed. |
+| Source | REVIEW (I2) |
+| Rationale | An optional, deterministic way to mark where untrusted text begins and ends for agents that honor it. It is not a control on its own. |
+
 ### FR-5 Server trust, runtime and southbound MCP client
 
 #### FR-5 — Server trust and execution
@@ -1603,12 +1787,12 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 |---|---|
 | ID | FR-5.1 |
 | Parent ID | FR-5 — Server trust and execution |
-| Statement | The Library Trust Verifier (E-13) **SHALL** retrieve packages from a configured local directory library or a configured local OCI registry library. |
+| Statement | The Library Trust Verifier (E-13) **SHALL** retrieve packages from a configured local directory library. |
 | Allocation | Elements: E-13 Library Trust Verifier; Functions: F-33; External interfaces: X-03 |
 | Verification Method | Test |
-| Verification Statement | Import one package from each library type; confirm both succeed. |
+| Verification Statement | Import a package from the directory library; confirm it succeeds. |
 | Source | ARCH §6.1 X-03; ARCH §19 OD-7 |
-| Rationale | The library location is a deployment choice. |
+| Rationale | The library location is a deployment choice. Release 1.0 packages are signed directory trees, so a directory (local, or a mounted share) is the one library type; the local OCI registry library of ARCH §19 OD-7 is not part of release 1.0. OCI images remain a supported artifact type inside a package (FR-14.1). |
 
 #### FR-5.2 — Package contents
 
@@ -1616,7 +1800,7 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 |---|---|
 | ID | FR-5.2 |
 | Parent ID | FR-5 — Server trust and execution |
-| Statement | The Library Trust Verifier (E-13) **SHALL** require each package to contain an artifact, a detached signature or signature bundle, a manifest conforming to the X-03 manifest schema, and the signer certificate chain or key identifier. |
+| Statement | The Library Trust Verifier (E-13) **SHALL** require each package to contain an artifact, a package index listing the artifact, manifest and provenance digests, a minisign signature over that index, a manifest conforming to the Appendix J schema, a provenance statement and the signer key identifier. |
 | Allocation | Elements: E-13 Library Trust Verifier; Functions: F-33, F-34; External interfaces: X-03 |
 | Verification Method | Test |
 | Verification Statement | Import packages each missing one component; confirm each is rejected with a reason naming the missing component. |
@@ -1668,7 +1852,7 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 |---|---|
 | ID | FR-5.6 |
 | Parent ID | FR-5 — Server trust and execution |
-| Statement | The Local Server Registry (E-14) **SHALL** assign each server a unique alias of 1 to 32 characters drawn from `a-z 0-9 _ -`, defaulting to the manifest server ID and editable by an administrator. |
+| Statement | The Local Server Registry (E-14) **SHALL** assign each server a unique alias of 1 to 16 characters drawn from `a-z 0-9` (CP-42), defaulting to the manifest `server.alias` and editable by an administrator. |
 | Allocation | Elements: E-14 Local Server Registry; Functions: F-36; Internal interfaces: I-06 |
 | Verification Method | Test |
 | Verification Statement | Register two servers whose default aliases collide; confirm enablement of the second is blocked until a unique alias is set. |
@@ -1684,9 +1868,9 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 | Statement | The Local Server Registry (E-14) **SHALL** keep each server revision in one of the states `verified-disabled`, `enabled`, `suspended`, `revoked` or `retired`. |
 | Allocation | Elements: E-14 Local Server Registry; Functions: F-36; Data stores: D-02 |
 | Verification Method | Test |
-| Verification Statement | Drive a revision through each transition from G-10; confirm the state and that only `enabled` revisions appear in catalogs. |
+| Verification Statement | Drive a revision through each transition (enable, disable and retire through the G-10 control API routes, suspension by drift, revocation by a signed revocation entry applied by a library scan); confirm the state and that only `enabled` revisions appear in catalogs. |
 | Source | ARCH §4 E-14; SEC 8.1 |
-| Rationale | Verified does not mean enabled. |
+| Rationale | Verified does not mean enabled. Suspension and revocation are not operator buttons in release 1.0: the Gateway suspends a revision on drift, tampering or repeated crashes, and a signed revocation entry revokes it, so the test reaches those states the way they occur. |
 
 #### FR-5.8 — Expiry suspension
 
@@ -1713,32 +1897,6 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 | Verification Statement | Inspect a generated launch specification against its manifest and Runtime Profile. |
 | Source | ARCH §4 E-15 |
 | Rationale | Instances are reproducible from declared inputs. |
-
-#### FR-5.10 — Instance scope
-
-| Field | Value |
-|---|---|
-| ID | FR-5.10 |
-| Parent ID | FR-5 — Server trust and execution |
-| Statement | The Server Runtime Manager (E-15) **SHALL** create instances per call, per session or shared, as selected by the Runtime Profile from the scopes the manifest allows, defaulting to per session. |
-| Allocation | Elements: E-15 Server Runtime Manager; Functions: F-38; Internal interfaces: I-12 |
-| Verification Method | Test |
-| Verification Statement | Configure each scope; confirm instance counts after calls from two sessions. |
-| Source | ARCH §4 E-15; ARCH §19 OD-3 |
-| Rationale | Isolation versus cold-start cost is a policy choice. |
-
-#### FR-5.11 — Instance reuse and idle teardown
-
-| Field | Value |
-|---|---|
-| ID | FR-5.11 |
-| Parent ID | FR-5 — Server trust and execution |
-| Statement | The Server Runtime Manager (E-15) **SHALL** reuse a live instance of the matching scope and **SHALL** tear down an instance idle for the CP-38 interval. |
-| Allocation | Elements: E-15 Server Runtime Manager; Functions: F-39, F-40 |
-| Verification Method | Test |
-| Verification Statement | Make two calls in one session and then wait past CP-38; confirm one instance is reused and then torn down. |
-| Source | ARCH §4 E-15 |
-| Rationale | Bounds resource use on a single PC. |
 
 #### FR-5.12 — Crash handling
 
@@ -1791,45 +1949,6 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 | Verification Statement | Make a fixture write 10 MiB to stderr; confirm the bound and that nothing reaches the harness. |
 | Source | MCP:basic/transports/stdio |
 | Rationale | stderr is diagnostic, untrusted and potentially large. |
-
-#### FR-5.16 — Era probe
-
-| Field | Value |
-|---|---|
-| ID | FR-5.16 |
-| Parent ID | FR-5 — Server trust and execution |
-| Statement | When an instance starts, the Tool Dispatcher (E-10) **SHALL** send `server/discover` with protocol version 2026-07-28 and classify the server as modern on a `DiscoverResult` or recognized modern error, and as legacy on any other error or no response within 5 seconds. |
-| Allocation | Elements: E-10 Tool Dispatcher; Functions: F-23; Internal interfaces: I-13 |
-| Verification Method | Test |
-| Verification Statement | Start modern and legacy fixture servers; confirm each classification. |
-| Source | MCP:basic/transports/stdio §Backward Compatibility |
-| Rationale | Curated servers may implement either era. |
-
-#### FR-5.17 — Era consistency with manifest
-
-| Field | Value |
-|---|---|
-| ID | FR-5.17 |
-| Parent ID | FR-5 — Server trust and execution |
-| Statement | When the probed era differs from the protocol era declared in the manifest, the Tool Dispatcher (E-10) **SHALL** refuse to use the instance and the Local Server Registry (E-14) **SHALL** suspend the server revision. |
-| Allocation | Elements: E-10 Tool Dispatcher, E-14 Local Server Registry; Functions: F-23, F-37 |
-| Verification Method | Test |
-| Verification Statement | Launch a legacy fixture whose manifest declares modern; confirm refusal and suspension. |
-| Source | SEC 3.8; ARCH §6.3 |
-| Rationale | The runtime must match the curated declaration. |
-
-#### FR-5.18 — Modern southbound requests
-
-| Field | Value |
-|---|---|
-| ID | FR-5.18 |
-| Parent ID | FR-5 — Server trust and execution |
-| Statement | The Tool Dispatcher (E-10) **SHALL** send each modern southbound request with `_meta.io.modelcontextprotocol/protocolVersion`, an empty `clientCapabilities` object in the baseline profile, Gateway `clientInfo`, and a request ID unique among its in-flight requests to that instance. |
-| Allocation | Elements: E-10 Tool Dispatcher; Functions: F-23; Internal interfaces: I-13 |
-| Verification Method | Test |
-| Verification Statement | Capture southbound requests; confirm the metadata and ID uniqueness. |
-| Source | MCP:basic/index §Per-request protocol fields |
-| Rationale | Modern server requirement. |
 
 #### FR-5.19 — Legacy southbound handshake
 
@@ -1909,31 +2028,18 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 | Source | SEC 5.6; MCP:basic/patterns/mrtr |
 | Rationale | Sampling, elicitation and roots are not qualified. |
 
-#### FR-5.25 — MRTR Relay Profile
-
-| Field | Value |
-|---|---|
-| ID | FR-5.25 |
-| Parent ID | FR-5 — Server trust and execution |
-| Statement | When the MRTR Relay Profile is enabled, the Tool Dispatcher (E-10) **SHALL** relay a backend `InputRequiredResult` northbound with the backend `requestState` wrapped in a Gateway `requestState` that is integrity-protected and bound to session, correlation ID, backend tool revision and the CP-39 expiry. |
-| Allocation | Elements: E-10 Tool Dispatcher, E-02 Protocol Mediator; Functions: F-24, F-22; External interfaces: X-01; Internal interfaces: I-13 |
-| Verification Method | Test |
-| Verification Statement | Enable the profile; complete an elicitation round trip; confirm that tampered, expired and cross-session states are rejected. |
-| Source | MCP:basic/patterns/mrtr §Server Requirements; SEC 5.6 |
-| Rationale | Lets elicitation be qualified later without trusting harness-carried state. |
-
 #### FR-5.26 — Southbound cancellation
 
 | Field | Value |
 |---|---|
 | ID | FR-5.26 |
 | Parent ID | FR-5 — Server trust and execution |
-| Statement | The Tool Dispatcher (E-10) **SHALL** cancel a southbound call by sending `notifications/cancelled` with the request ID on stdio instances and by closing the response stream on Streamable HTTP instances. |
+| Statement | The Tool Dispatcher (E-10) **SHALL** cancel a southbound call to a stdio instance by sending `notifications/cancelled` with the request ID. |
 | Allocation | Elements: E-10 Tool Dispatcher; Functions: F-25; Internal interfaces: I-13 |
 | Verification Method | Test |
-| Verification Statement | Cancel calls on both transports; confirm the transport-specific signal. |
+| Verification Statement | Cancel a call to a stdio fixture; confirm the instance receives `notifications/cancelled` naming the request ID. |
 | Source | MCP:basic/patterns/cancellation |
-| Rationale | Transport-specific cancellation rules. |
+| Rationale | Transport-specific cancellation rules. Release 1.0 runs stdio instances only; cancellation on Streamable HTTP instances returns with the southbound HTTP client (Appendix N, FR-5.28). |
 
 #### FR-5.27 — Instance shutdown
 
@@ -1947,58 +2053,6 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 | Verification Statement | Stop a fixture that ignores EOF and SIGTERM; confirm the escalation timing. |
 | Source | MCP:basic/transports/stdio §Shutdown |
 | Rationale | Graceful but bounded shutdown. |
-
-#### FR-5.28 — Southbound Streamable HTTP client
-
-| Field | Value |
-|---|---|
-| ID | FR-5.28 |
-| Parent ID | FR-5 — Server trust and execution |
-| Statement | For an instance using Streamable HTTP, the Tool Dispatcher (E-10) **SHALL** send each request as a POST carrying `Accept: application/json, text/event-stream`, `MCP-Protocol-Version`, `Mcp-Method` and, where applicable, `Mcp-Name`, and **SHALL** accept both JSON and SSE responses. |
-| Allocation | Elements: E-10 Tool Dispatcher; Functions: F-23, F-24; Internal interfaces: I-13 |
-| Verification Method | Test |
-| Verification Statement | Run the southbound HTTP conformance fixtures; confirm the headers and both response types. |
-| Source | MCP:basic/transports/streamable-http §Sending Messages; §Standard Request Headers |
-| Rationale | Some curated servers use the HTTP binding inside their sandbox. |
-
-#### FR-5.29 — Southbound header encoding
-
-| Field | Value |
-|---|---|
-| ID | FR-5.29 |
-| Parent ID | FR-5 — Server trust and execution |
-| Statement | The Tool Dispatcher (E-10) **SHALL** mirror `x-mcp-header` parameters into `Mcp-Param-{name}` headers and **SHALL** apply the `=?base64?…?=` encoding rules to `Mcp-Name` and `Mcp-Param-*` values. |
-| Allocation | Elements: E-10 Tool Dispatcher; Functions: F-23; Internal interfaces: I-13 |
-| Verification Method | Test |
-| Verification Statement | Call fixture tools with non-ASCII, padded and sentinel-like values; confirm the encodings. |
-| Source | MCP:basic/transports/streamable-http §Value Encoding |
-| Rationale | Clients must support `x-mcp-header`. |
-
-#### FR-5.30 — Southbound SSE comments
-
-| Field | Value |
-|---|---|
-| ID | FR-5.30 |
-| Parent ID | FR-5 — Server trust and execution |
-| Statement | The Tool Dispatcher (E-10) **SHALL** ignore SSE comment lines received from Streamable HTTP instances. |
-| Allocation | Elements: E-10 Tool Dispatcher; Functions: F-24; Internal interfaces: I-13 |
-| Verification Method | Test |
-| Verification Statement | Inject comment lines into a fixture stream; confirm no error. |
-| Source | MCP:basic/transports/streamable-http §Receiving Messages |
-| Rationale | Keep-alive comments are valid. |
-
-#### FR-5.31 — Southbound list-change watch
-
-| Field | Value |
-|---|---|
-| ID | FR-5.31 |
-| Parent ID | FR-5 — Server trust and execution |
-| Statement | For a shared or session-scoped modern instance whose server declares `tools.listChanged`, the Tool Dispatcher (E-10) **SHALL** hold a `subscriptions/listen` stream with `toolsListChanged: true` and **SHALL** trigger a tool-list comparison on each change notification. |
-| Allocation | Elements: E-10 Tool Dispatcher, E-14 Local Server Registry; Functions: F-24, F-37; Internal interfaces: I-13 |
-| Verification Method | Test |
-| Verification Statement | Make a fixture add a tool at runtime; confirm the comparison and the resulting suspension. |
-| Source | MCP:basic/patterns/subscriptions; SEC 3.8 |
-| Rationale | Detects runtime tool drift. |
 
 #### FR-5.32 — Southbound progress token
 
@@ -2019,12 +2073,12 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 |---|---|
 | ID | FR-5.33 |
 | Parent ID | FR-5 — Server trust and execution |
-| Statement | The Runtime Monitor (E-17) **SHALL** collect, per instance, process creations, file opens outside declared mounts, network connection attempts, memory peak, CPU time and OOM or limit events. |
+| Statement | The Runtime Monitor (E-17) **SHALL** collect, per instance, process creations, memory peak, CPU time and OOM or limit events. |
 | Allocation | Elements: E-17 Runtime Monitor; Functions: F-42; Internal interfaces: I-24 |
 | Verification Method | Test |
 | Verification Statement | Run a fixture performing each behavior; confirm each event is collected. |
 | Source | ARCH §4 E-17; ARCH §10.3 P-100–P-108 |
-| Rationale | Run-time controls and characterization need these observables. |
+| Rationale | Run-time controls and characterization need these observables. Release 1.0 reads them from the instance's cgroup and the Podman event stream, which rootless Podman provides without privileges. File opens outside the declared mounts and network connection attempts are not observed: they need privileged tracing (fanotify or eBPF) that the rootless Enforced profile does not have. They are prevented instead: an instance sees only its granted mounts (SR-4.6-1) and reaches only its Egress Broker endpoints (SR-4.5-1), and the broker records every operation (FR-5.36). |
 
 #### FR-5.34 — Declared-behavior rules
 
@@ -2045,12 +2099,12 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 |---|---|
 | ID | FR-5.35 |
 | Parent ID | FR-5 — Server trust and execution |
-| Statement | When a deviation event matches a containment rule, the Runtime Monitor (E-17) **SHALL** perform the rule's action (`alert`, `kill-instance`, `suspend-revision` or `suspend-session`) within 1 second. |
+| Statement | When a deviation event matches a containment rule, the Runtime Monitor (E-17) **SHALL** perform the rule's action (`alert` or `kill-instance`) within 1 second. |
 | Allocation | Elements: E-17 Runtime Monitor; Functions: F-44; Internal interfaces: I-19 |
 | Verification Method | Test |
 | Verification Statement | Trigger each action; confirm effect and latency. |
 | Source | ARCH §4 E-17 |
-| Rationale | Bounded response to run-time misbehavior. |
+| Rationale | Bounded response to run-time misbehavior. The `suspend-revision` and `suspend-session` actions of ARCH §4 E-17 are not part of release 1.0: a killed instance is restarted on next use and a revision whose instance keeps ending is suspended by the Server Runtime Manager (FR-5.12), and an operator suspends a revision or ends a session from the console (G-10, G-08). |
 
 #### FR-5.36 — Egress endpoints
 
@@ -2089,7 +2143,7 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 | Verification Method | Test |
 | Verification Statement | Exceed each bound with a fixture; confirm termination and an event. |
 | Source | SEC Appendix F (resource limits) |
-| Rationale | Bounded egress resource use. |
+| Rationale | Bounded egress resource use. Release 1.x reads the Runtime Profile from the `[egress]` limits and grant of the configuration (FR-3.26), the manifest limits from the optional `request_bytes`, `response_bytes` and `timeout_ms` of its egress rules (Appendix J), and the decision obligation from the optional `egress_limits` of the permit rule, which travels with the call's egress capabilities. |
 
 #### FR-5.39 — Artifact cache
 
@@ -2103,6 +2157,19 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 | Verification Statement | Import two revisions sharing an artifact, retire one, then the other; confirm single storage and removal only after both retire. |
 | Source | ARCH §13 D-03 |
 | Rationale | Launches use local verified artifacts without re-fetching. |
+
+#### FR-5.40 — Era agreement with the manifest
+
+| Field | Value |
+|---|---|
+| ID | FR-5.40 |
+| Parent ID | FR-5 — Server trust and execution |
+| Statement | When the protocol version an instance negotiates in the FR-5.19 handshake differs from the era its verified manifest declares, the Tool Dispatcher (E-10) **SHALL** refuse to use the instance and the Local Server Registry (E-14) **SHALL** suspend the server revision. |
+| Allocation | Elements: E-10 Tool Dispatcher, E-14 Local Server Registry; Functions: F-23; Internal interfaces: I-13 |
+| Verification Method | Test |
+| Verification Statement | Launch a fixture whose manifest declares 2026-07-28 while the instance negotiates 2025-11-25; confirm the instance is not used and the revision is suspended. |
+| Source | SEC 5.1; MCP:basic/versioning |
+| Rationale | Release 1.0 speaks only the 2025-11-25 era southbound (Appendix N lists the deferred modern-era requirements); a revision packaged as modern must not be driven with legacy behavior. |
 
 ### FR-6 Secrets
 
@@ -2177,12 +2244,12 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 |---|---|
 | ID | FR-6.5 |
 | Parent ID | FR-6 — Secret management |
-| Statement | The Policy Administration Service (E-05) **SHALL** bind a secret to a server only through a Secret Use Policy naming the manifest secret slot, permitted tools, destination, delivery mode, purpose, rate, time window and approval requirement. |
+| Statement | A secret **SHALL** be bound to a server only through a Secret Use Policy naming a declared secret slot, the permitted tools, destination, delivery mode, purpose, rate, time window and approval requirement, and the Policy Administration Service (E-05) **SHALL** show each binding in the effective permission report. |
 | Allocation | Elements: E-05 Policy Administration Service; Functions: F-10; Data stores: D-01 |
 | Verification Method | Test |
 | Verification Statement | Publish a Secret Use Policy for a declared slot; confirm the binding appears in the effective permission report. |
 | Source | ARCH §7.2 Secret Use Policy |
-| Rationale | Secret use is governed by policy. |
+| Rationale | Secret use is governed by policy. Release 1.0 declares secret slots in the Secret Use Policy document (or as `secret_env` entries of the server configuration); the secret slots of a signed manifest (Appendix J) are recorded with the package but not read by the Secret Broker. |
 
 #### FR-6.6 — Delivery mode S1
 
@@ -2229,12 +2296,12 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 |---|---|
 | ID | FR-6.9 |
 | Parent ID | FR-6 — Secret management |
-| Statement | The Secret Broker (E-20) **SHALL** deliver a secret through a launch environment variable only when the manifest declares no other mode and the Secret Use Policy carries an approved S4 waiver. |
+| Statement | The Secret Broker (E-20) **SHALL** deliver a secret through a launch environment variable only when the secret slot declares no other mode and the Secret Use Policy carries an approved S4 waiver. |
 | Allocation | Elements: E-20 Secret Broker, E-05 Policy Administration Service; Functions: F-50, F-10 |
 | Verification Method | Test |
 | Verification Statement | Attempt S4 with and without a waiver and with another supported mode; confirm only the waiver-without-alternative case is accepted. |
 | Source | ARCH §8.2 S4 |
-| Rationale | Environment delivery is the most exposing mode. |
+| Rationale | Environment delivery is the most exposing mode. Release 1.0 declares secret slots in the Secret Use Policy document (or as `secret_env` entries of the server configuration); the secret slots of a signed manifest (Appendix J) are recorded with the package but not read by the Secret Broker. |
 
 #### FR-6.10 — Leak fingerprints
 
@@ -2355,31 +2422,18 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 | Source | ARCH §4 E-21 |
 | Rationale | Evidence must be checkable offline. |
 
-#### FR-7.6 — Alerts
-
-| Field | Value |
-|---|---|
-| ID | FR-7.6 |
-| Parent ID | FR-7 — Assurance services |
-| Statement | The Audit & Evidence Service (E-21) **SHALL** raise an alert in the management console for each event matching an alert rule of the effective Audit Profile. |
-| Allocation | Elements: E-21 Audit & Evidence Service; Functions: F-53; Internal interfaces: I-06 |
-| Verification Method | Test |
-| Verification Statement | Configure an alert on `withheld`; trigger it; confirm the console alert. |
-| Source | ARCH §7.2 Audit Profile |
-| Rationale | Operators need notification of significant events. |
-
 #### FR-7.7 — Local certificate authorities
 
 | Field | Value |
 |---|---|
 | ID | FR-7.7 |
 | Parent ID | FR-7 — Assurance services |
-| Statement | The Key & Trust Anchor Manager (E-22) **SHALL** operate separate local certificate authorities for harness client certificates and for Gateway TLS server certificates. |
+| Statement | The Key & Trust Anchor Manager (E-22) **SHALL** operate a local certificate authority for Gateway TLS server certificates whose key is used for no other purpose, and **SHALL** issue from it only certificates limited to TLS server authentication. |
 | Allocation | Elements: E-22 Key & Trust Anchor Manager; Functions: F-59, F-60; Data stores: D-08 |
 | Verification Method | Inspection |
-| Verification Statement | Inspect the CA certificates and an issued certificate of each kind; confirm separate roots. |
-| Source | ARCH §4 E-22 |
-| Rationale | Separates client identity from server identity. |
+| Verification Statement | Inspect the CA certificate, an issued server certificate and the key inventory; confirm the CA key has one purpose and the issued certificate allows server authentication only. |
+| Source | ARCH §4 E-22; OWNER (mTLS Harness Profile deferred) |
+| Rationale | Separates client identity from server identity. Release 1.0 issues no client certificates (the mTLS Harness Profile, FR-2.14, is deferred), so the separate client CA is deferred with it (FR-7.15). |
 
 #### FR-7.8 — Key purposes
 
@@ -2387,25 +2441,12 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 |---|---|
 | ID | FR-7.8 |
 | Parent ID | FR-7 — Assurance services |
-| Statement | The Key & Trust Anchor Manager (E-22) **SHALL** hold separate keys for the purposes client CA, server TLS, vault master, payload encryption, evidence signing, MRTR state protection, cursor protection, research pseudonymization and Data Server credentials. |
+| Statement | The Gateway **SHALL** use a separate key for each of the purposes server CA, server TLS, policy signing, vault master, backup encryption, evidence signing, cursor protection, leak-fingerprint keying, research pseudonymization and Data Server credentials, and **SHALL** use no key for more than one purpose. |
 | Allocation | Elements: E-22 Key & Trust Anchor Manager; Functions: F-60; Data stores: D-08 |
 | Verification Method | Inspection |
 | Verification Statement | Inspect the key inventory; confirm one key per purpose and no reuse. |
 | Source | ARCH §4 E-22 |
-| Rationale | Compromise of one purpose must not affect others. |
-
-#### FR-7.9 — Key protection at rest
-
-| Field | Value |
-|---|---|
-| ID | FR-7.9 |
-| Parent ID | FR-7 — Assurance services |
-| Statement | The Key & Trust Anchor Manager (E-22) **SHALL** seal private keys to the host TPM 2.0 when present and otherwise **SHALL** store them encrypted under an operator passphrase entered at service start. |
-| Allocation | Elements: E-22 Key & Trust Anchor Manager; Functions: F-60; External interfaces: X-07; Data stores: D-08 |
-| Verification Method | Test |
-| Verification Statement | Start on a TPM host and on a non-TPM host; confirm the sealing method and that copied key files are unusable. |
-| Source | ARCH §15 E-19/E-22 |
-| Rationale | Keys must not sit in plaintext on disk. |
+| Rationale | Compromise of one purpose must not affect others. Release 1.0 has no client CA (the mTLS Harness Profile, FR-2.14, is deferred), no MRTR state protection key (the MRTR Relay Profile, FR-5.25, is deferred) and no payload encryption (no payload is stored encrypted outside the vault and backups, which have their own keys). Backup encryption uses the operator's passphrase or age recipients, never a Gateway key. Leak-fingerprint keying (FR-6.10) is listed because it is a key purpose of its own. |
 
 #### FR-7.10 — Trust anchor enrollment
 
@@ -2426,12 +2467,12 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 |---|---|
 | ID | FR-7.11 |
 | Parent ID | FR-7 — Assurance services |
-| Statement | The Health & Safety Monitor (E-23) **SHALL** evaluate Data Server reachability, decision-snapshot currency, audit export lag, mandatory-audit capacity, vault availability, clock sanity, trust-anchor validity and memory degradation stage once per second. |
+| Statement | The Health & Safety Monitor (E-23) **SHALL** evaluate once per second, as critical causes, decision-snapshot currency, Evidence Journal writability and signing lag, mandatory-audit capacity, vault availability, clock sanity and trust-anchor validity, and, as non-critical causes, graph mirror reachability, Observation Store reachability, memory degradation stage and, in the Standalone profile, `unconfined`. |
 | Allocation | Elements: E-23 Health & Safety Monitor; Functions: F-61; Internal interfaces: I-32 |
 | Verification Method | Test |
-| Verification Statement | Fault each dependency in turn; confirm detection within 2 seconds. |
-| Source | ARCH §4 E-23 |
-| Rationale | Enforcement depends on these conditions. |
+| Verification Statement | Fault each dependency in turn; confirm detection within 2 seconds, `fail-closed` for each critical cause and `degraded` for each non-critical cause. |
+| Source | ARCH §4 E-23; ARCH §2.2 A-8, A-9; OWNER (authority decoupling) |
+| Rationale | Enforcement depends on the policy snapshot and the journal, not on the graph or the Observation Store, whose loss degrades analytics only. |
 
 #### FR-7.12 — Health states
 
@@ -2506,7 +2547,7 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 |---|---|
 | ID | FR-8.2 |
 | Parent ID | FR-8 — Management product |
-| Statement | The Management Console & Control API (E-24) **SHALL** implement the roles Administrator, Operator, Policy Author, Approver, Auditor and Researcher with the permissions of Appendix C. |
+| Statement | The Management Console & Control API (E-24) **SHALL** implement the roles Administrator, Operator, Policy Author, Approver, Session Approver, Auditor and Researcher with the permissions of Appendix C. |
 | Allocation | Elements: E-24 Management Console & Control API; Functions: F-64; External interfaces: X-04 |
 | Verification Method | Test |
 | Verification Statement | Exercise every API operation as each role; confirm results match the Appendix C matrix. |
@@ -2532,12 +2573,12 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 |---|---|
 | ID | FR-8.4 |
 | Parent ID | FR-8 — Management product |
-| Statement | The Policy Studio view (G-02) **SHALL** provide structured editors for every policy object type, draft diff against the active revision, simulation results and publish and rollback actions. |
+| Statement | The Policy Studio view (G-02) **SHALL** provide structured editors for the policy object types Framework Profile, Session Allow Policy Template and Secret Use Policy, draft diff against the active revision, simulation results and publish and rollback actions; the other object types of FR-3.1 are edited in their own views (Audit Profile in G-03, Observation Policy in G-04, Anomaly Response Policy in G-06, Research Campaign in G-09). |
 | Allocation | Elements: E-24 Management Console & Control API; Functions: F-65, F-10, F-11, F-12; External interfaces: X-04 |
 | Verification Method | Demonstration |
 | Verification Statement | Author, simulate and publish a Session Allow Policy template entirely in G-02. |
 | Source | ARCH §4 G-02; SEC 8.2 |
-| Rationale | Policy development is the owner's primary purpose. |
+| Rationale | Policy development is the owner's primary purpose. ARCH §4 assigns G-02 the Framework Profiles, Session Allow templates, Response and Secret Use Policies; the Response Policy is deferred (FR-3.26). |
 
 #### FR-8.5 — G-03 Audit Profile Tuning
 
@@ -2623,12 +2664,12 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 |---|---|
 | ID | FR-8.11 |
 | Parent ID | FR-8 — Management product |
-| Statement | The Observation & Parameter Workbench view (G-04) **SHALL** display the F-66 cost estimate for the draft before the publish action is enabled. |
+| Statement | The Observation & Parameter Workbench view (G-04) **SHALL** display a cost preview of the draft (the selected parameters, bytes per captured record, content scans and payload copies, the sampling rate in force and the store growth at the recorded call volume), refreshed with each edit, and **SHALL** keep the publish action disabled while the draft has no cost preview. |
 | Allocation | Elements: E-24 Management Console & Control API; Functions: F-67, F-66; External interfaces: X-04 |
 | Verification Method | Demonstration |
-| Verification Statement | Edit a draft; confirm the estimate refreshes and publish remains disabled until the estimate is shown. |
+| Verification Statement | Edit a draft; confirm the preview refreshes with each edit and publish remains disabled while the draft has no preview. |
 | Source | ARCH §11 item 6 |
-| Rationale | Cost awareness before capture. |
+| Rationale | Cost awareness before capture. The F-66 forecast of records, storage and added latency per day from seven days of call rates is deferred with FR-3.7; release 1.0 previews the cost from the catalog's data types and cost classes and the recorded call volume. |
 
 #### FR-8.12 — Live record preview
 
@@ -2636,12 +2677,12 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 |---|---|
 | ID | FR-8.12 |
 | Parent ID | FR-8 — Management product |
-| Statement | The Observation & Parameter Workbench view (G-04) **SHALL** display up to 20 sensitivity-masked sample records that the draft would have produced from the most recent traffic. |
+| Statement | The Observation & Parameter Workbench view (G-04) **SHALL** display up to 20 sensitivity-masked sample records that the draft would have produced from the most recent stored records: the records within the draft's scope, with a value for each of the draft's parameters that the Observation Policy in force captured. |
 | Allocation | Elements: E-24 Management Console & Control API; Functions: F-67; External interfaces: X-04 |
 | Verification Method | Demonstration |
 | Verification Statement | Preview a draft; confirm masked sample records appear. |
 | Source | ARCH §11 item 7 |
-| Rationale | Researchers verify the capture before publishing. |
+| Rationale | Researchers verify the capture before publishing. Release 1.0 stores no payloads (SR-6.6-1), so a parameter the policy in force did not capture cannot be derived again for the preview; the preview marks it. |
 
 #### FR-8.13 — G-05 Behavior Analytics
 
@@ -2838,6 +2879,110 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 | Source | SEC 8.6 |
 | Rationale | Filter development is part of policy research. |
 
+#### FR-8.28 — Navigation and deep links
+
+| Field | Value |
+|---|---|
+| ID | FR-8.28 |
+| Parent ID | FR-8 — Management product |
+| Statement | The Management Console & Control API (E-24) **SHALL** present a persistent navigation listing every view G-01 to G-14 that the signed-in role may open, and **SHALL** give each view and each approval, session, server revision, decision and policy revision its own URL that opens it directly after sign-in. |
+| Allocation | Elements: E-24 Management Console & Control API; Functions: F-65; External interfaces: X-04 |
+| Verification Method | Test |
+| Verification Statement | Sign in as each role; confirm the navigation lists exactly the permitted views; open the URL of an approval, session, server revision, decision and policy revision in a new browser session; confirm each opens after sign-in. |
+| Source | REVIEW (I5); OWNER (console deep link from approval fallback) |
+| Rationale | The approval fallback text and the notifications link to a specific record; the console must open it. |
+
+#### FR-8.29 — Empty, error and loading states
+
+| Field | Value |
+|---|---|
+| ID | FR-8.29 |
+| Parent ID | FR-8 — Management product |
+| Statement | Each view G-01 to G-14 **SHALL** show a loading state within 200 ms of navigation, an empty state that names the action that would populate it, and an error state that shows the control API error message and reason code with a retry action. |
+| Allocation | Elements: E-24 Management Console & Control API; Functions: F-65; External interfaces: X-04 |
+| Verification Method | Test |
+| Verification Statement | For each view, run the Playwright suite against an empty installation, a delayed API and a failing API; confirm the three states. |
+| Source | REVIEW (I5) |
+| Rationale | A blank or frozen view gives the operator no way to tell an empty system from a broken one. |
+
+#### FR-8.30 — Supported browsers
+
+| Field | Value |
+|---|---|
+| ID | FR-8.30 |
+| Parent ID | FR-8 — Management product |
+| Statement | The console **SHALL** support the two most recent major versions, at release time, of Chromium-based browsers, Firefox and Safari on macOS. |
+| Allocation | Elements: E-24 Management Console & Control API; Functions: F-65; External interfaces: X-04 |
+| Verification Method | Test |
+| Verification Statement | Run the per-view Playwright suite on Chromium, Firefox and WebKit at the release commit; confirm all pass. |
+| Source | REVIEW (I5) |
+| Rationale | States what the release is tested against. |
+
+#### FR-8.31 — First-run checklist
+
+| Field | Value |
+|---|---|
+| ID | FR-8.31 |
+| Parent ID | FR-8 — Management product |
+| Statement | The Gateway Control view (G-01) **SHALL** show a first-run checklist with the items administrator created, Session Approver created, first server packaged and enabled, first policy revision published, first harness connected, approval tested and backup configured, each marked done from Gateway state and linked to the view that completes it. |
+| Allocation | Elements: E-24 Management Console & Control API; Functions: F-65; External interfaces: X-04 |
+| Verification Method | Test |
+| Verification Statement | Start from a fresh installation; complete each item; confirm each is marked done from Gateway state and not from a manual tick. |
+| Source | REVIEW (I5) |
+| Rationale | A new operator needs the order of first steps; deriving completion from state keeps the list truthful. |
+
+#### FR-8.32 — Accessibility conformance
+
+| Field | Value |
+|---|---|
+| ID | FR-8.32 |
+| Parent ID | FR-8 — Management product |
+| Statement | Each console view **SHALL** conform to WCAG 2.2 Level AA. |
+| Allocation | Elements: E-24 Management Console & Control API; Functions: F-65; External interfaces: X-04 |
+| Verification Method | Test |
+| Verification Statement | Run `axe-core` with the WCAG 2.2 AA rule set on every view and state of the Playwright suite; confirm zero violations; record a manual check of focus order, target size and contrast in `docs/verification/`. |
+| Source | OWNER (WCAG 2.2 AA) |
+| Rationale | Owner decision; the console is the primary control surface for every role. |
+
+#### FR-8.33 — Keyboard operation
+
+| Field | Value |
+|---|---|
+| ID | FR-8.33 |
+| Parent ID | FR-8 — Management product |
+| Statement | Each console action **SHALL** be operable with the keyboard alone, with a visible focus indicator and no keyboard trap. |
+| Allocation | Elements: E-24 Management Console & Control API; Functions: F-65; External interfaces: X-04 |
+| Verification Method | Test |
+| Verification Statement | For each view, drive every action in the Playwright suite with keyboard events only; confirm completion and a visible focus indicator at each step. |
+| Source | OWNER (keyboard operable) |
+| Rationale | Owner decision; operators who live in terminals expect keyboard control. |
+
+#### FR-8.34 — Per-view acceptance tests
+
+| Field | Value |
+|---|---|
+| ID | FR-8.34 |
+| Parent ID | FR-8 — Management product |
+| Statement | The Gateway source **SHALL** include a Playwright acceptance test for each view G-01 to G-14 that exercises the view's primary actions against a running Gateway and claims the view's requirements through the requirement report. |
+| Allocation | Elements: E-24 Management Console & Control API; Functions: F-65; External interfaces: X-04 |
+| Verification Method | Inspection |
+| Verification Statement | Inspect the Playwright suite and the requirement report; confirm one passing test per view that claims that view's FR-8 requirement. |
+| Source | REVIEW (I5); SEC 10.6 |
+| Rationale | Each view's requirements need test evidence, not a screenshot. |
+
+#### FR-8.35 — Visual rules
+
+| Field | Value |
+|---|---|
+| ID | FR-8.35 |
+| Parent ID | FR-8 — Management product |
+| Statement | The console **SHALL** present lists as tables with sortable column headers, **SHALL** use a single typeface family with a fixed type scale, and **SHALL** use no gradients, emoji, decorative icon grids or card grids. |
+| Allocation | Elements: E-24 Management Console & Control API; Functions: F-65; External interfaces: X-04 |
+| Verification Method | Inspection |
+| Verification Statement | Inspect every view against the visual rule checklist in `docs/console-style.md`; confirm each rule. |
+| Source | OWNER (dense, stark, typographic, tables over cards, no gradients, emoji or icon grids) |
+| Rationale | Owner decision; dense tables suit audit and operations work. |
+
 ### FR-9 Data Server
 
 #### FR-9 — Data Server
@@ -2846,12 +2991,12 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 |---|---|
 | ID | FR-9 |
 | Parent ID | — (root) |
-| Statement | The Gateway **SHALL** persist policy, registry, session, audit, behavior-model and observation data in a Data Server consisting of a graph database, a columnar Observation Store, a Data Access Service and a Data Lifecycle & Memory Manager. |
+| Statement | The Gateway **SHALL** hold the behavior model and observation data, and mirrors of policy, registry, session and audit data, in a Data Server consisting of a graph database, a columnar Observation Store, a Data Access Service and a Data Lifecycle & Memory Manager, with no enforcement decision depending on the Data Server's availability. |
 | Allocation | Elements: E-25 Graph Database Engine, E-26 Data Access Service, E-27 Observation Store, E-28 Data Lifecycle & Memory Manager |
 | Verification Method | Analysis |
-| Verification Statement | Review the verification results of every FR-9 child requirement; confirm each has passed. |
-| Source | ARCH §4 SS-9; OWNER (graph database hosting policy) |
-| Rationale | The owner requires a fast graph database hosting policy and characterization. |
+| Verification Statement | Review the verification results of every FR-9 child requirement and of FR-9.17; confirm each has passed. |
+| Source | ARCH §4 SS-9; ARCH §2.2 A-9; OWNER (graph database; authority decoupling) |
+| Rationale | The owner requires a graph database for graph views and characterization, and decided that its unavailability degrades analytics but never opens or blocks enforcement. |
 
 #### FR-9.1 — Graph data model
 
@@ -2891,19 +3036,6 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 | Verification Statement | Inspect the operation catalog and its templates; confirm a one-to-one mapping and no dynamic query construction. |
 | Source | ARCH §4 E-26; SEC 1.13 |
 | Rationale | Fixed operations keep query cost and authority reviewable. |
-
-#### FR-9.4 — Write priority classes
-
-| Field | Value |
-|---|---|
-| ID | FR-9.4 |
-| Parent ID | FR-9 — Data Server |
-| Statement | The Data Access Service (E-26) **SHALL** order queued writes by the priority classes P0 policy and control, P1 mandatory audit, P2 observation and P3 research. |
-| Allocation | Elements: E-26 Data Access Service; Functions: F-73; Internal interfaces: I-33 |
-| Verification Method | Test |
-| Verification Statement | Saturate the queue with P2 writes and submit a P1 write; confirm the P1 write commits first. |
-| Source | ARCH §4 E-26 |
-| Rationale | Mandatory writes must not wait behind optional data. |
 
 #### FR-9.5 — Observation batching
 
@@ -3009,19 +3141,6 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 | Source | ARCH §4 E-28; ARCH §18.6 |
 | Rationale | Optional work yields first. |
 
-#### FR-9.13 — Storage tiering
-
-| Field | Value |
-|---|---|
-| ID | FR-9.13 |
-| Parent ID | FR-9 — Data Server |
-| Statement | The Data Lifecycle & Memory Manager (E-28) **SHALL** keep observation partitions younger than 30 days in the hot tier and **SHALL** move older partitions to compressed warm storage until their retention ends. |
-| Allocation | Elements: E-28 Data Lifecycle & Memory Manager; Functions: F-78; Data stores: D-09, D-13 |
-| Verification Method | Test |
-| Verification Statement | Age fixture partitions; confirm tier moves and query continuity. |
-| Source | ARCH §4 E-28 |
-| Rationale | Bounded fast storage with retained history. |
-
 #### FR-9.14 — Retention execution
 
 | Field | Value |
@@ -3054,10 +3173,10 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 |---|---|
 | ID | FR-9.16 |
 | Parent ID | FR-9 — Data Server |
-| Statement | The Data Lifecycle & Memory Manager (E-28) **SHALL** perform scheduled and on-demand backups of the graph database, the Observation Store, configuration, encrypted vault and evidence checkpoints, and **SHALL** record each backup's result and checksum. |
-| Allocation | Elements: E-28 Data Lifecycle & Memory Manager; Functions: F-79; Data stores: D-01, D-04, D-06, D-09 |
+| Statement | The Data Lifecycle & Memory Manager (E-28) **SHALL** perform scheduled and on-demand backups containing the Policy Store, the Server Registry, the configuration, the encrypted vault, the Evidence Journal, key material and trust anchors, and optionally the Observation Store and a graph dump, as one encrypted archive (D-15), and **SHALL** record each backup's result and checksum. |
+| Allocation | Elements: E-28 Data Lifecycle & Memory Manager; Functions: F-79; Data stores: D-01, D-02, D-04, D-06, D-08, D-15 |
 | Verification Method | Test |
-| Verification Statement | Run an on-demand backup; confirm every component and the recorded checksum. |
+| Verification Statement | Run an on-demand backup with and without the optional parts; confirm every component is present after decryption and the recorded checksum matches. |
 | Source | ARCH §4 E-28; SEC 7.7 |
 | Rationale | Recoverability of all stores. |
 
@@ -3067,12 +3186,12 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 |---|---|
 | ID | FR-9.17 |
 | Parent ID | FR-9 — Data Server |
-| Statement | The Harness Interface Endpoint (E-01) **SHALL** refuse harness MCP requests with Gateway error `-31004` until the Data Server is reachable and a validated decision snapshot is loaded. |
-| Allocation | Elements: E-01 Harness Interface Endpoint, E-26 Data Access Service; Functions: F-01, F-62 |
+| Statement | The Harness Interface Endpoint (E-01) **SHALL** refuse harness MCP requests with Gateway error `-31004` until a decision snapshot compiled from a signature-verified Policy Store revision is loaded and the Evidence Journal is open for writing, and **SHALL** serve requests without waiting for the graph mirror or the Observation Store. |
+| Allocation | Elements: E-01 Harness Interface Endpoint, E-05 Policy Administration Service, E-21 Audit & Evidence Service; Functions: F-01, F-62 |
 | Verification Method | Test |
-| Verification Statement | Start the Gateway with the graph database stopped; confirm -31004 until the database starts and the snapshot loads. |
-| Source | ARCH §4 E-23; SEC 1.2 |
-| Rationale | No service without policy. |
+| Verification Statement | Start the Gateway with an unsigned policy revision, then with a read-only journal directory, then correctly with the graph database stopped; confirm -31004 in the first two cases and normal service in the third with health `degraded`. |
+| Source | ARCH §4 E-23; ARCH §2.2 A-9; SEC 1.2 |
+| Rationale | No service without verified policy and a writable evidence record; the graph is a mirror (OWNER, authority decoupling). |
 
 #### FR-9.18 — Decision and event indexes
 
@@ -3576,12 +3695,12 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 |---|---|
 | ID | FR-10.37 |
 | Parent ID | FR-10 — Observation and analytics |
-| Statement | The Gateway release **SHALL** include a versioned Parameter Catalog containing at least the parameters P-001 to P-250 of ArchitectureV2 §10.3, each with ID, name, description, unit, data type, source element, capture point, derivation, sensitivity class, baselinable flag and cost class. |
+| Statement | The Gateway release **SHALL** include the versioned Parameter Catalog file `docs/parameters.json` containing every parameter ID defined in ArchitectureV2 §10.3, each with ID, name, description, unit, data type, source element, capture point, derivation, sensitivity class, baselinable flag and cost class. |
 | Allocation | Elements: E-29 Observation Collector, E-05 Policy Administration Service; Data stores: D-11 |
 | Verification Method | Inspection |
-| Verification Statement | Inspect the shipped catalog; confirm every listed parameter and attribute. |
-| Source | ARCH §10.1; ARCH §10.3; OWNER (as many parameters as possible) |
-| Rationale | The catalog is the research data dictionary. |
+| Verification Statement | Run the SRS build, which checks that `docs/parameters.json` holds every §10.3 parameter ID with every attribute; confirm the build reports the catalog count and no catalog error. |
+| Source | ARCH §10.1; ARCH §10.3; OWNER (as many parameters as possible); REVIEW (I8) |
+| Rationale | The catalog is the research data dictionary. The V1.1 text implied 250 parameters, while §10.3 defines a sparse ID range; the requirement now names the file and the IDs that exist, and the build checks it mechanically. |
 
 ### FR-11 Performance and resources
 
@@ -3775,12 +3894,12 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 |---|---|
 | ID | FR-12.3 |
 | Parent ID | FR-12 — Implementation constraints |
-| Statement | The Gateway **SHALL** run on a single x86_64 Linux host with kernel 6.8 or later, cgroup v2, unprivileged user namespaces, nftables and AppArmor or SELinux. |
-| Allocation | Elements: E-15 Server Runtime Manager, E-16 Execution Sandbox; External interfaces: X-07 |
+| Statement | The Gateway **SHALL** run in the Enforced profile on a single Linux host (x86_64 or arm64) meeting the Section 1.5.1 prerequisites, and in the Standalone profile on macOS arm64 and on Linux hosts without those prerequisites. |
+| Allocation | Elements: E-15 Server Runtime Manager, E-16 Execution Sandbox, E-23 Health & Safety Monitor; External interfaces: X-07 |
 | Verification Method | Demonstration |
-| Verification Statement | Install and run the acceptance suite on the reference host. |
-| Source | OWNER (single PC); ARCH §15 |
-| Rationale | Defines the isolation features the design relies on. |
+| Verification Statement | Install and run the acceptance suite on a GitHub-hosted Ubuntu runner in the Enforced profile and on a macOS arm64 host in the Standalone profile; confirm both installations reach their expected health state. |
+| Source | OWNER (single PC; platform profiles); ARCH §2.2 A-8; ARCH §15 |
+| Rationale | Defines the isolation features each profile relies on and the platforms the release supports. |
 
 #### FR-12.4 — Filesystem layout
 
@@ -3788,25 +3907,12 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 |---|---|
 | ID | FR-12.4 |
 | Parent ID | FR-12 — Implementation constraints |
-| Statement | The Gateway **SHALL** keep configuration in `/etc/smcp`, persistent state in `/var/lib/smcp`, runtime sockets in `/run/smcp` and exports in `/var/lib/smcp/exports`. |
-| Allocation | Elements: E-28 Data Lifecycle & Memory Manager, E-32 Research Dataset Service; External interfaces: X-07 |
+| Statement | The Gateway **SHALL** keep its configuration, persistent state, runtime sockets, diagnostic logs and exports in the directories that CP-46 assigns to the active platform profile, with the ownership and modes CP-46 states. |
+| Allocation | Elements: E-28 Data Lifecycle & Memory Manager, E-32 Research Dataset Service, E-24 Management Console & Control API; Functions: F-97; External interfaces: X-07 |
 | Verification Method | Inspection |
-| Verification Statement | Inspect an installed host for the layout and ownership. |
-| Source | A2 §3 |
-| Rationale | Separates protected state from agent-writable locations. |
-
-#### FR-12.5 — Service management
-
-| Field | Value |
-|---|---|
-| ID | FR-12.5 |
-| Parent ID | FR-12 — Implementation constraints |
-| Statement | The Gateway **SHALL** install as systemd services with declared start ordering Data Server, Key & Trust Anchor Manager, Gateway core, then console. |
-| Allocation | Elements: E-25 Graph Database Engine, E-22 Key & Trust Anchor Manager, E-24 Management Console & Control API; External interfaces: X-07 |
-| Verification Method | Test |
-| Verification Statement | Reboot the host; confirm the start order from the journal. |
-| Source | ARCH §15 |
-| Rationale | Startup gating depends on ordering. |
+| Verification Statement | Inspect an Enforced installation and a Standalone installation on macOS and on Linux; confirm each directory, owner and mode against CP-46. |
+| Source | A2 §3; OWNER (per-user layout for the Standalone profile) |
+| Rationale | Separates protected state from agent-writable locations where the platform allows it, and keeps a per-user installation out of system directories. |
 
 #### FR-12.6 — Configuration file
 
@@ -3827,12 +3933,12 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 |---|---|
 | ID | FR-12.7 |
 | Parent ID | FR-12 — Implementation constraints |
-| Statement | The Gateway release **SHALL** include the `smcpctl` command providing bootstrap, health, emergency stop, backup, restore, journal verification and configuration validation subcommands. |
-| Allocation | Elements: E-24 Management Console & Control API, E-28 Data Lifecycle & Memory Manager, E-21 Audit & Evidence Service |
+| Statement | The Gateway release **SHALL** include the `smcpctl` command providing the subcommands `bootstrap`, `install`, `upgrade`, `uninstall`, `version`, `health`, `stop`, `resume`, `reload`, `backup`, `restore`, `journal verify`, `config validate`, `config migrate`, `keys rotate`, `trust`, `clients`, `approvals`, `package`, `doctor`, `lockdown`, `client setup` and `remote`. |
+| Allocation | Elements: E-24 Management Console & Control API, E-28 Data Lifecycle & Memory Manager, E-21 Audit & Evidence Service; Functions: F-97 |
 | Verification Method | Demonstration |
-| Verification Statement | Exercise each subcommand on the reference host. |
-| Source | SEC 10.9 |
-| Rationale | Procedures that do not depend on the GUI. |
+| Verification Statement | Exercise each subcommand on an Enforced and a Standalone installation; confirm each completes its documented operation. |
+| Source | SEC 10.9; REVIEW (C1, C2, C4, C5, I6) |
+| Rationale | Procedures that do not depend on the GUI. The list names every command another requirement relies on. |
 
 #### FR-12.8 — Release provenance
 
@@ -3866,12 +3972,12 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 |---|---|
 | ID | FR-12.10 |
 | Parent ID | FR-12 — Implementation constraints |
-| Statement | Each automated test **SHALL** declare the IDs of the requirements it verifies, and the build **SHALL** produce a report mapping requirement IDs to test results. |
+| Statement | Each automated test **SHALL** declare each requirement it claims as a full or a partial claim, and the build **SHALL** produce a report that lists every requirement of this SRS with the status verified, partial, failing or unverified as defined in Section 2.6, together with the claiming tests. |
 | Allocation | Elements: E-01 Harness Interface Endpoint, E-24 Management Console & Control API |
 | Verification Method | Inspection |
-| Verification Statement | Inspect the generated report; confirm every Test-method requirement maps to at least one test. |
-| Source | SEC 10.3; SEC 10.6 |
-| Rationale | Verification traceability for coding. |
+| Verification Statement | Run the report on the release commit; confirm it lists exactly the requirements of Appendix H, that every requirement without a claim is listed as unverified, that a requirement with only partial claims is listed as partial, and that the totals match the published status data. |
+| Source | SEC 10.3; SEC 10.6; REVIEW (C7) |
+| Rationale | Verification traceability for coding. A report that lists only claimed requirements hides the unverified ones and overstates completion. |
 
 #### FR-12.11 — No paid database features
 
@@ -3892,10 +3998,10 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 |---|---|
 | ID | FR-12.12 |
 | Parent ID | FR-12 — Implementation constraints |
-| Statement | The Gateway release **SHALL** include the `smcp-session` command, which obtains or refreshes a session as the principal named by its CP-43 credential file through the token endpoint (FR-2.20) or the session API (FR-2.2), and prints a JSON object of request headers on standard output in the form consumed by the Claude Code `headersHelper` and Codex `http_headers_helper` hooks. |
+| Statement | The Gateway release **SHALL** include the `smcp-session` command, which obtains or refreshes a session as the principal named by its CP-43 credential file through the token endpoint (FR-2.20) or the session API (FR-2.2), and prints a JSON object of request headers on standard output in the form consumed by the Claude Code `headersHelper` hook, or, with `--env NAME`, the line `NAME=<Authorization value>` for clients that read a header value from an environment variable (Codex CLI `env_http_headers`, which at the Appendix K version has no header-helper hook). |
 | Allocation | Elements: E-33 Harness Adapter Kit; Functions: F-94; External interfaces: X-01, X-12 |
 | Verification Method | Demonstration |
-| Verification Statement | Configure Claude Code and Codex CLI with the helper; confirm each connects and lists tools through the Gateway. |
+| Verification Statement | Configure Claude Code with the helper as its `headersHelper`, and Codex CLI with an `env_http_headers` entry whose variable `smcp-session --env` set; confirm each connects and lists tools through the Gateway. |
 | Source | ARCH §4 E-33; Client-Compatibility-Brief §4.1 |
 | Rationale | Neither client can call a session API itself. Both can run a header helper. |
 
@@ -3905,31 +4011,1033 @@ Functional requirements make the Gateway work. Each is allocated to the element 
 |---|---|
 | ID | FR-12.13 |
 | Parent ID | FR-12 — Implementation constraints |
-| Statement | The Gateway release **SHALL** include the `smcp-stdio` command, which runs as a stdio MCP server for a framework, obtains a session (F-94), and forwards each JSON-RPC message unchanged between its standard streams and the Gateway harness listener, attaching the session credential and preserving the framework's protocol era. |
+| Statement | The Gateway release **SHALL** include the `smcp-stdio` command, which runs as a stdio MCP server for a framework, obtains a session (F-94), and forwards each JSON-RPC message unchanged between its standard streams and the Gateway harness listener, attaching the session credential and preserving the framework's protocol era; by default it connects to the CP-02 TLS listener and trusts only the Gateway server CA named in its CP-43 credential file, and it uses the UDS listener when the UDS Harness Profile is enabled and the credential file names the socket. |
 | Allocation | Elements: E-33 Harness Adapter Kit; Functions: F-95; External interfaces: X-01, X-12 |
 | Verification Method | Test |
 | Verification Statement | Run the northbound conformance fixtures for both eras through the bridge; confirm results identical to a direct connection. |
 | Source | ARCH §4 E-33; Client-Compatibility-Brief §4.1 |
 | Rationale | Every shipping client can launch a stdio server. This is the adapter the architecture assumed and now delivers. |
 
+### FR-13 Distribution, installation, upgrade and platform profiles
+
+#### FR-13 — Installation lifecycle
+
+| Field | Value |
+|---|---|
+| ID | FR-13 |
+| Parent ID | — (root) |
+| Statement | The Gateway release **SHALL** be installable, upgradable and removable on each platform of Section 1.6 by the procedures of this section, in the platform profile of Section 1.5.1 that the host supports. |
+| Allocation | Elements: E-24 Management Console & Control API, E-22 Key & Trust Anchor Manager, E-23 Health & Safety Monitor, E-28 Data Lifecycle & Memory Manager; Functions: F-97; External interfaces: X-16, X-07 |
+| Verification Method | Analysis |
+| Verification Statement | Review the verification results of every FR-13 child requirement; confirm each has passed on the Enforced CI host and on a macOS arm64 host. |
+| Source | OWNER (distribution: GitHub Releases, install.sh, Homebrew tap; platform profiles); REVIEW (C2, C3) |
+| Rationale | A product that cannot be installed, upgraded and removed by its documented procedure is not finished. |
+
+#### FR-13.1 — Release archives
+
+| Field | Value |
+|---|---|
+| ID | FR-13.1 |
+| Parent ID | FR-13 — Installation lifecycle |
+| Statement | The Gateway release **SHALL** publish, for each of darwin-arm64, darwin-amd64, linux-amd64 and linux-arm64, a compressed archive containing `smcpd`, `smcpctl`, `smcp-session`, `smcp-stdio`, `smcp-connect`, the console assets, the license notices and the SBOM, together with one SHA-256 checksum file and a minisign signature over that checksum file. |
+| Allocation | Elements: E-24 Management Console & Control API; Functions: F-97; External interfaces: X-16 |
+| Verification Method | Inspection |
+| Verification Statement | Inspect a GitHub Release; confirm the four archives and their contents, the checksum file and its signature, and that the signature verifies with the release public key published in `SECURITY.md`. |
+| Source | OWNER (distribution); SEC 10.7 |
+| Rationale | Every install path starts from signed, checksummed archives. |
+
+#### FR-13.2 — Installer verification
+
+| Field | Value |
+|---|---|
+| ID | FR-13.2 |
+| Parent ID | FR-13 — Installation lifecycle |
+| Statement | The `install.sh` script **SHALL** download the archive for the host platform, verify the checksum file's minisign signature with the release public key embedded in the script and the archive's SHA-256 against that file, and **SHALL** install nothing when either verification fails. |
+| Allocation | Elements: E-24 Management Console & Control API; Functions: F-97; External interfaces: X-16 |
+| Verification Method | Test |
+| Verification Statement | Run the script against a release with a modified archive and against one with a modified checksum file; confirm both are refused with no file written outside a temporary directory; run it against the intact release and confirm installation. |
+| Source | OWNER (install.sh); SEC 10.7 |
+| Rationale | A `curl \| sh` installer is only as trustworthy as its verification step. |
+
+#### FR-13.3 — Homebrew formula
+
+| Field | Value |
+|---|---|
+| ID | FR-13.3 |
+| Parent ID | FR-13 — Installation lifecycle |
+| Statement | The Gateway release **SHALL** publish a formula in the project's Homebrew tap whose URLs and SHA-256 values match the release archives for darwin and linux. |
+| Allocation | Elements: E-24 Management Console & Control API; Functions: F-97; External interfaces: X-16 |
+| Verification Method | Test |
+| Verification Statement | In CI, install from the tap on macOS and Linux runners; confirm the installed binaries' digests equal those in the release archives. |
+| Source | OWNER (Homebrew tap) |
+| Rationale | Homebrew is the expected install path on macOS. |
+
+#### FR-13.4 — Idempotent install
+
+| Field | Value |
+|---|---|
+| ID | FR-13.4 |
+| Parent ID | FR-13 — Installation lifecycle |
+| Statement | The `smcpctl install` command **SHALL** be idempotent: a repeated run on an installed host **SHALL** leave configuration, keys, policy and evidence byte-for-byte unchanged and **SHALL** report each step as `present` or `created`. |
+| Allocation | Elements: E-24 Management Console & Control API; Functions: F-97; External interfaces: X-07 |
+| Verification Method | Test |
+| Verification Statement | Run `smcpctl install` twice in each profile; confirm the second run reports every step `present` and that digests of configuration, keys, policy and journal files are unchanged. |
+| Source | OWNER (idempotent installer) |
+| Rationale | Operators re-run installers after partial failures and upgrades; a re-run must never rotate keys or reset policy. |
+
+#### FR-13.5 — Enforced profile installation
+
+| Field | Value |
+|---|---|
+| ID | FR-13.5 |
+| Parent ID | FR-13 — Installation lifecycle |
+| Statement | When installing the Enforced profile, the `smcpctl install` command **SHALL** verify every Section 1.5.1 prerequisite before changing the host, and **SHALL** then create the CP-46 service identities with their subordinate UID and GID ranges, the CP-46 directories with their owners and modes, the nftables table `smcp`, the AppArmor or SELinux profiles and the systemd units. |
+| Allocation | Elements: E-24 Management Console & Control API, E-16 Execution Sandbox; Functions: F-97; External interfaces: X-07 |
+| Verification Method | Test |
+| Verification Statement | On a GitHub-hosted Ubuntu runner, run the install; confirm each identity, subordinate range, directory, nftables table, LSM profile and unit; on a host missing a prerequisite, confirm the install stops before any change and names the prerequisite. |
+| Source | OWNER (installer creating service identities, nftables, LSM and subuid on Linux enforced); SEC 4.1 |
+| Rationale | The Enforced profile's separation depends on these host objects existing with the right ownership. |
+
+#### FR-13.6 — Standalone profile installation
+
+| Field | Value |
+|---|---|
+| ID | FR-13.6 |
+| Parent ID | FR-13 — Installation lifecycle |
+| Statement | When installing the Standalone profile, the `smcpctl install` command **SHALL** create the CP-46 per-user directories, install a launchd user agent on macOS or a systemd user unit on Linux, write `profile = "standalone"` to the configuration and print that the installation is not enforced. |
+| Allocation | Elements: E-24 Management Console & Control API; Functions: F-97; External interfaces: X-07 |
+| Verification Method | Test |
+| Verification Statement | Run the install on a macOS arm64 runner and on a Linux runner without Podman; confirm the directories, the service unit, the configuration value and the printed notice. |
+| Source | OWNER (Standalone profile; per-user path layout) |
+| Rationale | Developers on macOS need a supported install that never pretends to contain servers. |
+
+#### FR-13.7 — Upgrade procedure
+
+| Field | Value |
+|---|---|
+| ID | FR-13.7 |
+| Parent ID | FR-13 — Installation lifecycle |
+| Statement | The `smcpctl upgrade` command **SHALL** verify the new release as in FR-13.2, create an encrypted backup (FR-17.6), stop dispatch, install the new binaries, apply configuration and state migrations, start the new version and wait up to the CP-47 bound for a health state other than `fail-closed`. |
+| Allocation | Elements: E-24 Management Console & Control API, E-28 Data Lifecycle & Memory Manager, E-23 Health & Safety Monitor; Functions: F-97, F-79; External interfaces: X-16 |
+| Verification Method | Test |
+| Verification Statement | Upgrade from the previous release to the release candidate in each profile; confirm the backup exists, dispatch was stopped during the swap, migrations ran and health returned within the bound. |
+| Source | OWNER (smcpctl upgrade with pre-upgrade backup) |
+| Rationale | Upgrades must not lose policy, keys or evidence. |
+
+#### FR-13.8 — Upgrade rollback
+
+| Field | Value |
+|---|---|
+| ID | FR-13.8 |
+| Parent ID | FR-13 — Installation lifecycle |
+| Statement | When a migration fails or the upgraded Gateway does not leave `fail-closed` within the CP-47 bound, the `smcpctl upgrade` command **SHALL** restore the previous binaries and the pre-upgrade backup, start the previous version and record an `upgrade_rolled_back` event in the Evidence Journal. |
+| Allocation | Elements: E-24 Management Console & Control API, E-28 Data Lifecycle & Memory Manager, E-21 Audit & Evidence Service; Functions: F-97, F-79 |
+| Verification Method | Test |
+| Verification Statement | Upgrade to a fault-injected release whose migration fails, and to one that never becomes healthy; confirm in both cases that the previous version runs with its policy, keys and journal intact and that the event is recorded. |
+| Source | OWNER (rollback on failed health) |
+| Rationale | A failed upgrade must leave the operator where they started. |
+
+#### FR-13.9 — No silent profile downgrade
+
+| Field | Value |
+|---|---|
+| ID | FR-13.9 |
+| Parent ID | FR-13 — Installation lifecycle |
+| Statement | When the configuration selects the Enforced profile and a Section 1.5.1 prerequisite is missing, the Health & Safety Monitor (E-23) **SHALL** refuse to start the Gateway and **SHALL** name each missing prerequisite. |
+| Allocation | Elements: E-23 Health & Safety Monitor; Functions: F-61, F-62; External interfaces: X-07 |
+| Verification Method | Test |
+| Verification Statement | Configure the Enforced profile on a host without rootless Podman and with nftables removed; confirm the daemon exits with a message naming both. |
+| Source | OWNER (platform profiles); ARCH §2.2 A-8 |
+| Rationale | Running unconfined while configured as enforced would make the label false. |
+
+#### FR-13.10 — Standalone labelling
+
+| Field | Value |
+|---|---|
+| ID | FR-13.10 |
+| Parent ID | FR-13 — Installation lifecycle |
+| Statement | In the Standalone profile, the Health & Safety Monitor (E-23) **SHALL** report health `degraded` with cause `unconfined`, and the Gateway **SHALL** show the label `not enforced` in `smcpctl health`, `smcpctl version`, the console banner and the startup diagnostic log entry. |
+| Allocation | Elements: E-23 Health & Safety Monitor, E-24 Management Console & Control API; Functions: F-61, F-65 |
+| Verification Method | Test |
+| Verification Statement | Start a Standalone installation with every other dependency healthy; confirm health `degraded` with only `unconfined`, and the label in each of the four places. |
+| Source | OWNER (health reports degraded:unconfined; release label "not enforced") |
+| Rationale | The operator must see, everywhere they look, that servers are not contained. |
+
+#### FR-13.11 — Uninstall
+
+| Field | Value |
+|---|---|
+| ID | FR-13.11 |
+| Parent ID | FR-13 — Installation lifecycle |
+| Statement | The `smcpctl uninstall` command **SHALL** stop and remove the Gateway services, binaries, units, the nftables table and the LSM profiles, and **SHALL** keep the Evidence Journal, the evidence public key and the backup archives in place. |
+| Allocation | Elements: E-24 Management Console & Control API; Functions: F-97; External interfaces: X-07; Data stores: D-06, D-15 |
+| Verification Method | Test |
+| Verification Statement | Uninstall each profile; confirm the removed objects are gone and that `smcpctl journal verify` from a fresh install, pointed at the kept journal and key, succeeds. |
+| Source | OWNER (smcpctl uninstall preserving evidence unless purged) |
+| Rationale | Evidence outlives the installation that produced it. |
+
+#### FR-13.12 — Purge
+
+| Field | Value |
+|---|---|
+| ID | FR-13.12 |
+| Parent ID | FR-13 — Installation lifecycle |
+| Statement | The `smcpctl uninstall --purge` command **SHALL** require the operator to type the installation ID, **SHALL** print the SHA-256 of the last journal segment, and **SHALL** then delete configuration, state, keys, the journal and the service identities. |
+| Allocation | Elements: E-24 Management Console & Control API; Functions: F-97; External interfaces: X-07; Data stores: D-06 |
+| Verification Method | Test |
+| Verification Statement | Run the purge with a wrong and with the correct installation ID; confirm refusal, then the printed digest and complete removal. |
+| Source | OWNER (uninstall --purge) |
+| Rationale | Deleting evidence is deliberate and leaves the operator a digest to compare against any copy. |
+
+#### FR-13.13 — Configuration schema version
+
+| Field | Value |
+|---|---|
+| ID | FR-13.13 |
+| Parent ID | FR-13 — Installation lifecycle |
+| Statement | The Gateway **SHALL** read an integer `schema_version` from the configuration file, **SHALL** refuse to start when that value is greater than the highest version it supports, naming both versions, and **SHALL** accept an older version only after `smcpctl config migrate` or `smcpctl upgrade` has rewritten it. |
+| Allocation | Elements: E-23 Health & Safety Monitor, E-24 Management Console & Control API; Functions: F-97, F-62 |
+| Verification Method | Test |
+| Verification Statement | Start with a configuration one version newer and current; confirm refusal naming both versions and normal start. Release 1.0 has one schema version (a file without the key is version 1), so no real file is older: register a next version with a migration step in the test, start with a version-1 file and confirm refusal with a migrate instruction, then confirm that `smcpctl config migrate` (which `smcpctl upgrade` runs with the new binary) rewrites the file, keeps the original and the rewritten file loads. |
+| Source | OWNER (config schema version field and refusal of unknown newer versions) |
+| Rationale | A downgrade must not misread a configuration written by a newer release. |
+
+### FR-14 Server packaging and admission
+
+#### FR-14 — Operator self-curation
+
+| Field | Value |
+|---|---|
+| ID | FR-14 |
+| Parent ID | — (root) |
+| Statement | The Gateway release **SHALL** let an operator admit a local MCP server without an external curation system by packaging it from a pinned artifact, signing it with an operator key and importing it through the Library Trust Verifier (E-13). |
+| Allocation | Elements: E-13 Library Trust Verifier, E-14 Local Server Registry, E-22 Key & Trust Anchor Manager; Functions: F-96; External interfaces: X-02, X-03, X-17 |
+| Verification Method | Analysis |
+| Verification Statement | Review the verification results of every FR-14 child requirement; confirm each has passed. |
+| Source | OWNER (server admission without the external curation system: operator self-curation); REVIEW (C1) |
+| Rationale | V1.1 assumed an external curation system that does not exist; without this path no server could be admitted. |
+
+#### FR-14.1 — Package build
+
+| Field | Value |
+|---|---|
+| ID | FR-14.1 |
+| Parent ID | FR-14 — Operator self-curation |
+| Statement | The `smcpctl package build` command **SHALL** accept an artifact reference of type `npm`, `pypi`, `oci` or `binary` that names an exact version and a SHA-256 or registry-integrity digest, fetch the artifact over X-17, verify the digest and store the artifact in the package directory under its SHA-256. |
+| Allocation | Elements: E-13 Library Trust Verifier; Functions: F-96; External interfaces: X-17; Data stores: D-03 |
+| Verification Method | Test |
+| Verification Statement | Build packages from one reference of each type and from a reference with a wrong digest; confirm the four succeed with artifacts stored by SHA-256 and the wrong digest is refused. |
+| Source | OWNER (smcpctl package build materializes a pinned artifact by digest) |
+| Rationale | The digest pins the exact code the operator chose to trust. |
+
+#### FR-14.2 — Pinned references only
+
+| Field | Value |
+|---|---|
+| ID | FR-14.2 |
+| Parent ID | FR-14 — Operator self-curation |
+| Statement | The `smcpctl package build` command **SHALL** refuse an artifact reference that lacks an exact version or a digest, including version ranges, dist-tags such as `latest` and image tags without a digest. |
+| Allocation | Elements: E-13 Library Trust Verifier; Functions: F-96; External interfaces: X-17 |
+| Verification Method | Test |
+| Verification Statement | Submit a range, a `latest` tag, an OCI tag without digest and a reference without digest; confirm each is refused with the reason. |
+| Source | SEC 3.6; OWNER (runtime launch of unpinned commands is refused) |
+| Rationale | A floating reference would let the registry change the code after review. |
+
+#### FR-14.3 — Manifest from live tool list
+
+| Field | Value |
+|---|---|
+| ID | FR-14.3 |
+| Parent ID | FR-14 — Operator self-curation |
+| Statement | The `smcpctl package build` command **SHALL** start the artifact once in a throwaway working directory with no secrets, the environment allowlist of the manifest and, in the Enforced profile, no network, read its tool list through the legacy handshake of FR-5.19 and `tools/list`, and **SHALL** write a manifest conforming to Appendix J containing the tools, their schemas, description digests and era, and the operator-supplied risk class, side-effect classes, `source_trust`, capability ceiling and secret slots. |
+| Allocation | Elements: E-13 Library Trust Verifier; Functions: F-96, F-34; External interfaces: X-02 |
+| Verification Method | Test |
+| Verification Statement | Package each reference server; validate each manifest against `docs/schemas/manifest.schema.json`; confirm the tools equal the live `tools/list` and that no secret or network access was available to the packaging run in the Enforced profile. |
+| Source | OWNER (generate the manifest from a live tools/list at packaging time); SEC 3.5; SEC 3.7 |
+| Rationale | The manifest records exactly what the operator reviewed; the throwaway run is the quarantine probe. The era probe of FR-5.16 is deferred, so release 1.0 probes with the 2025-11-25 `initialize` handshake and records that era in the manifest. |
+
+#### FR-14.4 — Local servers only
+
+| Field | Value |
+|---|---|
+| ID | FR-14.4 |
+| Parent ID | FR-14 — Operator self-curation |
+| Statement | The Library Trust Verifier (E-13) **SHALL** reject a manifest whose server entrypoint is a network URL rather than a local executable or image. |
+| Allocation | Elements: E-13 Library Trust Verifier; Functions: F-34; External interfaces: X-03 |
+| Verification Method | Test |
+| Verification Statement | Import a manifest with an `https` endpoint; confirm rejection with the reason `REMOTE_BACKEND_UNSUPPORTED`. |
+| Source | OWNER (remote hosted MCP servers as backends out of scope for v1); REVIEW (I9) |
+| Rationale | Remote backends need a different trust and transport design that v1 does not provide. |
+
+#### FR-14.5 — Provenance statement
+
+| Field | Value |
+|---|---|
+| ID | FR-14.5 |
+| Parent ID | FR-14 — Operator self-curation |
+| Statement | The `smcpctl package build` command **SHALL** write a provenance statement that binds the source reference (registry tarball or sdist digest, OCI image source label, or an operator-supplied source archive URL and digest) and the SPDX license identifiers to the artifact digest. |
+| Allocation | Elements: E-13 Library Trust Verifier; Functions: F-96; External interfaces: X-02 |
+| Verification Method | Inspection |
+| Verification Statement | Inspect the provenance statement of each reference package; confirm the source reference, license identifiers and artifact digest. |
+| Source | SEC 3.1; SEC 3.2 |
+| Rationale | Supplies the source and license evidence that SR-3.1-1 and SR-3.2-1 check at import. |
+
+#### FR-14.6 — Package signing
+
+| Field | Value |
+|---|---|
+| ID | FR-14.6 |
+| Parent ID | FR-14 — Operator self-curation |
+| Statement | The `smcpctl package sign` command **SHALL** sign the package index, which lists the digests of the artifact, manifest and provenance statement, with a minisign secret key read from a file or an interactive prompt, and **SHALL** refuse a key or passphrase supplied as a command-line argument. |
+| Allocation | Elements: E-13 Library Trust Verifier; Functions: F-96; External interfaces: X-02 |
+| Verification Method | Test |
+| Verification Statement | Sign a package with a key file and with a prompted passphrase; attempt to pass the key on the command line; confirm two valid signatures and one refusal. |
+| Source | OWNER (sign with minisign, offline) |
+| Rationale | Command-line arguments are visible to other processes and shell history. |
+
+#### FR-14.7 — Offline package verification
+
+| Field | Value |
+|---|---|
+| ID | FR-14.7 |
+| Parent ID | FR-14 — Operator self-curation |
+| Statement | The `smcpctl package verify` command **SHALL** verify, without network access, the package index signature against a given public key or enrolled trust anchor, every listed digest and the manifest schema, and **SHALL** exit with status 0 only when every check passes, naming the first failed check otherwise. |
+| Allocation | Elements: E-13 Library Trust Verifier; Functions: F-96, F-33 |
+| Verification Method | Test |
+| Verification Statement | Verify an intact package with networking disabled, then packages with a modified artifact, a modified manifest and a wrong key; confirm status 0 only for the intact one and the named failures. |
+| Source | OWNER (smcpctl package verify; offline) |
+| Rationale | The operator can check a package before copying it into the library. |
+
+#### FR-14.8 — Operator key as a scoped trust anchor
+
+| Field | Value |
+|---|---|
+| ID | FR-14.8 |
+| Parent ID | FR-14 — Operator self-curation |
+| Statement | The `smcpctl trust add` command **SHALL** enroll an operator minisign public key as a trust anchor only with an explicit list of permitted risk classes and an expiry, defaulting to the classes `low` and `moderate` when the operator names none. |
+| Allocation | Elements: E-22 Key & Trust Anchor Manager; Functions: F-58; Internal interfaces: I-06 |
+| Verification Method | Test |
+| Verification Statement | Enroll a key without classes and with `high` named; import a `high` package signed by each; confirm rejection for the first and acceptance for the second. |
+| Source | OWNER (operator-local key enrolled as a trust anchor limited to operator-chosen risk classes); SEC 3.13 |
+| Rationale | A compromised operator key should not admit high-risk servers unless the operator chose to allow it. |
+
+#### FR-14.9 — Reference packages
+
+| Field | Value |
+|---|---|
+| ID | FR-14.9 |
+| Parent ID | FR-14 — Operator self-curation |
+| Statement | The Gateway release **SHALL** include packaging recipes, each with a pinned artifact reference and an operator classification, for the reference filesystem, git, fetch and memory MCP servers, and the release pipeline **SHALL** build, sign with a test key, import, enable and call one tool of each. |
+| Allocation | Elements: E-13 Library Trust Verifier, E-14 Local Server Registry; Functions: F-96, F-36; External interfaces: X-02 |
+| Verification Method | Test |
+| Verification Statement | Run the reference-package job on the release commit; confirm each of the four packages imports, enables and answers one tool call through the Gateway. |
+| Source | OWNER (reference packaged servers: filesystem, git, fetch, memory); SEC 9.5 |
+| Rationale | Gives every installation working servers on day one and keeps the packaging path tested. |
+
+#### FR-14.10 — Bootstrap uses a packaged server
+
+| Field | Value |
+|---|---|
+| ID | FR-14.10 |
+| Parent ID | FR-14 — Operator self-curation |
+| Statement | The `smcpctl bootstrap` command **SHALL** write an example configuration whose only backend is the packaged reference filesystem server and whose launch specification names a content-addressed local artifact. |
+| Allocation | Elements: E-24 Management Console & Control API, E-15 Server Runtime Manager; Functions: F-38, F-96 |
+| Verification Method | Inspection |
+| Verification Statement | Run bootstrap; inspect the written configuration; confirm one backend referencing the reference package by digest and no `npx`, `uvx`, `pip` or other installer in any launch specification. |
+| Source | OWNER (the bootstrap example must use a packaged server); SEC 3.6 |
+| Rationale | The first experience must follow the same rule as production: no runtime package resolution. |
+
+#### FR-14.11 — Manifest schema
+
+| Field | Value |
+|---|---|
+| ID | FR-14.11 |
+| Parent ID | FR-14 — Operator self-curation |
+| Statement | The Library Trust Verifier (E-13) **SHALL** validate each manifest against the JSON Schema `docs/schemas/manifest.schema.json` (Appendix J) of the manifest's declared `manifest_version`, and **SHALL** reject a manifest that declares an unsupported version. |
+| Allocation | Elements: E-13 Library Trust Verifier; Functions: F-34; External interfaces: X-03 |
+| Verification Method | Test |
+| Verification Statement | Import a valid manifest, one violating each required field rule, and one with an unsupported `manifest_version`; confirm acceptance and the specific rejections. |
+| Source | REVIEW (C1); ARCH §6.3 |
+| Rationale | One published schema is the contract between packaging and import. |
+
+#### FR-14.12 — Revocation entries
+
+| Field | Value |
+|---|---|
+| ID | FR-14.12 |
+| Parent ID | FR-14 — Operator self-curation |
+| Statement | The `smcpctl package revoke` command **SHALL** write into the library a revocation entry naming the server ID and revision, signed with the same key type as packages, which the Library Trust Verifier (E-13) processes under FR-5.3. |
+| Allocation | Elements: E-13 Library Trust Verifier; Functions: F-96, F-35; External interfaces: X-02 |
+| Verification Method | Test |
+| Verification Statement | Revoke an enabled revision; confirm that within the FR-5.3 interval it is `revoked`, its tools leave every catalog and running instances stop. |
+| Source | SEC 3; ARCH §18.8 |
+| Rationale | An operator who curates must also be able to withdraw. |
+
+### FR-15 Harness integration, lockdown and client matrix
+
+#### FR-15 — Harness integration
+
+| Field | Value |
+|---|---|
+| ID | FR-15 |
+| Parent ID | — (root) |
+| Statement | The Gateway release **SHALL** connect each client of Appendix K through a documented, tested mode and **SHALL** provide the tooling that reduces each local client's ability to bypass the Gateway. |
+| Allocation | Elements: E-33 Harness Adapter Kit, E-01 Harness Interface Endpoint; Functions: F-94, F-95, F-98; External interfaces: X-01, X-12 |
+| Verification Method | Analysis |
+| Verification Statement | Review the verification results of every FR-15 child requirement and the latest client matrix run; confirm each has passed. |
+| Source | OWNER (client matrix); REVIEW (C4, I4) |
+| Rationale | A gateway that an agent can route around protects nothing; the clients that matter must be named and tested. |
+
+#### FR-15.1 — Lockdown profiles
+
+| Field | Value |
+|---|---|
+| ID | FR-15.1 |
+| Parent ID | FR-15 — Harness integration |
+| Statement | The Gateway release **SHALL** include a lockdown profile for each local client of Appendix K that, using the mechanism Appendix K records for that client, restricts the client's MCP servers to the Gateway and denies the client's own file tools read and write access to the CP-46 Gateway paths and the CP-43 credential file. |
+| Allocation | Elements: E-33 Harness Adapter Kit; Functions: F-98; External interfaces: X-12 |
+| Verification Method | Test |
+| Verification Statement | For each local client at its pinned version, apply the profile; attempt to add a second MCP server and to read the Gateway state directory through the client's file tool; confirm each attempt is refused where Appendix K lists a mechanism, and that `smcpctl doctor` reports each case where it lists none. |
+| Source | OWNER (harness bypass: lockdown profiles per client); REVIEW (C4); SEC 4.9; SEC 4.11 |
+| Rationale | Lockdown uses the clients' own enforcement points. Where a client has none, the gap is reported rather than hidden. |
+
+#### FR-15.2 — Claude Code lockdown profile
+
+| Field | Value |
+|---|---|
+| ID | FR-15.2 |
+| Parent ID | FR-15 — Harness integration |
+| Statement | The Claude Code lockdown profile **SHALL** be a managed settings file at the platform's managed-settings path that sets `allowedMcpServers` to the Gateway entry alone, restricts MCP server allowlisting to the managed source where the pinned client version supports it, and adds `permissions.deny` rules for `Read` and `Edit` on the CP-46 Gateway paths and the CP-43 credential file. |
+| Allocation | Elements: E-33 Harness Adapter Kit; Functions: F-98; External interfaces: X-12 |
+| Verification Method | Test |
+| Verification Statement | Install the profile with the pinned Claude Code; confirm a user-added MCP server does not load and that a request to read the Gateway state directory is denied by the client. |
+| Source | OWNER (Claude Code managed settings allowedMcpServers and permissions deny on SMCP state paths); CCB §7 |
+| Rationale | Claude Code's managed settings cannot be overridden from user or project settings, which makes them the right enforcement point. |
+
+#### FR-15.3 — Doctor: MCP server inventory
+
+| Field | Value |
+|---|---|
+| ID | FR-15.3 |
+| Parent ID | FR-15 — Harness integration |
+| Statement | The `smcpctl doctor` command **SHALL** list, for each client of Appendix K installed for the current user whose configuration location Appendix K records, every MCP server configured in the client's user, project and managed scopes, **SHALL** flag each server that is not the Gateway, and **SHALL** state for each other installed client that its servers are not listed. |
+| Allocation | Elements: E-33 Harness Adapter Kit; Functions: F-98; External interfaces: X-12 |
+| Verification Method | Test |
+| Verification Statement | Create fixture configurations for each client with one Gateway entry and one other server in each scope; confirm every other server is listed and flagged, and that a client without a recorded location is reported as not listed. |
+| Source | OWNER (smcpctl doctor reporting non-Gateway MCP servers); REVIEW (C4) |
+| Rationale | The operator cannot remove a bypass they do not know about. A client whose configuration location is still to be confirmed at pinning (Grok Build in Appendix K) cannot be read, so doctor says so instead of reporting it clean. |
+
+#### FR-15.4 — Doctor: readable paths
+
+| Field | Value |
+|---|---|
+| ID | FR-15.4 |
+| Parent ID | FR-15 — Harness integration |
+| Statement | The `smcpctl doctor` command **SHALL** report each CP-46 Gateway path and the CP-43 credential file that the user identity running a client can read, and in the Standalone profile **SHALL** state that the client runs under the Gateway's own identity. |
+| Allocation | Elements: E-33 Harness Adapter Kit; Functions: F-98; External interfaces: X-07 |
+| Verification Method | Test |
+| Verification Statement | Run doctor on an Enforced host as the harness user and on a Standalone host; confirm no findings for the Enforced key directory, findings for every readable path, and the Standalone statement. |
+| Source | OWNER (readable credential and state paths); REVIEW (C4) |
+| Rationale | In the Standalone profile the operating system does not separate agent and Gateway; the operator must be told. |
+
+#### FR-15.5 — Doctor output
+
+| Field | Value |
+|---|---|
+| ID | FR-15.5 |
+| Parent ID | FR-15 — Harness integration |
+| Statement | The `smcpctl doctor` command **SHALL** exit with a non-zero status when it reports any finding of FR-15.3 or FR-15.4, and **SHALL** produce the same findings as JSON with `--json`. |
+| Allocation | Elements: E-33 Harness Adapter Kit; Functions: F-98 |
+| Verification Method | Test |
+| Verification Statement | Run doctor with and without findings, with and without `--json`; confirm the exit status and that the JSON findings equal the text findings. |
+| Source | REVIEW (C4) |
+| Rationale | Lets CI and scripts gate on a clean harness configuration. |
+
+#### FR-15.6 — Reversible lockdown
+
+| Field | Value |
+|---|---|
+| ID | FR-15.6 |
+| Parent ID | FR-15 — Harness integration |
+| Statement | The `smcpctl lockdown apply` and `smcpctl lockdown remove` commands **SHALL** copy each client file they change to a timestamped backup before the change and **SHALL** restore that copy on removal. |
+| Allocation | Elements: E-33 Harness Adapter Kit; Functions: F-98; External interfaces: X-12 |
+| Verification Method | Test |
+| Verification Statement | Apply and remove the lockdown for each local client; confirm the client files after removal equal the originals byte for byte. |
+| Source | REVIEW (C4) |
+| Rationale | Operators must be able to undo a change to a tool they use daily. |
+
+#### FR-15.7 — Per-client CA trust setup
+
+| Field | Value |
+|---|---|
+| ID | FR-15.7 |
+| Parent ID | FR-15 — Harness integration |
+| Statement | The `smcpctl client setup` command **SHALL** configure each local client of Appendix K to trust the Gateway server CA by the client's own mechanism recorded in Appendix K, and **SHALL** add the CA to the operating-system trust store only when the operator passes `--system-trust`. |
+| Allocation | Elements: E-33 Harness Adapter Kit; Functions: F-98; External interfaces: X-12 |
+| Verification Method | Test |
+| Verification Statement | Run setup for each client; confirm each connects over TLS without certificate errors and that the system trust store is unchanged unless `--system-trust` was given. |
+| Source | REVIEW (I4) |
+| Rationale | Each client reads trust roots differently; a system-wide CA is a broader change than the Gateway needs. |
+
+#### FR-15.8 — Client matrix regression
+
+| Field | Value |
+|---|---|
+| ID | FR-15.8 |
+| Parent ID | FR-15 — Harness integration |
+| Statement | The continuous-integration pipeline **SHALL** run, for each local client of Appendix K at its pinned version, an automated test that obtains a session, lists tools, calls one permitted tool, receives a denial for one unpermitted tool and records the result `pass`, `fail` or `not-run` with the client version and connection mode in the published status data. |
+| Allocation | Elements: E-33 Harness Adapter Kit, E-01 Harness Interface Endpoint; Functions: F-94, F-95; External interfaces: X-01, X-12 |
+| Verification Method | Test |
+| Verification Statement | Run the matrix job; confirm one result per local client in the status data `agents` array and that a deliberately broken Gateway build turns the results to `fail`. |
+| Source | REVIEW (I4); OWNER (client matrix) |
+| Rationale | Client releases change MCP behavior often; the matrix catches a break before users do. |
+
+#### FR-15.9 — Cloud agent matrix record
+
+| Field | Value |
+|---|---|
+| ID | FR-15.9 |
+| Parent ID | FR-15 — Harness integration |
+| Statement | The Gateway project **SHALL** keep, for each cloud agent of Appendix K, an entry in `docs/clients/matrix.json` that records either a manual connection run against the Remote Access Profile, with its date, agent version or build where shown, tunnel provider, registration mode and result, or, while no run has been made, the result `not-run`, the date the entry was last reviewed, the documented connection and registration modes and the reason no run was made. |
+| Allocation | Elements: E-33 Harness Adapter Kit, E-01 Harness Interface Endpoint; Functions: F-95; External interfaces: X-13 |
+| Verification Method | Inspection |
+| Verification Statement | Inspect `docs/clients/matrix.json`; confirm one entry per cloud agent, each either a dated run with every run field or a `not-run` entry with its review date, documented modes and reason. |
+| Source | OWNER (cloud agents: Grok Bot, ChatGPT dots, Meta Muse; live runs descoped from release 1.x on 2026-10-18) |
+| Rationale | Cloud agents cannot run in CI, so their support claim rests on dated manual records. The owner descoped live cloud-agent runs from release 1.x: the agents are documented and the Remote Access Profile is tested against a local test tunnel, and a `not-run` entry states that plainly instead of implying a run. |
+
+#### FR-15.10 — Pinned client matrix file
+
+| Field | Value |
+|---|---|
+| ID | FR-15.10 |
+| Parent ID | FR-15 — Harness integration |
+| Statement | The Gateway source **SHALL** keep the Appendix K client matrix as `docs/clients/matrix.json`, listing for each client its pinned version, connection mode, session mechanism, lockdown mechanism and CA trust mechanism, and the matrix job of FR-15.8 **SHALL** read the pinned versions from that file. |
+| Allocation | Elements: E-33 Harness Adapter Kit; Functions: F-98; External interfaces: X-12 |
+| Verification Method | Inspection |
+| Verification Statement | Inspect the file and the CI job; confirm every Appendix K client is present and the job reads its versions from the file. |
+| Source | REVIEW (I4) |
+| Rationale | One file keeps the documentation, the tests and the status data in step. |
+
+### FR-16 Remote Access Profile
+
+#### FR-16 — Remote Access Profile
+
+| Field | Value |
+|---|---|
+| ID | FR-16 |
+| Parent ID | — (root) |
+| Statement | When the Remote Access Profile is enabled, the Gateway **SHALL** serve agents that run on a vendor's computer through an authenticated tunnel to a dedicated loopback listener, with the controls of this section. |
+| Allocation | Elements: E-01 Harness Interface Endpoint, E-03 Identity & Authentication Service, E-33 Harness Adapter Kit; Functions: F-01, F-59, F-95; External interfaces: X-13 |
+| Verification Method | Analysis |
+| Verification Statement | Review the verification results of every FR-16 child requirement and the cloud agent records of FR-15.9; confirm each has passed. |
+| Source | OWNER (cloud agents via a Remote Access profile); ARCH §2.2 A-10 |
+| Rationale | Cloud agents cannot reach the user's loopback address; installing the Gateway in the vendor's machine is not a control. |
+
+#### FR-16.1 — Remote listener
+
+| Field | Value |
+|---|---|
+| ID | FR-16.1 |
+| Parent ID | FR-16 — Remote Access Profile |
+| Statement | When the Remote Access Profile is enabled, the Harness Interface Endpoint (E-01) **SHALL** open a second TLS listener on the CP-48 loopback address, separate from the CP-02 harness listener, and **SHALL** treat every request received on it as remote origin. |
+| Allocation | Elements: E-01 Harness Interface Endpoint; Functions: F-01; External interfaces: X-13 |
+| Verification Method | Test |
+| Verification Statement | Enable the profile; confirm the second listener on the CP-48 address only; send identical requests to both listeners; confirm only the second is marked remote. |
+| Source | OWNER (Remote Access profile); ARCH §6.1 X-13 |
+| Rationale | A separate listener makes remote origin a property of the socket, which a remote client cannot forge with a header. |
+
+#### FR-16.2 — Tunnel providers
+
+| Field | Value |
+|---|---|
+| ID | FR-16.2 |
+| Parent ID | FR-16 — Remote Access Profile |
+| Statement | The `smcpctl remote check` command **SHALL** validate a Cloudflare Tunnel, Tailscale Funnel or vendor MCP tunnel configuration that forwards one public HTTPS name to the CP-48 listener, and **SHALL** report the public name, the provider and whether a request through the public name reaches the remote listener. |
+| Allocation | Elements: E-01 Harness Interface Endpoint, E-33 Harness Adapter Kit; Functions: F-01; External interfaces: X-13 |
+| Verification Method | Demonstration |
+| Verification Statement | Configure each of Cloudflare Tunnel and Tailscale Funnel on a test host; run the check; confirm it reports the provider, the name and a reachable listener, and that a tunnel pointed at the local harness listener is reported as misconfigured. |
+| Source | OWNER (Cloudflare Tunnel, Tailscale Funnel, or OpenAI Secure MCP Tunnel) |
+| Rationale | Misrouting a tunnel to the local listener would erase the remote/local distinction. |
+
+#### FR-16.3 — Public name binding
+
+| Field | Value |
+|---|---|
+| ID | FR-16.3 |
+| Parent ID | FR-16 — Remote Access Profile |
+| Statement | The Harness Interface Endpoint (E-01) **SHALL** accept on the remote listener only requests whose `Host` equals the configured public name, and the Identity & Authentication Service (E-03) **SHALL** publish on that listener OAuth metadata whose issuer and resource name the public URL. |
+| Allocation | Elements: E-01 Harness Interface Endpoint, E-03 Identity & Authentication Service; Functions: F-01, F-04; External interfaces: X-13 |
+| Verification Method | Test |
+| Verification Statement | Send requests with the public name and with another name; fetch both metadata documents through the tunnel; confirm 421 for the other name and public URLs in the metadata. |
+| Source | SEC 2.9; MCP:basic/authorization |
+| Rationale | Tokens must be audience-bound to the URL the agent actually uses. |
+
+#### FR-16.4 — Remote endpoint set
+
+| Field | Value |
+|---|---|
+| ID | FR-16.4 |
+| Parent ID | FR-16 — Remote Access Profile |
+| Statement | The Harness Interface Endpoint (E-01) **SHALL** serve on the remote listener only the MCP endpoint and the OAuth metadata, authorization, token, registration, device authorization and device verification endpoints, and **SHALL** answer every other path with HTTP 404. |
+| Allocation | Elements: E-01 Harness Interface Endpoint; Functions: F-01; External interfaces: X-13 |
+| Verification Method | Test |
+| Verification Statement | Request the session API, health, metrics and console paths through the remote listener; confirm 404 for each. |
+| Source | OWNER (Remote Access profile); SEC 2.5 |
+| Rationale | Minimizes what a remote caller can reach. |
+
+#### FR-16.5 — Operator-approved dynamic registration
+
+| Field | Value |
+|---|---|
+| ID | FR-16.5 |
+| Parent ID | FR-16 — Remote Access Profile |
+| Statement | The Identity & Authentication Service (E-03) **SHALL** accept RFC 7591 Dynamic Client Registration requests only on the remote listener, **SHALL** store each registration as `pending`, and **SHALL** activate it only after a Session Approver or Administrator approves it in G-11 or with `smcpctl clients approve`. |
+| Allocation | Elements: E-03 Identity & Authentication Service, E-24 Management Console & Control API; Functions: F-59; External interfaces: X-13, X-04 |
+| Verification Method | Test |
+| Verification Statement | Register a client through the remote listener; attempt authorization while pending; approve; repeat; confirm the pending attempt fails with an OAuth error stating that operator approval is pending and the approved attempt proceeds; confirm a registration request on the local listener is refused. |
+| Source | OWNER (DCR supported only for the Remote Access profile with operator approval of each registration); RFC 7591 |
+| Rationale | Cloud agents register dynamically; approval keeps an unknown registrant from obtaining a session. |
+
+#### FR-16.6 — Remote rate limits and lockout
+
+| Field | Value |
+|---|---|
+| ID | FR-16.6 |
+| Parent ID | FR-16 — Remote Access Profile |
+| Statement | The Harness Interface Endpoint (E-01) **SHALL** apply the CP-49 remote rate limits per client ID and per forwarded source address, and the Identity & Authentication Service (E-03) **SHALL** lock a client ID and source address for the CP-49 lockout period after the CP-49 number of consecutive failed sign-ins or token requests. |
+| Allocation | Elements: E-01 Harness Interface Endpoint, E-03 Identity & Authentication Service; Functions: F-01, F-04; External interfaces: X-13 |
+| Verification Method | Test |
+| Verification Statement | Exceed each rate through the remote listener; fail sign-in the lockout number of times; confirm `-31005` or HTTP 429 at the limits and refusal during the lockout period with an event recorded. |
+| Source | OWNER (strict rate limits and lockout) |
+| Rationale | A public name is reachable by anyone on the Internet. |
+
+#### FR-16.7 — Remote request bounds
+
+| Field | Value |
+|---|---|
+| ID | FR-16.7 |
+| Parent ID | FR-16 — Remote Access Profile |
+| Statement | The Harness Interface Endpoint (E-01) **SHALL** apply the CP-49 remote body, header and concurrency bounds on the remote listener before parsing. |
+| Allocation | Elements: E-01 Harness Interface Endpoint; Functions: F-01; External interfaces: X-13 |
+| Verification Method | Test |
+| Verification Statement | Send requests exceeding each remote bound; confirm rejection before parsing. |
+| Source | OWNER (request bounds); SEC 7.11 |
+| Rationale | Tighter bounds for an Internet-reachable endpoint. |
+
+#### FR-16.8 — Remote origin evidence
+
+| Field | Value |
+|---|---|
+| ID | FR-16.8 |
+| Parent ID | FR-16 — Remote Access Profile |
+| Statement | The Audit & Evidence Service (E-21) **SHALL** record on every event from a remote-listener request the field `channel = "remote"`, the client ID and the tunnel-supplied client address as a server-asserted value. |
+| Allocation | Elements: E-21 Audit & Evidence Service, E-01 Harness Interface Endpoint; Functions: F-53; External interfaces: X-13 |
+| Verification Method | Test |
+| Verification Statement | Make calls through the tunnel; confirm the three fields on every event and that the client address is labelled server-asserted. |
+| Source | OWNER (audit of remote origin); SEC 6.18 |
+| Rationale | Investigators must separate remote from local activity; the forwarded address is a claim of the tunnel provider, not a verified fact. |
+
+#### FR-16.9 — smcp-connect relay
+
+| Field | Value |
+|---|---|
+| ID | FR-16.9 |
+| Parent ID | FR-16 — Remote Access Profile |
+| Statement | The Gateway release **SHALL** include `smcp-connect`, distributed as a release binary and as an npm package of the same name, which runs as a stdio MCP server, obtains and refreshes a session against a configured Remote Access URL through the OAuth flow, stores its tokens in the CP-43 credential file, and forwards each JSON-RPC message unchanged. |
+| Allocation | Elements: E-33 Harness Adapter Kit; Functions: F-95; External interfaces: X-13, X-12 |
+| Verification Method | Test |
+| Verification Statement | Run the northbound conformance fixtures through `smcp-connect` against a Gateway behind a test tunnel; confirm results identical to a direct connection and the credential file mode 0600. |
+| Source | OWNER (a small npx stdio relay package, smcp-connect); ARCH §4 E-33 |
+| Rationale | Some agents accept only a command to launch, not a URL. |
+
+#### FR-16.10 — Vendor allowlist guidance
+
+| Field | Value |
+|---|---|
+| ID | FR-16.10 |
+| Parent ID | FR-16 — Remote Access Profile |
+| Statement | The per-client quick start for each cloud agent of Appendix K **SHALL** name the vendor administration setting that restricts the agent's MCP servers to the Gateway URL where the vendor's public documentation names one, and otherwise **SHALL** state that no such setting was confirmed in the vendor's public documentation, with the date checked and the sources reviewed. |
+| Allocation | Elements: E-33 Harness Adapter Kit; Functions: F-98; External interfaces: X-13 |
+| Verification Method | Inspection |
+| Verification Statement | Inspect each cloud agent quick start; confirm the setting is named, or the absence of a confirmed setting stated, with the date checked and the sources reviewed. |
+| Source | OWNER (the vendor admin MCP allowlist restricts the agent to the Gateway URL; live cloud-agent runs descoped from release 1.x on 2026-10-18) |
+| Rationale | The vendor's allowlist is the only control that keeps a cloud agent from using other MCP servers. Vendor administration consoles are not reachable without vendor business accounts, which the project does not hold, so the quick start reports what the vendor's public documentation states and says so when it states nothing. |
+
+#### FR-16.11 — Disabled by default
+
+| Field | Value |
+|---|---|
+| ID | FR-16.11 |
+| Parent ID | FR-16 — Remote Access Profile |
+| Statement | The configuration written by `smcpctl bootstrap` and `smcpctl install` **SHALL** leave the Remote Access Profile disabled, and enabling it **SHALL** require an Administrator action that records a `remote_access_enabled` event. |
+| Allocation | Elements: E-24 Management Console & Control API, E-01 Harness Interface Endpoint; Functions: F-97; External interfaces: X-13 |
+| Verification Method | Test |
+| Verification Statement | Inspect a fresh configuration; enable the profile as an Operator and as an Administrator; confirm it is off by default, refused for the Operator and recorded for the Administrator. |
+| Source | OWNER (Remote Access profile) |
+| Rationale | Exposure to the Internet is an explicit, attributable decision. |
+
+#### FR-16.12 — Remote session limits
+
+| Field | Value |
+|---|---|
+| ID | FR-16.12 |
+| Parent ID | FR-16 — Remote Access Profile |
+| Statement | The Session Manager (E-04) **SHALL** create sessions through the remote listener only for Session Allow Policy templates that the Framework Profile marks `remote_allowed`, and **SHALL** apply the CP-49 remote session lifetime. |
+| Allocation | Elements: E-04 Session Manager; Functions: F-06, F-07; External interfaces: X-13 |
+| Verification Method | Test |
+| Verification Statement | Request a template without `remote_allowed` and one with it through the remote listener; confirm refusal of the first and the shorter lifetime on the second. |
+| Source | OWNER (Remote Access profile) |
+| Rationale | The operator decides which tools a cloud agent may ever use, separately from local agents. |
+
+### FR-17 Operations
+
+#### FR-17 — Operations
+
+| Field | Value |
+|---|---|
+| ID | FR-17 |
+| Parent ID | — (root) |
+| Statement | The Gateway **SHALL** provide the logging, metrics, key rotation, backup and configuration reload functions of this section for day-to-day operation. |
+| Allocation | Elements: E-23 Health & Safety Monitor, E-22 Key & Trust Anchor Manager, E-28 Data Lifecycle & Memory Manager; Functions: F-61, F-79, F-60 |
+| Verification Method | Analysis |
+| Verification Statement | Review the verification results of every FR-17 child requirement; confirm each has passed. |
+| Source | REVIEW (I6) |
+| Rationale | An operator needs to diagnose, observe, rotate and recover the Gateway without reading its source. |
+
+#### FR-17.1 — Diagnostic log
+
+| Field | Value |
+|---|---|
+| ID | FR-17.1 |
+| Parent ID | FR-17 — Operations |
+| Statement | The Health & Safety Monitor (E-23) **SHALL** write a diagnostic log (D-14), separate from the Evidence Journal, as JSON Lines with the levels `error`, `warn`, `info` and `debug`, defaulting to `info`. |
+| Allocation | Elements: E-23 Health & Safety Monitor; Functions: F-61; Data stores: D-14 |
+| Verification Method | Test |
+| Verification Statement | Run a session at each level; confirm the log's location, format and level filtering, and that no diagnostic entry appears in the journal. |
+| Source | REVIEW (I6) |
+| Rationale | Troubleshooting messages and evidence have different audiences, retention and integrity needs. |
+
+#### FR-17.2 — Diagnostic log rotation
+
+| Field | Value |
+|---|---|
+| ID | FR-17.2 |
+| Parent ID | FR-17 — Operations |
+| Statement | The Health & Safety Monitor (E-23) **SHALL** rotate the diagnostic log at the CP-50 file size and keep at most the CP-50 number of rotated files. |
+| Allocation | Elements: E-23 Health & Safety Monitor; Functions: F-61; Data stores: D-14 |
+| Verification Method | Test |
+| Verification Statement | Generate log volume beyond several rotations; confirm file sizes and count stay within CP-50. |
+| Source | REVIEW (I6) |
+| Rationale | Logs must not fill the disk that holds the journal. |
+
+#### FR-17.3 — Diagnostic log content limits
+
+| Field | Value |
+|---|---|
+| ID | FR-17.3 |
+| Parent ID | FR-17 — Operations |
+| Statement | The Health & Safety Monitor (E-23) **SHALL** exclude from the diagnostic log, at every level, secret values, bearer and refresh tokens, passwords, tool arguments and tool results. |
+| Allocation | Elements: E-23 Health & Safety Monitor; Functions: F-61; Data stores: D-14 |
+| Verification Method | Test |
+| Verification Statement | Run calls carrying registered secret fingerprints, tokens and marker arguments at `debug` level; scan the log; confirm none appear. |
+| Source | SEC 6.7; REVIEW (I6) |
+| Rationale | Diagnostic logs are copied into bug reports. |
+
+#### FR-17.4 — Metrics endpoint
+
+| Field | Value |
+|---|---|
+| ID | FR-17.4 |
+| Parent ID | FR-17 — Operations |
+| Statement | When the configuration enables metrics, the Health & Safety Monitor (E-23) **SHALL** serve Prometheus text exposition at `/metrics` on the CP-51 loopback address only. |
+| Allocation | Elements: E-23 Health & Safety Monitor; Functions: F-61; External interfaces: X-15 |
+| Verification Method | Test |
+| Verification Statement | Enable metrics; scrape the endpoint; attempt to bind it to a non-loopback address; confirm valid exposition and refusal of the non-loopback address. |
+| Source | REVIEW (I6) |
+| Rationale | Operators use standard tooling to watch throughput and latency. |
+
+#### FR-17.5 — Metric set and labels
+
+| Field | Value |
+|---|---|
+| ID | FR-17.5 |
+| Parent ID | FR-17 — Operations |
+| Statement | The metrics endpoint **SHALL** expose call counts by outcome and reason code, decision latency, journal flush latency, health state, active sessions, pending approvals and running backend instances, with labels limited to server alias, public tool name, outcome, reason code and channel. |
+| Allocation | Elements: E-23 Health & Safety Monitor; Functions: F-61; External interfaces: X-15 |
+| Verification Method | Inspection |
+| Verification Statement | Scrape the endpoint after a test run; confirm each metric and that no other label names occur. |
+| Source | REVIEW (I6); SEC 6.7 |
+| Rationale | Bounded labels keep arguments, principal names and secrets out of a monitoring system. |
+
+#### FR-17.6 — Encrypted backups
+
+| Field | Value |
+|---|---|
+| ID | FR-17.6 |
+| Parent ID | FR-17 — Operations |
+| Statement | The `smcpctl backup` command **SHALL** encrypt each backup archive (D-15) to an operator passphrase or an age recipient key and **SHALL** refuse to write an unencrypted archive. |
+| Allocation | Elements: E-28 Data Lifecycle & Memory Manager; Functions: F-79; Data stores: D-15 |
+| Verification Method | Test |
+| Verification Statement | Back up with a passphrase and with a recipient; attempt a backup with neither; confirm two encrypted archives that restore and one refusal. |
+| Source | OWNER (backups including key material and trust anchors, encrypted); SEC 7.7 |
+| Rationale | The archive contains private keys; it must not be readable where it is stored. |
+
+#### FR-17.7 — Key rotation
+
+| Field | Value |
+|---|---|
+| ID | FR-17.7 |
+| Parent ID | FR-17 — Operations |
+| Statement | The `smcpctl keys rotate` command **SHALL** rotate the server TLS certificate without dropping sessions, rotate the server CA with an overlap period during which the published trust bundle holds both CAs and the listeners present the certificate issued by the outgoing CA until they switch to one issued by the incoming CA when the overlap ends, and rotate the evidence-signing key by closing the open segment and writing a key-transition record signed by the outgoing key. |
+| Allocation | Elements: E-22 Key & Trust Anchor Manager, E-21 Audit & Evidence Service; Functions: F-60, F-55; Data stores: D-08 |
+| Verification Method | Test |
+| Verification Statement | Rotate each key type under traffic; confirm sessions continue across TLS rotation and the CA switch, clients trusting the outgoing CA or the published bundle connect during the overlap, clients trusting the incoming CA connect after the switch, and the journal records the transition. |
+| Source | REVIEW (I6); SEC 6.12 |
+| Rationale | Keys expire and can be exposed; rotation must not require reinstalling. A TLS server presents one certificate chain per handshake, and the CP-53 path length 0 rules out a cross-certificate between the two CAs, so a client that trusts only the incoming CA cannot be served before the switch; clients import the published bundle during the overlap instead. |
+
+#### FR-17.8 — Verification across key transitions
+
+| Field | Value |
+|---|---|
+| ID | FR-17.8 |
+| Parent ID | FR-17 — Operations |
+| Statement | The `smcpctl journal verify` command **SHALL** follow evidence-key transition records and verify each segment with the key in force when it was signed. |
+| Allocation | Elements: E-21 Audit & Evidence Service; Functions: F-55; Data stores: D-06 |
+| Verification Method | Test |
+| Verification Statement | Verify a journal spanning two rotations; tamper with a transition record; confirm success before and failure after the tamper. |
+| Source | SEC 6.12 |
+| Rationale | Rotation must not break the evidence chain. |
+
+#### FR-17.9 — Configuration reload
+
+| Field | Value |
+|---|---|
+| ID | FR-17.9 |
+| Parent ID | FR-17 — Operations |
+| Statement | On `smcpctl reload` or SIGHUP, the Gateway **SHALL** validate the new configuration, keep the running configuration when validation fails, apply the CP-50 reloadable keys without ending sessions, and report each changed non-reloadable key as requiring a restart. |
+| Allocation | Elements: E-23 Health & Safety Monitor, E-24 Management Console & Control API; Functions: F-61, F-97 |
+| Verification Method | Test |
+| Verification Statement | Reload with an invalid file, with a changed rate limit and with a changed listener address; confirm the old configuration kept, the new limit applied with sessions intact, and the restart notice for the address. |
+| Source | REVIEW (I6) |
+| Rationale | Operators tune limits and clients without interrupting agents. |
+
+### FR-18 Documentation
+
+#### FR-18 — Documentation set
+
+| Field | Value |
+|---|---|
+| ID | FR-18 |
+| Parent ID | — (root) |
+| Statement | The Gateway release **SHALL** include under `docs/` the documents of this section, versioned with the release. |
+| Allocation | Elements: E-24 Management Console & Control API, E-33 Harness Adapter Kit; Functions: F-65, F-98 |
+| Verification Method | Analysis |
+| Verification Statement | Review the verification results of every FR-18 child requirement; confirm each has passed. |
+| Source | REVIEW (I7); SEC 10.9 |
+| Rationale | The product is used by people who did not build it. |
+
+#### FR-18.1 — Install guide
+
+| Field | Value |
+|---|---|
+| ID | FR-18.1 |
+| Parent ID | FR-18 — Documentation set |
+| Statement | The documentation **SHALL** include an install guide covering installation, upgrade, rollback and uninstall for each platform and profile of Section 1.6, including the release-signature check. |
+| Allocation | Elements: E-24 Management Console & Control API; Functions: F-97 |
+| Verification Method | Inspection |
+| Verification Statement | Follow the guide on a clean macOS arm64 host and a clean Ubuntu host; confirm each step works as written. |
+| Source | REVIEW (I7) |
+| Rationale | Installation is the first task every user performs. |
+
+#### FR-18.2 — Security Limitations
+
+| Field | Value |
+|---|---|
+| ID | FR-18.2 |
+| Parent ID | FR-18 — Documentation set |
+| Statement | The documentation **SHALL** include a Security Limitations document that states at least: the Standalone profile contains no server; an agent's non-MCP native tools bypass the Gateway; in the Standalone profile the agent runs as the Gateway's identity; a tunnel provider can read remote traffic; detection filters have measured false-positive and false-negative rates; injection findings are tags only; lockdown profiles are only as strong as each client's settings enforcement; remote backends, resources and prompts are not supported; and running the Gateway inside a vendor's agent machine is not a control. |
+| Allocation | Elements: E-24 Management Console & Control API, E-33 Harness Adapter Kit; Functions: F-98 |
+| Verification Method | Inspection |
+| Verification Statement | Inspect the document; confirm each listed limitation is stated with its consequence and any mitigation. |
+| Source | OWNER (documentation that non-MCP native tools bypass the Gateway); REVIEW (C4) |
+| Rationale | Users decide how far to trust the Gateway from what it does not do. |
+
+#### FR-18.3 — Per-client quick starts
+
+| Field | Value |
+|---|---|
+| ID | FR-18.3 |
+| Parent ID | FR-18 — Documentation set |
+| Statement | The documentation **SHALL** include a quick start for each client of Appendix K that covers connection, session sign-in, CA trust, lockdown and verification with `smcpctl doctor`, and for cloud agents the Remote Access Profile setup. |
+| Allocation | Elements: E-33 Harness Adapter Kit; Functions: F-94, F-98, F-95; External interfaces: X-12, X-13 |
+| Verification Method | Inspection |
+| Verification Statement | For each client, follow the quick start at the pinned version; confirm the client lists tools through the Gateway. |
+| Source | REVIEW (I7); OWNER (client matrix) |
+| Rationale | Each client configures MCP differently. |
+
+#### FR-18.4 — Operator guide
+
+| Field | Value |
+|---|---|
+| ID | FR-18.4 |
+| Parent ID | FR-18 — Documentation set |
+| Statement | The documentation **SHALL** include an operator guide covering roles and accounts, approvals, sessions, server enablement and suspension, emergency stop, backups and restore, key rotation, configuration reload, logs and metrics. |
+| Allocation | Elements: E-24 Management Console & Control API; Functions: F-65 |
+| Verification Method | Inspection |
+| Verification Statement | Inspect the guide; confirm a section for each topic referencing the commands and views that perform it. |
+| Source | REVIEW (I7); SEC 10.9 |
+| Rationale | Daily operation needs one reference. |
+
+#### FR-18.5 — Policy reference
+
+| Field | Value |
+|---|---|
+| ID | FR-18.5 |
+| Parent ID | FR-18 — Documentation set |
+| Statement | The documentation **SHALL** include a policy reference describing every policy object type, field, predicate operator and obligation, with examples that the build validates against the policy schema. |
+| Allocation | Elements: E-05 Policy Administration Service; Functions: F-10 |
+| Verification Method | Test |
+| Verification Statement | Run the documentation check; confirm every example validates against the policy schema and every schema field is described. |
+| Source | REVIEW (I7) |
+| Rationale | Policy authors write policy from the reference, so its examples must be valid. |
+
+#### FR-18.6 — Packaging guide
+
+| Field | Value |
+|---|---|
+| ID | FR-18.6 |
+| Parent ID | FR-18 — Documentation set |
+| Statement | The documentation **SHALL** include a packaging guide covering artifact references, classification, building, signing, verifying, importing, enabling and revoking a server package, using a reference server as the worked example. |
+| Allocation | Elements: E-13 Library Trust Verifier; Functions: F-96 |
+| Verification Method | Inspection |
+| Verification Statement | Follow the guide to package one server that is not a reference server; confirm it imports and runs. |
+| Source | REVIEW (I7); OWNER (operator self-curation) |
+| Rationale | Packaging is the only way to admit a server. |
+
+#### FR-18.7 — Troubleshooting and reason codes
+
+| Field | Value |
+|---|---|
+| ID | FR-18.7 |
+| Parent ID | FR-18 — Documentation set |
+| Statement | The documentation **SHALL** include a troubleshooting guide that explains every Appendix B error code and every reason code the Gateway emits, with its meaning and the operator's next action, and the build **SHALL** fail when a reason code in the source is missing from the guide. |
+| Allocation | Elements: E-02 Protocol Mediator; Functions: F-22 |
+| Verification Method | Test |
+| Verification Statement | Add an undocumented reason code to a test branch; confirm the build fails; confirm the release commit passes. |
+| Source | REVIEW (I7) |
+| Rationale | Reason codes are what users paste into bug reports. |
+
+#### FR-18.8 — Tested runbooks
+
+| Field | Value |
+|---|---|
+| ID | FR-18.8 |
+| Parent ID | FR-18 — Documentation set |
+| Statement | The documentation **SHALL** include runbooks for emergency stop, revocation, backup, restore, upgrade rollback and key rotation, each with a recorded execution against the release commit. |
+| Allocation | Elements: E-24 Management Console & Control API, E-28 Data Lifecycle & Memory Manager, E-12 Enforcement Coordinator; Functions: F-31, F-79 |
+| Verification Method | Inspection |
+| Verification Statement | Inspect each runbook and its execution record in `docs/verification/`; confirm the record names the commit, date and observed result. |
+| Source | SEC 10.9 |
+| Rationale | A recovery procedure that was never run is not a procedure. |
+
+#### FR-18.9 — Scope statement
+
+| Field | Value |
+|---|---|
+| ID | FR-18.9 |
+| Parent ID | FR-18 — Documentation set |
+| Statement | The repository README and the documentation index **SHALL** state that remote MCP servers as backends are not supported in v1 and that the Gateway relays tools only, without resources or prompts. |
+| Allocation | Elements: E-24 Management Console & Control API, E-02 Protocol Mediator; Functions: F-02 |
+| Verification Method | Inspection |
+| Verification Statement | Inspect the README and `docs/README.md`; confirm both statements. |
+| Source | REVIEW (I9, I10); OWNER (remote hosted MCP servers out of scope for v1) |
+| Rationale | Users must learn the scope before they try to connect an unsupported server. |
+
+### FR-19 Verification evidence
+
+#### FR-19 — Verification evidence
+
+| Field | Value |
+|---|---|
+| ID | FR-19 |
+| Parent ID | — (root) |
+| Statement | The Gateway project **SHALL** produce the verification evidence of this section for each release and **SHALL** publish its results with the release status data. |
+| Allocation | Elements: E-24 Management Console & Control API, E-11 Response Inspection Pipeline, E-09 Request Inspection Pipeline; Functions: F-27, F-21 |
+| Verification Method | Analysis |
+| Verification Statement | Review the verification results of every FR-19 child requirement; confirm each has passed. |
+| Source | SEC 10.6; REVIEW (C7, C8) |
+| Rationale | Claims about enforcement are only as good as the evidence published with them. |
+
+#### FR-19.1 — Hostile backend fixture suite
+
+| Field | Value |
+|---|---|
+| ID | FR-19.1 |
+| Parent ID | FR-19 — Verification evidence |
+| Statement | The Gateway source **SHALL** include a hostile backend MCP server fixture that implements each attack of Appendix L and an automated test for each Appendix L row that asserts the row's expected outcome in the profile the row names. |
+| Allocation | Elements: E-11 Response Inspection Pipeline, E-09 Request Inspection Pipeline, E-14 Local Server Registry, E-15 Server Runtime Manager, E-16 Execution Sandbox, E-18 Egress Broker; Functions: F-27, F-21, F-37, F-41, F-45 |
+| Verification Method | Test |
+| Verification Statement | Run the hostile suite in both profiles; confirm one test per Appendix L row and that each passes in the profiles the row names. |
+| Source | REVIEW (C8); SEC Appendix B AT-08, AT-09, AT-10 |
+| Rationale | Each attack a malicious server can make should have a test that shows what the Gateway does about it. |
+
+#### FR-19.2 — Hostile suite results
+
+| Field | Value |
+|---|---|
+| ID | FR-19.2 |
+| Parent ID | FR-19 — Verification evidence |
+| Statement | The continuous-integration pipeline **SHALL** publish, for each Appendix L row, the fixture name, attack, expected outcome, observed outcome and pass flag in the `hostile` array of the status data. |
+| Allocation | Elements: E-24 Management Console & Control API; Functions: F-65 |
+| Verification Method | Inspection |
+| Verification Statement | Inspect the status data of a main-branch run; confirm one entry per Appendix L row with each field. |
+| Source | REVIEW (C8) |
+| Rationale | Results, including failures, are visible to anyone deciding whether to trust the Gateway. |
+
+#### FR-19.3 — Enforced label gating
+
+| Field | Value |
+|---|---|
+| ID | FR-19.3 |
+| Parent ID | FR-19 — Verification evidence |
+| Statement | The release process **SHALL** label a release "enforced" only when every acceptance scenario AT-01 to AT-21 of Appendix M has an automated or recorded passing result for the release commit in the Enforced profile, and **SHALL** label it "not enforced" otherwise. |
+| Allocation | Elements: E-24 Management Console & Control API, E-23 Health & Safety Monitor; Functions: F-61 |
+| Verification Method | Inspection |
+| Verification Statement | Inspect the release record of a candidate with one unexecuted scenario and of one with all scenarios passing; confirm the labels "not enforced" and "enforced" respectively. |
+| Source | SEC 10.6; REVIEW (C7) |
+| Rationale | A failed or unexecuted scenario means the enforcement claim is unsupported. |
+
+#### FR-19.4 — Acceptance scenario records
+
+| Field | Value |
+|---|---|
+| ID | FR-19.4 |
+| Parent ID | FR-19 — Verification evidence |
+| Statement | Each acceptance scenario of Appendix M **SHALL** have either automated tests that claim it by its `AT-nn` ID or a recorded execution file `docs/verification/AT-nn.md` stating the commit, date, executor, steps, observations and result. |
+| Allocation | Elements: E-24 Management Console & Control API; Functions: F-65 |
+| Verification Method | Inspection |
+| Verification Statement | Inspect the requirement report and `docs/verification/`; confirm each AT ID has claiming tests or a complete record. |
+| Source | SEC 10.6; SEC Appendix B |
+| Rationale | Scenarios that need a person still need a record a reviewer can check. |
+
+#### FR-19.5 — Labelled detection corpora
+
+| Field | Value |
+|---|---|
+| ID | FR-19.5 |
+| Parent ID | FR-19 — Verification evidence |
+| Statement | Each detection rule set of FR-4.16 **SHALL** ship with a labelled corpus of positive and negative samples, and the continuous-integration pipeline **SHALL** measure and publish the false-positive and false-negative rate of each rule-set version against its corpus. |
+| Allocation | Elements: E-09 Request Inspection Pipeline, E-11 Response Inspection Pipeline, E-14 Local Server Registry; Functions: F-21, F-27, F-34 |
+| Verification Method | Test |
+| Verification Statement | Run the corpus job; confirm a rate pair per rule-set version in the published results and that a rule change that raises either rate beyond the recorded value is reported. |
+| Source | REVIEW (I1); SEC 5.14 |
+| Rationale | A detector's value is its measured error rates, not its rule count. |
+
 ## 5. Security requirements (SR)
 
 Each security requirement is a **SHALL** control whose parent is a **MUST** in `MCP_Gateway_Security_SRS.md` (cited as `SEC-n.n`). The ID `SR-<parent>-<k>` is the k-th child of that parent. The security SRS was written against the V1 architecture. Where its wording names a V1 component (for example "graph service", "supervisor", "admission worker"), the child below states the V2 element that realizes the control. MUSTs with no Gateway realization are listed with a disposition in Appendix E.
 
 ### SEC-1 Policy and routing authority
-
-#### SR-1-1 — Capability ceiling
-
-| Field | Value |
-|---|---|
-| ID | SR-1-1 |
-| Parent ID | SEC-1 — Graph policy and routing authority (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | The Policy Administration Service (E-05) **SHALL** reject publication of any grant whose tools, paths, egress destinations or secret slots exceed the capability ceiling of the referenced server revision's manifest. |
-| Allocation | Elements: E-05 Policy Administration Service, E-14 Local Server Registry; Functions: F-10; Internal interfaces: I-07 |
-| Verification Method | Test |
-| Verification Statement | Publish grants exceeding each ceiling dimension; confirm each is rejected with the exceeded dimension named. |
-| Source | ARCH §7.3; ARCH §7.1 layer 1 |
-| Rationale | The signed manifest bounds all authority. |
 
 #### SR-1-2 — Layer intersection
 
@@ -3963,12 +5071,25 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 |---|---|
 | ID | SR-1.1-1 |
 | Parent ID | SEC-1.1 — Authoritative graph (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | The Policy Decision Service (E-06) **SHALL** derive permit, deny, route, filter, audit and observation rules only from the active policy revision stored in the Graph Database Engine (E-25). |
-| Allocation | Elements: E-06 Policy Decision Service, E-25 Graph Database Engine; Functions: F-13; Internal interfaces: I-07; Data stores: D-01 |
+| Statement | The Policy Decision Service (E-06) **SHALL** derive permit, deny and route rules and the optional filters a rule requires only from the active policy revision held by the Policy Administration Service (E-05) in the Policy Store (D-01), compiled into the in-memory decision snapshot. |
+| Allocation | Elements: E-06 Policy Decision Service, E-05 Policy Administration Service; Functions: F-13; Data stores: D-01 |
 | Verification Method | Inspection |
-| Verification Statement | Inspect the evaluator's inputs and configuration loading; confirm no file, environment or API path supplies rules. |
-| Source | SEC 1.1; ARCH §4 E-06 |
-| Rationale | One authoritative source. |
+| Verification Statement | Inspect the evaluator's inputs and configuration loading; confirm that no other file, environment variable, API or the graph mirror supplies rules, and that editing the graph mirror changes no decision. |
+| Source | SEC 1.1; ARCH §4 E-06; ARCH §2.2 A-9; OWNER (policy authority is the signed revision held by E-05) |
+| Rationale | One authoritative source. SEC 1.1 names the graph; the owner moved the authority to the signed revision so that enforcement does not depend on a database service (CHANGELOG V1.2). Release 1.0 keeps the audit and observation settings in the published Audit Profile and Observation Policy objects and the mandatory filters in the `[filters]` configuration (FR-3.1, FR-3.26); the decision carries the audit and observation objects in force as obligations (FR-3.12) and evaluates no rule from them. |
+
+#### SR-1.1-2 — Signed policy revisions
+
+| Field | Value |
+|---|---|
+| ID | SR-1.1-2 |
+| Parent ID | SEC-1.1 — Authoritative graph (MUST, `MCP_Gateway_Security_SRS.md`) |
+| Statement | The Policy Administration Service (E-05) **SHALL** sign each published revision with the policy-signing key held by the Key & Trust Anchor Manager (E-22), and the Policy Decision Service (E-06) **SHALL** compile only a revision whose signature verifies and whose content validates against the policy schema. |
+| Allocation | Elements: E-05 Policy Administration Service, E-06 Policy Decision Service, E-22 Key & Trust Anchor Manager; Functions: F-12, F-13; Data stores: D-01, D-08 |
+| Verification Method | Test |
+| Verification Statement | Publish a revision; alter one byte of the stored file; restart; confirm the altered revision is refused and the Gateway is `fail-closed` with cause `policy_signature`; restore the file and confirm normal start. |
+| Source | SEC 1.1; SEC 1.14; OWNER (signed, schema-validated policy revision) |
+| Rationale | Files on disk can be edited by anyone with access to the state directory; the signature makes an unauthorized edit detectable before it takes effect. |
 
 #### SR-1.2-1 — Snapshot unavailability denial
 
@@ -3989,12 +5110,12 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 |---|---|
 | ID | SR-1.2-2 |
 | Parent ID | SEC-1.2 — Graph outage (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | When the Data Server cannot commit decision intent, the Enforcement Coordinator (E-12) **SHALL** refuse launch authorization. |
-| Allocation | Elements: E-12 Enforcement Coordinator, E-26 Data Access Service; Functions: F-29; Internal interfaces: I-30 |
+| Statement | When the Audit & Evidence Service (E-21) cannot append and flush the decision intent to the Evidence Journal, the Enforcement Coordinator (E-12) **SHALL** refuse launch authorization with reason code `JOURNAL_UNAVAILABLE`. |
+| Allocation | Elements: E-12 Enforcement Coordinator, E-21 Audit & Evidence Service; Functions: F-29, F-55; Data stores: D-06 |
 | Verification Method | Test |
-| Verification Statement | Stop the graph engine during traffic; confirm no dispatch occurs and -31004 is returned. |
-| Source | SEC 1.2; SEC 6.2 |
-| Rationale | Dispatch requires durable intent. |
+| Verification Statement | Make the journal directory unwritable and, separately, inject a flush failure during traffic; confirm no dispatch occurs and `-31004` with `JOURNAL_UNAVAILABLE` is returned; stop the graph database during traffic and confirm dispatch continues. |
+| Source | SEC 1.2; SEC 6.2; OWNER (evidence authority is the journal) |
+| Rationale | Dispatch requires durable intent; the journal, not the graph, is where intent becomes durable. |
 
 #### SR-1.3-1 — Default deny
 
@@ -4035,19 +5156,6 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 | Source | SEC 1.5; ARCH §4 E-14 |
 | Rationale | Prerequisites gate evaluation. |
 
-#### SR-1.6-1 — Exact match scope
-
-| Field | Value |
-|---|---|
-| ID | SR-1.6-1 |
-| Parent ID | SEC-1.6 — Exact scoped rules (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | The Policy Decision Service (E-06) **SHALL** match permits on principal or Framework Profile, session template, exact server revision ID, exact tool revision ID and MCP method. |
-| Allocation | Elements: E-06 Policy Decision Service; Functions: F-13 |
-| Verification Method | Test |
-| Verification Statement | Change each dimension of a permitted request in turn; confirm each change results in deny. |
-| Source | SEC 1.6 |
-| Rationale | No implicit widening. |
-
 #### SR-1.7-1 — Predicate operator set
 
 | Field | Value |
@@ -4080,7 +5188,7 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 |---|---|
 | ID | SR-1.8-1 |
 | Parent ID | SEC-1.8 — Argument scope (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | The Request Inspection Pipeline (E-09) **SHALL** validate tool arguments against the manifest `inputSchema` and **SHALL** block the call with reason `SCHEMA` on failure. |
+| Statement | The Request Inspection Pipeline (E-09) **SHALL** validate tool arguments against the manifest `inputSchema` and **SHALL** block the call with reason `SCHEMA_INVALID` (Appendix B) on failure. |
 | Allocation | Elements: E-09 Request Inspection Pipeline; Functions: F-21 |
 | Verification Method | Test |
 | Verification Statement | Send arguments violating type, required and additionalProperties constraints; confirm each is blocked. |
@@ -4158,12 +5266,12 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 |---|---|
 | ID | SR-1.10-1 |
 | Parent ID | SEC-1.10 — Obligation combination (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | The Policy Decision Service (E-06) **SHALL** combine applicable obligations as the union of required filters, the smallest size, rate, time and resource bounds, the most restrictive approval, and the Appendix F retention and capture rules. |
+| Statement | The Policy Decision Service (E-06) **SHALL** combine the obligations that apply to a permitted call (from the permit rule, its template and Framework Profile, the CP-11 limits, the approval floor and session taint) as the union of required filters, the smallest rate, burst and session-quota bounds, and the most restrictive approval. |
 | Allocation | Elements: E-06 Policy Decision Service; Functions: F-14 |
 | Verification Method | Test |
-| Verification Statement | Evaluate a request matched by rules with differing obligations; confirm the combined result. |
+| Verification Statement | Evaluate requests whose permit rule, template, profile and configured limits carry differing obligations, with and without the approval floor and session taint; confirm the combined result. |
 | Source | SEC 1.10; SEC Appendix F |
-| Rationale | Conservative combination. |
+| Rationale | Conservative combination. Release 1.0 refuses overlapping permit rules at publication (SR-1.9-1), so a call has one permit rule and the layers above it; the size, time and resource bounds (CP-08, CP-13, CP-24) and the retention and capture settings (the Audit Profile and Observation Policy in force) have one source each and are carried into the decision unchanged (FR-3.12), so there is nothing to combine for them. The anomaly approval of FR-4.15 is added by the Anomaly Scorer after the decision and can only add the obligation. |
 
 #### SR-1.11-1 — Single route
 
@@ -4249,8 +5357,8 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 |---|---|
 | ID | SR-1.14-1 |
 | Parent ID | SEC-1.14 — Immutable revisions (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | The Policy Administration Service (E-05) **SHALL** reject every modification of a published revision, rule or route record. |
-| Allocation | Elements: E-05 Policy Administration Service, E-26 Data Access Service; Functions: F-12; Internal interfaces: I-07 |
+| Statement | The Policy Administration Service (E-05) **SHALL** reject every modification of a published revision, rule or route record, and **SHALL** store each published revision as a read-only file named by its content digest. |
+| Allocation | Elements: E-05 Policy Administration Service; Functions: F-12; Data stores: D-01 |
 | Verification Method | Test |
 | Verification Statement | Attempt updates to published records through every API; confirm rejection. |
 | Source | SEC 1.14 |
@@ -4262,8 +5370,8 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 |---|---|
 | ID | SR-1.15-1 |
 | Parent ID | SEC-1.15 — Atomic activation (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | The Policy Administration Service (E-05) **SHALL** activate a revision by updating the policy-control record in one database transaction, and the Policy Decision Service (E-06) **SHALL** swap to the new snapshot only after that transaction commits. |
-| Allocation | Elements: E-05 Policy Administration Service, E-06 Policy Decision Service, E-25 Graph Database Engine; Functions: F-12, F-13 |
+| Statement | The Policy Administration Service (E-05) **SHALL** activate a revision by writing the new policy-control record to a temporary file, flushing it, and atomically renaming it over the active record, and the Policy Decision Service (E-06) **SHALL** swap to the new snapshot only after the rename and the directory flush complete. |
+| Allocation | Elements: E-05 Policy Administration Service, E-06 Policy Decision Service; Functions: F-12, F-13; Data stores: D-01 |
 | Verification Method | Test |
 | Verification Statement | Crash the service at each step of activation; confirm the active revision is either the old or the new one, never mixed. |
 | Source | SEC 1.15 |
@@ -4278,9 +5386,9 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 | Statement | The Enforcement Coordinator (E-12) **SHALL** serialize policy activation, revocation, emergency stop, launch authorization and release authorization through one gate. |
 | Allocation | Elements: E-12 Enforcement Coordinator; Functions: F-29, F-30, F-31, F-32 |
 | Verification Method | Test |
-| Verification Statement | Race publication against launches with fault injection; confirm every launch is ordered entirely before or after the activation. |
+| Verification Statement | Race publication, emergency stop and revocation against launches held inside launch authorization; confirm every launch is ordered entirely before or after each of them. |
 | Source | SEC 1.16; SEC Appendix F (coordinator ordering) |
-| Rationale | Closes policy races. |
+| Rationale | Closes policy races. A revocation in release 1.0 is a credential revocation, a principal suspension or a server revision suspension or revocation; each changes its records under the gate. |
 
 #### SR-1.17-1 — Pre-launch recheck
 
@@ -4288,12 +5396,12 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 |---|---|
 | ID | SR-1.17-1 |
 | Parent ID | SEC-1.17 — Pre-dispatch and release checks (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | Under the gate, the Enforcement Coordinator (E-12) **SHALL** recheck the policy revision, session state, credential state, server revision state and revocation epochs before issuing a launch capability. |
+| Statement | Under the gate, the Enforcement Coordinator (E-12) **SHALL** recheck the policy revision, session state, principal state, credential state and server revision state before issuing a launch capability. |
 | Allocation | Elements: E-12 Enforcement Coordinator; Functions: F-29 |
 | Verification Method | Test |
-| Verification Statement | Revoke the credential between decision and launch; confirm launch refusal. |
+| Verification Statement | Between decision and launch, activate a new policy revision, suspend the session, revoke the credential, suspend the principal and suspend the server revision, one per call; confirm each launch is refused. |
 | Source | SEC 1.17 |
-| Rationale | Decisions can become stale before launch. |
+| Rationale | Decisions can become stale before launch. Release 1.0 keeps no revocation epochs: each revocation is a state record (a revoked credential, a suspended principal, an ended or suspended session, a suspended or revoked server revision) changed under the gate (SR-1.16-1) and read by this recheck, which gives the same ordering. |
 
 #### SR-1.17-2 — Pre-release recheck
 
@@ -4459,12 +5567,12 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 |---|---|
 | ID | SR-2.3-1 |
 | Parent ID | SEC-2.3 — Client-key protection (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | The Key & Trust Anchor Manager (E-22) **SHALL** generate UDS bearer keys, session tokens, access tokens, refresh tokens, authorization codes and client secrets from at least 256 bits of CSPRNG output and **SHALL** store only their SHA-256 verifiers. |
+| Statement | The Key & Trust Anchor Manager (E-22) **SHALL** generate UDS bearer keys, session tokens, access tokens, refresh tokens, authorization codes and client secrets from at least 256 bits of CSPRNG output and **SHALL** store only their verifiers: SHA-256 for session, access and refresh tokens and authorization codes, and Argon2id (CP-28) for client secrets and UDS bearer keys. |
 | Allocation | Elements: E-22 Key & Trust Anchor Manager, E-04 Session Manager; Functions: F-59, F-06 |
 | Verification Method | Inspection |
 | Verification Statement | Inspect the generation code and stored records; confirm entropy and verifier-only storage. |
 | Source | SEC 2.3 |
-| Rationale | Stored verifiers cannot be replayed. |
+| Rationale | Stored verifiers cannot be replayed. Client secrets and UDS bearer keys are long-lived and checked rarely, so they get the slower Argon2id verifier used for passwords; short-lived tokens are checked on every request and use SHA-256. |
 
 #### SR-2.3-2 — Adapter credential storage
 
@@ -4544,19 +5652,6 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 | Source | SEC 2.8 |
 | Rationale | Authenticated transport. |
 
-#### SR-2.8-2 — Mutual TLS
-
-| Field | Value |
-|---|---|
-| ID | SR-2.8-2 |
-| Parent ID | SEC-2.8 — Authenticated transport (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | When the mTLS Harness Profile is enabled, the Harness Interface Endpoint (E-01) **SHALL** require a client certificate chaining to the Gateway client CA on the TLS harness listener. |
-| Allocation | Elements: E-01 Harness Interface Endpoint; Functions: F-01; External interfaces: X-01 |
-| Verification Method | Test |
-| Verification Statement | Enable the profile; connect without a certificate and with a foreign certificate; confirm rejection during the handshake. |
-| Source | SEC 2.8; ARCH §19 OD-2 |
-| Rationale | Optional transport-level framework authentication for harnesses that can present a client certificate. |
-
 #### SR-2.8-3 — UDS permissions
 
 | Field | Value |
@@ -4576,10 +5671,10 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 |---|---|
 | ID | SR-2.9-1 |
 | Parent ID | SEC-2.9 — Origin and Host (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | When a request carries an `Origin` header that is not in the configured allowlist, which is empty by default, the Harness Interface Endpoint (E-01) **SHALL** respond with HTTP 403. |
+| Statement | When a request carries an `Origin` header that is not in the configured allowlist, which is empty by default, and is not the Gateway's own origin on a request to the authorization endpoint, the Harness Interface Endpoint (E-01) **SHALL** respond with HTTP 403. |
 | Allocation | Elements: E-01 Harness Interface Endpoint; Functions: F-01; External interfaces: X-01 |
 | Verification Method | Test |
-| Verification Statement | Send requests with a foreign Origin; confirm 403. |
+| Verification Statement | Send MCP requests with a foreign Origin and with the Gateway's own origin, and submit the sign-in form from the Gateway's own page; confirm 403 for both MCP requests and acceptance of the sign-in form submission. |
 | Source | SEC 2.9; MCP:basic/transports/streamable-http §Security |
 | Rationale | DNS-rebinding defense. |
 
@@ -4602,12 +5697,25 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 |---|---|
 | ID | SR-2.9-3 |
 | Parent ID | SEC-2.9 — Origin and Host (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | The Harness Interface Endpoint (E-01) and the Management Console & Control API (E-24) **SHALL** bind only to loopback addresses unless the Overlay Profile is enabled. |
+| Statement | The Harness Interface Endpoint (E-01), including the Remote Access listener, and the Management Console & Control API (E-24) **SHALL** bind only to loopback addresses. |
 | Allocation | Elements: E-01 Harness Interface Endpoint, E-24 Management Console & Control API; Functions: F-01 |
 | Verification Method | Inspection |
 | Verification Statement | Inspect bound addresses in the default configuration. |
-| Source | MCP:basic/transports/streamable-http §Security; SEC 4.14 |
-| Rationale | Local-only exposure by default. |
+| Source | MCP:basic/transports/streamable-http §Security; SEC 4.14; OWNER (Remote Access through a tunnel) |
+| Rationale | Local-only exposure. Remote access arrives through a tunnel connector on the same host, so no listener needs a non-loopback address. |
+
+#### SR-2.8-4 — Local CA constraints
+
+| Field | Value |
+|---|---|
+| ID | SR-2.8-4 |
+| Parent ID | SEC-2.8 — Authenticated transport (MUST, `MCP_Gateway_Security_SRS.md`) |
+| Statement | The Key & Trust Anchor Manager (E-22) **SHALL** issue the local server CA with the CP-53 name constraints, path length and validity, and **SHALL** issue listener certificates only for names inside those constraints with the CP-53 validity. |
+| Allocation | Elements: E-22 Key & Trust Anchor Manager; Functions: F-60; Data stores: D-08 |
+| Verification Method | Test |
+| Verification Statement | Inspect the CA and a listener certificate; request a certificate for a name outside the constraints; confirm the constraints, validities and refusal; confirm that a TLS client rejects a certificate for an outside name even if it was signed by the CA. |
+| Source | SEC 2.8; REVIEW (minor: local CA NameConstraints and shorter validity) |
+| Rationale | Users add this CA to their clients' trust; name constraints keep a stolen CA key from impersonating other sites. |
 
 #### SR-2.10-1 — Credential separation
 
@@ -4635,18 +5743,44 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 | Source | SEC 2.11; MCP:basic/authorization; CP-41 |
 | Rationale | Standards-based authorization is the baseline harness authentication. |
 
-#### SR-2.12-1 — Handle ownership
+#### SR-2.11-2 — Dynamic registration approval
 
 | Field | Value |
 |---|---|
-| ID | SR-2.12-1 |
-| Parent ID | SEC-2.12 — State ownership (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | For a tool with a manifest handle contract, the Access Enforcement Point (E-08) **SHALL** record handles created by results with their owning session and principal, and **SHALL** deny calls presenting a handle owned by another session or principal or past its expiry. |
-| Allocation | Elements: E-08 Access Enforcement Point, E-11 Response Inspection Pipeline; Functions: F-20, F-27 |
+| ID | SR-2.11-2 |
+| Parent ID | SEC-2.11 — OAuth boundary (MUST, `MCP_Gateway_Security_SRS.md`) |
+| Statement | The Identity & Authentication Service (E-03) **SHALL** refuse authorization and token requests from a dynamically registered client until a Session Approver or Administrator has approved its registration, and **SHALL** refuse Dynamic Client Registration requests outside the Remote Access Profile. |
+| Allocation | Elements: E-03 Identity & Authentication Service; Functions: F-59; External interfaces: X-13 |
 | Verification Method | Test |
-| Verification Statement | Create a handle in session A and use it from session B and after expiry; confirm denial. |
-| Source | SEC 2.12; MCP:server/tools §Stateful Tools |
-| Rationale | Handles are names, not capabilities. |
+| Verification Statement | Register through the remote listener and request authorization before and after approval; send a registration request to the local listener; confirm refusal before approval, success after, and refusal on the local listener. |
+| Source | SEC 2.11; RFC 7591; OWNER (DCR only for Remote Access with operator approval of each registration) |
+| Rationale | Open registration on an Internet-reachable endpoint would let anyone obtain a client ID. |
+
+#### SR-2.11-4 — Refresh token reuse
+
+| Field | Value |
+|---|---|
+| ID | SR-2.11-4 |
+| Parent ID | SEC-2.11 — OAuth boundary (MUST, `MCP_Gateway_Security_SRS.md`) |
+| Statement | When a refresh token that has already been rotated is presented, the Session Manager (E-04) **SHALL** terminate the session it belonged to and record a `refresh_token_reuse` event. |
+| Allocation | Elements: E-04 Session Manager; Functions: F-09; External interfaces: X-01 |
+| Verification Method | Test |
+| Verification Statement | Refresh once; present the first refresh token again; confirm the session is terminated, the current access token receives `-31006` and the event is recorded. |
+| Source | SEC 2.11; OWNER (rotate refresh tokens) |
+| Rationale | Reuse of a rotated token means two parties hold it; ending the session limits the damage. |
+
+#### SR-2.11-5 — Truthful authorization metadata
+
+| Field | Value |
+|---|---|
+| ID | SR-2.11-5 |
+| Parent ID | SEC-2.11 — OAuth boundary (MUST, `MCP_Gateway_Security_SRS.md`) |
+| Statement | The Identity & Authentication Service (E-03) **SHALL** advertise `client_id_metadata_document_supported` and `registration_endpoint` in its authorization-server metadata only when the corresponding mechanism is enabled. |
+| Allocation | Elements: E-03 Identity & Authentication Service; Functions: F-04; External interfaces: X-01 |
+| Verification Method | Test |
+| Verification Statement | Fetch the metadata with the Remote Access Profile off and on; confirm `registration_endpoint` appears only when it is on, and that `client_id_metadata_document_supported` never appears while metadata documents are not fetched (SR-2.11-3, Appendix N). |
+| Source | SEC 2.11; REVIEW (minor: refuse misadvertised client_id_metadata_document_supported) |
+| Rationale | Clients choose a registration path from the metadata; advertising a path that fails causes confusing sign-in errors. |
 
 #### SR-2.13-1 — Vault encryption
 
@@ -4654,12 +5788,12 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 |---|---|
 | ID | SR-2.13-1 |
 | Parent ID | SEC-2.13 — Encrypted secrets (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | The Secret Vault (E-19) **SHALL** encrypt each secret value with age to the vault master key held by the Key & Trust Anchor Manager (E-22). |
+| Statement | The Secret Vault (E-19) **SHALL** encrypt each secret value with age to the vault master key, an age X25519 identity that is never stored in plaintext: it is kept in the macOS Keychain or age-encrypted under an scrypt passphrase. |
 | Allocation | Elements: E-19 Secret Vault, E-22 Key & Trust Anchor Manager; Functions: F-47, F-60 |
 | Verification Method | Inspection |
 | Verification Statement | Inspect the vault store; confirm age ciphertext and no plaintext. |
 | Source | SEC 2.13 |
-| Rationale | Encrypted at rest. |
+| Rationale | Encrypted at rest. Release 1.0 keeps the vault master key with the vault's own key sources (Keychain or passphrase-wrapped file) rather than in the files of the Key & Trust Anchor Manager, so the key that decrypts the vault is never readable beside the TLS and evidence keys and needs its own unlock. |
 
 #### SR-2.13-2 — Plaintext lifetime
 
@@ -4667,12 +5801,12 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 |---|---|
 | ID | SR-2.13-2 |
 | Parent ID | SEC-2.13 — Encrypted secrets (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | The Secret Broker (E-20) **SHALL** hold decrypted secret values only in memory for the duration of a delivery and **SHALL** overwrite the buffers after use. |
+| Statement | The Secret Broker (E-20) **SHALL** hold decrypted secret values only in memory, **SHALL** overwrite every byte buffer it allocates for a decrypted value or for an encoding of one (the decrypted vault value after each delivery, the encoded forms built for leak fingerprints, the S1 header value when its grant ends), and **SHALL** make no copy of a value that cannot be overwritten other than the S4 environment string it hands to the launcher. |
 | Allocation | Elements: E-20 Secret Broker; Functions: F-50 |
 | Verification Method | Inspection |
-| Verification Statement | Review the delivery code path and a memory snapshot after delivery. |
-| Source | SEC 2.13 |
-| Rationale | Minimizes plaintext exposure. |
+| Verification Statement | Review the delivery code path for byte buffers holding a decrypted value or its encodings that are not overwritten after use, and for immutable copies other than the S4 environment string. |
+| Source | SEC 2.13; OWNER (release 1.0 narrowed to what the Go runtime allows) |
+| Rationale | Minimizes plaintext exposure. Narrowed in release 1.0 to what Go can guarantee: Go strings are immutable, so the S4 environment entry (`exec.Cmd.Env` takes strings, and the runtime copies it again when it starts the process), the header the Egress Broker (E-18) sets on each outbound S1 request (`net/http` header values are strings) and the age library's internal decryption buffers cannot be overwritten, and a memory snapshot cannot show that no stale copy exists because the garbage collector does not clear freed memory. The broker's own byte buffers are overwritten; Security Limitations lists the remaining copies. |
 
 #### SR-2.13-3 — Vault isolation
 
@@ -4685,7 +5819,7 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 | Verification Method | Test |
 | Verification Statement | Attempt vault reads as every other service identity; confirm denial. |
 | Source | SEC 2.13; ARCH §4 E-19 |
-| Rationale | Data Server compromise does not expose secrets. |
+| Rationale | Data Server compromise does not expose secrets. In release 1.x the Secret Broker runs inside smcpd, so its service identity is the one smcpd runs as (`smcp-core` in the Enforced profile); the vault directory and its key source are readable by that identity only, and every other CP-46 identity, `smcp-vault` and `smcp-srv` included, is denied. |
 
 #### SR-2.14-1 — Backend environment allowlist
 
@@ -4708,7 +5842,7 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 |---|---|
 | ID | SR-3-1 |
 | Parent ID | SEC-3 — Source-inspectable server admission (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | The Library Trust Verifier (E-13) **SHALL** accept a package only when its signature verifies under an enrolled, unexpired trust anchor whose scope includes the manifest risk class. |
+| Statement | The Library Trust Verifier (E-13) **SHALL** accept a package only when the minisign signature over its package index verifies under an enrolled, unexpired trust anchor whose scope includes the manifest risk class. |
 | Allocation | Elements: E-13 Library Trust Verifier, E-22 Key & Trust Anchor Manager; Functions: F-33; Internal interfaces: I-17 |
 | Verification Method | Test |
 | Verification Statement | Import packages signed by an unknown key, an expired anchor and an out-of-scope anchor; confirm rejection. |
@@ -4812,12 +5946,25 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 |---|---|
 | ID | SR-3.4-1 |
 | Parent ID | SEC-3.4 — Dependency inspection (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | The Servers & Library view (G-10) **SHALL** display each revision's SBOM, launcher argument vector, mounts, egress destinations, secret slots and sandbox profile. |
+| Statement | The Servers & Library view (G-10) **SHALL** display each revision's bill of materials as recorded in its signed provenance statement (artifact and source with their digests, licenses and the pinned dependency lock), launcher argument vector, mounts, egress destinations, secret slots and sandbox profile. |
 | Allocation | Elements: E-24 Management Console & Control API, E-14 Local Server Registry; Functions: F-65 |
 | Verification Method | Demonstration |
 | Verification Statement | Open a revision in G-10; confirm each item. |
 | Source | SEC 3.4 |
-| Rationale | Privileges are visible beside the server. |
+| Rationale | Privileges are visible beside the server. A release 1.0 package carries no separate SPDX document: its bill of materials is the signed provenance statement (FR-14.5), which binds the artifact and source digests, the licenses and the digest of the dependency lock file that pinned the transitive dependencies (FR-14.1). The Gateway's own release archives carry an SPDX SBOM (FR-13.1). |
+
+#### SR-3.5-1 — Packaging probe isolation
+
+| Field | Value |
+|---|---|
+| ID | SR-3.5-1 |
+| Parent ID | SEC-3.5 — Quarantine execution (MUST, `MCP_Gateway_Security_SRS.md`) |
+| Statement | The `smcpctl package build` command **SHALL** run the candidate server for its tool-list probe with no secrets, no mounts other than an empty throwaway directory and, in the Enforced profile, no network access. |
+| Allocation | Elements: E-13 Library Trust Verifier; Functions: F-96; External interfaces: X-17 |
+| Verification Method | Test |
+| Verification Statement | Package a fixture server that tries to read the user's home directory, read environment secrets and open a network connection during startup; confirm each attempt fails in the Enforced profile and that the probe environment holds only the allowlisted variables. |
+| Source | SEC 3.5; OWNER (operator self-curation) |
+| Rationale | The packaging run is the quarantine probe of SEC 3.5; a candidate must not see production data before it is reviewed. |
 
 #### SR-3.6-1 — No runtime bootstrap
 
@@ -4944,12 +6091,25 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 |---|---|
 | ID | SR-4.1-1 |
 | Parent ID | SEC-4.1 — Separate OS identities (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | The Gateway **SHALL** run the core enforcement, Data Server, vault and secret broker, evidence exporter, and console as distinct operating-system service identities. |
+| Statement | In the Enforced profile, the Gateway **SHALL** run its enforcement core process `smcpd` (which in release 1.x also hosts the Data Access Service, the vault and secret broker, the evidence exporter, the key manager and the console) as the CP-46 service identity `smcp-core`, and every MCP server process under the CP-46 server identity `smcp-srv` (as `smcp-srv` or a UID of its subordinate range); neither identity **SHALL** be root or the operator's account. |
 | Allocation | Elements: E-12 Enforcement Coordinator, E-25 Graph Database Engine, E-19 Secret Vault, E-21 Audit & Evidence Service, E-24 Management Console & Control API; External interfaces: X-07 |
 | Verification Method | Inspection |
-| Verification Statement | Inspect running processes and their UIDs. |
-| Source | SEC 4.1 |
-| Rationale | Separation of authority. |
+| Verification Statement | On an Enforced host, inspect the running `smcpd` process and the processes of a running MCP server and their UIDs. |
+| Source | SEC 4.1; OWNER (release 1.x narrowed to the core and server identities) |
+| Rationale | Separation of authority. Release 1.x narrows the statement to the boundary it enforces, between the Gateway and the servers it runs: the components that SEC 4.1 places under `smcp-evidence`, `smcp-keys`, `smcp-vault`, `smcp-data` and `smcp-console` are packages of the one `smcpd` process, so they share `smcp-core`. `smcpctl install` still creates those identities (CP-46). Running each component as its own process under its own identity needs an inter-process interface between components that release 1.x does not have; it is left to a later release, together with the directory owners of CP-46 that depend on it. |
+
+#### SR-4-1 — Standalone profile restrictions
+
+| Field | Value |
+|---|---|
+| ID | SR-4-1 |
+| Parent ID | SEC-4 — Contained local execution (MUST, `MCP_Gateway_Security_SRS.md`) |
+| Statement | In the Standalone profile, the Local Server Registry (E-14) **SHALL** refuse to enable a server revision whose manifest risk class, or any tool's risk class, is `high`. |
+| Allocation | Elements: E-14 Local Server Registry, E-23 Health & Safety Monitor; Functions: F-36, F-61 |
+| Verification Method | Test |
+| Verification Statement | In a Standalone installation, import and attempt to enable a `high` package and a `moderate` package; confirm refusal of the first with reason `PROFILE_UNCONFINED` and enablement of the second. |
+| Source | SEC 4; SEC 3.13; OWNER (Standalone profile: high-risk server classes refused) |
+| Rationale | Without a sandbox, a high-risk server's capabilities are the user's capabilities. |
 
 #### SR-4.1-2 — Instance identities
 
@@ -4990,18 +6150,44 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 | Source | SEC 4.2 |
 | Rationale | Store files are not readable by other identities. |
 
-#### SR-4.3-1 — Caller allowlist
+#### SR-4.9-1 — Single MCP endpoint per locked-down client
 
 | Field | Value |
 |---|---|
-| ID | SR-4.3-1 |
-| Parent ID | SEC-4.3 — CE access boundary (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | The Data Access Service (E-26) **SHALL** authenticate each calling element by Unix-socket peer credentials and **SHALL** permit only the operations allowlisted for that element. |
-| Allocation | Elements: E-26 Data Access Service; Functions: F-72; Internal interfaces: I-07, I-30, I-33, I-34, I-35, I-06 |
+| ID | SR-4.9-1 |
+| Parent ID | SEC-4.9 — Hermes endpoint (MUST, `MCP_Gateway_Security_SRS.md`) |
+| Statement | Each lockdown profile of FR-15.1 **SHALL** leave the Gateway as the only MCP server the client loads, and `smcpctl doctor` **SHALL** report any additional MCP server the client would load. |
+| Allocation | Elements: E-33 Harness Adapter Kit; Functions: F-98; External interfaces: X-12 |
 | Verification Method | Test |
-| Verification Statement | Invoke a policy-write operation from the Observation Collector identity; confirm denial. |
-| Source | SEC 4.3 |
-| Rationale | Application-level separation without Enterprise database roles. |
+| Verification Statement | For each local client with a lockdown mechanism, apply the profile, add a second server in user and project scope, start the client and list its MCP servers; confirm only the Gateway loads and doctor reports the added servers. |
+| Source | SEC 4.9; OWNER (lockdown profiles per client) |
+| Rationale | SEC 4.9 was written for Hermes; the same single-endpoint rule now applies to every local client. |
+
+#### SR-4.11-1 — Protected client configuration
+
+| Field | Value |
+|---|---|
+| ID | SR-4.11-1 |
+| Parent ID | SEC-4.11 — Protected client configuration (MUST, `MCP_Gateway_Security_SRS.md`) |
+| Statement | Each lockdown profile of FR-15.1 **SHALL** deny the client's own file-editing tools write access to the client's MCP and permission settings files where the client provides such a rule, and `smcpctl doctor` **SHALL** report each client whose settings files are writable by its own tools. |
+| Allocation | Elements: E-33 Harness Adapter Kit; Functions: F-98; External interfaces: X-12 |
+| Verification Method | Test |
+| Verification Statement | For each local client, apply the profile and ask the agent to edit its own MCP settings file; confirm the edit is refused where Appendix K lists a mechanism and that doctor reports the remaining clients. |
+| Source | SEC 4.11; OWNER (lockdown profiles) |
+| Rationale | An agent that can edit its own configuration can remove the lockdown. |
+
+#### SR-4.13-1 — Exclusive-gateway label
+
+| Field | Value |
+|---|---|
+| ID | SR-4.13-1 |
+| Parent ID | SEC-4.13 — Additional clients (MUST, `MCP_Gateway_Security_SRS.md`) |
+| Statement | The client matrix (FR-15.10) **SHALL** mark a client `exclusive-gateway` only when its latest matrix run at the pinned version passed the FR-15.1 and SR-4.9-1 bypass tests, and **SHALL** mark every other client `gateway-available`. |
+| Allocation | Elements: E-33 Harness Adapter Kit; Functions: F-98; External interfaces: X-12 |
+| Verification Method | Inspection |
+| Verification Statement | Inspect `docs/clients/matrix.json` and the latest matrix results; confirm that each `exclusive-gateway` client has passing bypass results for its pinned version. |
+| Source | SEC 4.13; SEC 9.7 |
+| Rationale | Users should not read "supported" as "cannot bypass". |
 
 #### SR-4.5-1 — Sandbox network isolation
 
@@ -5009,7 +6195,7 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 |---|---|
 | ID | SR-4.5-1 |
 | Parent ID | SEC-4.5 — Backend egress (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | The Execution Sandbox (E-16) **SHALL** place each instance in a network namespace whose only reachable endpoints are its Egress Broker endpoints. |
+| Statement | In the Enforced profile, the Execution Sandbox (E-16) **SHALL** place each instance in a network namespace whose only reachable endpoints are its Egress Broker endpoints. |
 | Allocation | Elements: E-16 Execution Sandbox, E-18 Egress Broker; Functions: F-41; Internal interfaces: I-25 |
 | Verification Method | Test |
 | Verification Statement | From a fixture instance, attempt connections to the Internet, LAN, loopback services and the database; confirm all fail except broker endpoints. |
@@ -5035,7 +6221,7 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 |---|---|
 | ID | SR-4.6-1 |
 | Parent ID | SEC-4.6 — Filesystem authority (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | The Execution Sandbox (E-16) **SHALL** mount only paths in the intersection of manifest-declared and policy-granted roots, read-only unless a write grant applies. |
+| Statement | In the Enforced profile, the Execution Sandbox (E-16) **SHALL** mount only paths in the intersection of manifest-declared and policy-granted roots, read-only unless a write grant applies. |
 | Allocation | Elements: E-16 Execution Sandbox; Functions: F-41 |
 | Verification Method | Test |
 | Verification Statement | Attempt reads and writes outside and inside the granted roots from a fixture; confirm the results. |
@@ -5048,7 +6234,7 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 |---|---|
 | ID | SR-4.7-1 |
 | Parent ID | SEC-4.7 — Host-management exclusion (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | The Execution Sandbox (E-16) **SHALL** run instances with all capabilities dropped, `no-new-privileges`, the default seccomp profile, a read-only root filesystem, and without host PID, network or IPC namespaces, devices or host management sockets. |
+| Statement | In the Enforced profile, the Execution Sandbox (E-16) **SHALL** run instances with all capabilities dropped, `no-new-privileges`, the default seccomp profile, a read-only root filesystem, and without host PID, network or IPC namespaces, devices or host management sockets. |
 | Allocation | Elements: E-16 Execution Sandbox; Functions: F-41 |
 | Verification Method | Inspection |
 | Verification Statement | Inspect the effective container configuration of an instance. |
@@ -5061,7 +6247,7 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 |---|---|
 | ID | SR-4.7-2 |
 | Parent ID | SEC-4.7 — Host-management exclusion (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | The Execution Sandbox (E-16) **SHALL** enforce cgroup memory, CPU and PID limits, with CP-24 as the default. |
+| Statement | In the Enforced profile, the Execution Sandbox (E-16) **SHALL** enforce cgroup memory, CPU and PID limits, with CP-24 as the default. |
 | Allocation | Elements: E-16 Execution Sandbox; Functions: F-41 |
 | Verification Method | Test |
 | Verification Statement | Exceed each limit from a fixture; confirm enforcement. |
@@ -5081,18 +6267,31 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 | Source | SEC 4.8 |
 | Rationale | No command injection. |
 
-#### SR-4.14-1 — Overlay Profile
+#### SR-4.14-1 — Remote Access host rules
 
 | Field | Value |
 |---|---|
 | ID | SR-4.14-1 |
 | Parent ID | SEC-4.14 — Overlay least privilege (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | When the Overlay Profile is enabled, the Gateway **SHALL** apply deny-by-default nftables rules permitting only configured device-to-port pairs to reach non-loopback listeners. |
-| Allocation | Elements: E-01 Harness Interface Endpoint, E-24 Management Console & Control API; External interfaces: X-07 |
+| Statement | When the Remote Access Profile is enabled, the `smcpctl remote enable` command **SHALL** add no inbound firewall exception, and in the Enforced profile **SHALL** install nftables rules that drop every non-loopback connection to the CP-02, CP-03, CP-48 and CP-51 ports. |
+| Allocation | Elements: E-01 Harness Interface Endpoint, E-24 Management Console & Control API; Functions: F-97; External interfaces: X-07, X-13 |
 | Verification Method | Test |
-| Verification Statement | Enable the profile; confirm unlisted devices and ports are refused. |
-| Source | SEC 4.14 |
-| Rationale | Conditional remote access. |
+| Verification Statement | Enable the profile on an Enforced host; attempt connections to each port from another host on the network; confirm all are dropped and that the tunnel connector on the host reaches the CP-48 listener. |
+| Source | SEC 4.14; OWNER (Remote Access through an authenticated tunnel) |
+| Rationale | Remote access arrives only through the tunnel connector; no port is opened to the network. |
+
+#### SR-4.14-2 — Remote authentication
+
+| Field | Value |
+|---|---|
+| ID | SR-4.14-2 |
+| Parent ID | SEC-4.14 — Overlay least privilege (MUST, `MCP_Gateway_Security_SRS.md`) |
+| Statement | When the Remote Access Profile is enabled, the Harness Interface Endpoint (E-01) **SHALL** require on the remote listener an access token issued to an approved client for every request except OAuth metadata, authorization, token, registration, device authorization and device verification requests. |
+| Allocation | Elements: E-01 Harness Interface Endpoint, E-03 Identity & Authentication Service; Functions: F-01, F-04; External interfaces: X-13 |
+| Verification Method | Test |
+| Verification Statement | Send MCP requests through the tunnel without a token, with a token from a pending client and with a valid token; confirm `-31006` for the first two and success for the third. |
+| Source | SEC 4.14; OWNER (OAuth 2.1 with per-client registration) |
+| Rationale | Application authentication on every request in addition to the tunnel. |
 
 ### SEC-5 Protocol and content boundary
 
@@ -5108,19 +6307,6 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 | Verification Statement | Inspect the dispatch code; confirm separate handlers and era-only selection. |
 | Source | SEC 5.1 |
 | Rationale | Profiles must not leak behavior. |
-
-#### SR-5.1-2 — Southbound era by manifest
-
-| Field | Value |
-|---|---|
-| ID | SR-5.1-2 |
-| Parent ID | SEC-5.1 — Explicit protocol profiles (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | The Tool Dispatcher (E-10) **SHALL** use legacy 2025-11-25 behavior toward an instance only when the manifest declares that era. |
-| Allocation | Elements: E-10 Tool Dispatcher; Functions: F-23 |
-| Verification Method | Test |
-| Verification Statement | Probe a modern server whose manifest declares legacy; confirm suspension rather than legacy use. |
-| Source | SEC 5.1; FR-5.17 |
-| Rationale | Curated protocol era. |
 
 #### SR-5.2-1 — Header/body agreement
 
@@ -5160,19 +6346,6 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 | Verification Statement | Trigger each error class; confirm no legacy processing. |
 | Source | SEC 5.3 |
 | Rationale | Errors cannot open weaker paths. |
-
-#### SR-5.3-2 — No southbound downgrade
-
-| Field | Value |
-|---|---|
-| ID | SR-5.3-2 |
-| Parent ID | SEC-5.3 — No unsafe downgrade (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | The Tool Dispatcher (E-10) **SHALL** treat a recognized modern error from an era probe as modern and **SHALL** never fall back to legacy because of it. |
-| Allocation | Elements: E-10 Tool Dispatcher; Functions: F-23 |
-| Verification Method | Test |
-| Verification Statement | Return `-32022` to a probe; confirm modern handling. |
-| Source | SEC 5.3; MCP:basic/transports/stdio §Backward Compatibility |
-| Rationale | Specification fallback rule. |
 
 #### SR-5.4-1 — Authorized discovery
 
@@ -5304,6 +6477,19 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 | Source | SEC 5.9 |
 | Rationale | Every surface reaching the agent is filtered. |
 
+#### SR-5.9-2 — Tool metadata scanning
+
+| Field | Value |
+|---|---|
+| ID | SR-5.9-2 |
+| Parent ID | SEC-5.9 — Incoming filtering (MUST, `MCP_Gateway_Security_SRS.md`) |
+| Statement | When importing a server revision, the Library Trust Verifier (E-13) **SHALL** apply the active metadata rule set to every tool name, title, description and schema property description at any nesting depth, and the Local Server Registry (E-14) **SHALL** register each tool with a blocking finding as suspended and record a `metadata_blocked` event naming the rule and rule-set version. |
+| Allocation | Elements: E-13 Library Trust Verifier, E-14 Local Server Registry; Functions: F-34, F-36; Internal interfaces: I-21, I-18 |
+| Verification Method | Test |
+| Verification Statement | Import the Appendix L poisoned-description and poisoned-property-description fixtures; confirm each affected tool is suspended with the event, and that a clean tool of the same server is presented. |
+| Source | SEC 5.9; REVIEW (I2: metadata scanning of all presented tool metadata at import and presentation) |
+| Rationale | Tool descriptions reach the model's context like tool results do; they are an injection surface. |
+
 #### SR-5.10-1 — Filter failure
 
 | Field | Value |
@@ -5356,6 +6542,19 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 | Source | SEC 5.13 |
 | Rationale | Downstream consumers retain untrusted status. |
 
+#### SR-5.13-2 — Session taint
+
+| Field | Value |
+|---|---|
+| ID | SR-5.13-2 |
+| Parent ID | SEC-5.13 — Untrusted content treatment (MUST, `MCP_Gateway_Security_SRS.md`) |
+| Statement | When a result from a tool whose manifest `source_trust` is `untrusted` is released to a session, the Session Manager (E-04) **SHALL** mark the session tainted until it ends, and while it is tainted the Policy Decision Service (E-06) **SHALL** add an approval obligation, or deny when the template's `taint_action` is `deny`, to every call of a tool whose side-effect class is `external` or `write`. |
+| Allocation | Elements: E-04 Session Manager, E-06 Policy Decision Service; Functions: F-99, F-14 |
+| Verification Method | Test |
+| Verification Statement | In a session, call a `read` tool with untrusted source, then a `write` tool and an `external` tool; repeat with `taint_action = deny`; confirm approval obligations (`TAINT_APPROVAL`) and then denials (`TAINT_DENIED`), and that a fresh session is untainted. |
+| Source | SEC 5.13; SEC 1.12; REVIEW (I3: deterministic restrict-only session taint) |
+| Rationale | An agent that has read attacker-controlled text should not be able to act on the outside world without a person's approval. The rule is deterministic and can only restrict. |
+
 #### SR-5.14-1 — Unicode corpus
 
 | Field | Value |
@@ -5406,7 +6605,7 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 | Verification Method | Test |
 | Verification Statement | Replay a used capability and present one for another destination; confirm refusal and header removal. |
 | Source | SEC 5.16 |
-| Rationale | Each outbound operation is individually authorized. |
+| Rationale | Each outbound operation is individually authorized. The capabilities of a call are minted when the call is dispatched to the instance and delivered in its `_meta` (CP-23); unused ones are revoked when the call returns. An operator may turn the check off (`[egress] require_capability = false`) for a server whose HTTP client cannot attach the header; the broker then authorizes each operation by instance and grant (SR-4.5-2) and reports the setting in its status. |
 
 #### SR-5.17-1 — No ambient cookies
 
@@ -5414,12 +6613,12 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 |---|---|
 | ID | SR-5.17-1 |
 | Parent ID | SEC-5.17 — Web content execution (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | The Egress Broker (E-18) **SHALL** strip `Cookie` and `Set-Cookie` headers and **SHALL** retain no cookie state between operations. |
+| Statement | The Egress Broker (E-18) **SHALL** strip `Cookie` and `Set-Cookie` headers from every operation it relays in clear (plain-HTTP proxy requests and endpoint requests, whose TLS the broker originates) and **SHALL** retain no cookie state between operations. |
 | Allocation | Elements: E-18 Egress Broker; Functions: F-45 |
 | Verification Method | Test |
 | Verification Statement | Have a destination set a cookie; confirm it is not forwarded or replayed. |
 | Source | SEC 5.17 |
-| Rationale | No ambient credential state. |
+| Rationale | No ambient credential state. An HTTPS request through `CONNECT` is a TLS tunnel that the broker relays without interception (it checks the server name, SR-4.5-2), so it cannot see the headers inside; the broker keeps no cookies of its own for any operation. |
 
 #### SR-5.18-1 — Binary content gate
 
@@ -5427,7 +6626,7 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 |---|---|
 | ID | SR-5.18-1 |
 | Parent ID | SEC-5.18 — Uninspected binary content (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | The `content-type-gate` filter **SHALL** remove image, audio and binary embedded-resource content unless the Response Policy allowlists the MIME type, the magic bytes match and the size is within the policy bound. |
+| Statement | The `content-type-gate` filter **SHALL** remove image, audio and binary embedded-resource content unless the content-type allowlist of the configuration (`[filters.content_types]`) allows the MIME type, the magic bytes match and the size is within its bound. |
 | Allocation | Elements: E-11 Response Inspection Pipeline; Functions: F-27 |
 | Verification Method | Test |
 | Verification Statement | Return allowlisted, mismatched and oversize images; confirm the dispositions. |
@@ -5546,12 +6745,12 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 |---|---|
 | ID | SR-6.2-1 |
 | Parent ID | SEC-6.2 — Atomic decision and intent (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | The Enforcement Coordinator (E-12) **SHALL** commit the decision, invocation intent, exact rule, server, tool, filter, audit and observation profile links, and the export outbox record in one database transaction before issuing a launch capability. |
-| Allocation | Elements: E-12 Enforcement Coordinator, E-21 Audit & Evidence Service, E-26 Data Access Service; Functions: F-29; Internal interfaces: I-30 |
+| Statement | The Enforcement Coordinator (E-12) **SHALL** append one journal record holding the decision, the invocation intent and the IDs of the exact rule, server revision, tool revision, filters, audit profile and observation profile to the Evidence Journal, and **SHALL** receive the completion of that record's flush to stable storage before issuing a launch capability. |
+| Allocation | Elements: E-12 Enforcement Coordinator, E-21 Audit & Evidence Service; Functions: F-29, F-55; Data stores: D-06 |
 | Verification Method | Test |
-| Verification Statement | Kill the process at each point around commit; confirm no launch without the complete committed set. |
-| Source | SEC 6.2 |
-| Rationale | Dispatch always has evidence. |
+| Verification Statement | Kill the process at points before, during and after the append and the flush, using a fault-injecting file layer; confirm that no launch occurs whose intent record is absent from the journal after restart, and that `smcpctl journal verify` passes. |
+| Source | SEC 6.2; OWNER (decision intent written and fsynced before the one-use launch capability is issued) |
+| Rationale | Dispatch always has evidence. SEC 6.2 names a graph transaction; one flushed journal record gives the same atomicity on the evidence authority (A-9). |
 
 #### SR-6.3-1 — Outcome before release
 
@@ -5559,11 +6758,11 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 |---|---|
 | ID | SR-6.3-1 |
 | Parent ID | SEC-6.3 — Outcome before release (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | The Enforcement Coordinator (E-12) **SHALL** commit the outcome and release disposition before issuing a release authorization. |
-| Allocation | Elements: E-12 Enforcement Coordinator, E-21 Audit & Evidence Service; Functions: F-30; Internal interfaces: I-30 |
+| Statement | The Enforcement Coordinator (E-12) **SHALL** append the outcome and release disposition to the Evidence Journal and receive the completion of its flush before issuing a release authorization. |
+| Allocation | Elements: E-12 Enforcement Coordinator, E-21 Audit & Evidence Service; Functions: F-30, F-55; Data stores: D-06 |
 | Verification Method | Test |
-| Verification Statement | Fail the commit; confirm the result is withheld. |
-| Source | SEC 6.3 |
+| Verification Statement | Inject a flush failure after the backend responds; confirm the result is withheld with `-31003` and that no released content reaches the harness. |
+| Source | SEC 6.3; OWNER (evidence authority is the journal) |
 | Rationale | Release always has evidence. |
 
 #### SR-6.4-1 — Exact links
@@ -5592,19 +6791,6 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 | Source | SEC 6.5 |
 | Rationale | No attribution of execution to uncalled servers. |
 
-#### SR-6.6-1 — Policy-directed payload capture
-
-| Field | Value |
-|---|---|
-| ID | SR-6.6-1 |
-| Parent ID | SEC-6.6 — Policy-directed payload storage (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | The Audit & Evidence Service (E-21) **SHALL** capture optional payloads only as directed by the evaluated Audit Profile, Observation Policy or Research Campaign, into the storage class it names. |
-| Allocation | Elements: E-21 Audit & Evidence Service, E-29 Observation Collector; Functions: F-53, F-82 |
-| Verification Method | Test |
-| Verification Statement | Toggle capture in the profile; confirm payload presence follows it. |
-| Source | SEC 6.6 |
-| Rationale | Policy-directed capture. |
-
 #### SR-6.7-1 — Secret scrubbing
 
 | Field | Value |
@@ -5618,44 +6804,18 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 | Source | SEC 6.7 |
 | Rationale | No secrets at rest in evidence. |
 
-#### SR-6.8-1 — Payload encryption
-
-| Field | Value |
-|---|---|
-| ID | SR-6.8-1 |
-| Parent ID | SEC-6.8 — Payload encryption (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | The Audit & Evidence Service (E-21) **SHALL** store captured payloads as age-encrypted blobs referenced in the graph by ciphertext digest and key reference. |
-| Allocation | Elements: E-21 Audit & Evidence Service, E-22 Key & Trust Anchor Manager; Functions: F-53 |
-| Verification Method | Inspection |
-| Verification Statement | Inspect a payload blob and its graph reference. |
-| Source | SEC 6.8 |
-| Rationale | Encrypted payloads. |
-
-#### SR-6.9-1 — Retention validation
-
-| Field | Value |
-|---|---|
-| ID | SR-6.9-1 |
-| Parent ID | SEC-6.9 — Retention conflict (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | The Policy Administration Service (E-05) **SHALL** reject publication of retention settings whose greatest minimum exceeds the smallest maximum, or whose capture requirement contradicts a no-capture classification. |
-| Allocation | Elements: E-05 Policy Administration Service; Functions: F-10 |
-| Verification Method | Test |
-| Verification Statement | Publish conflicting retention and capture settings; confirm rejection. |
-| Source | SEC 6.9 |
-| Rationale | Consistent retention. |
-
 #### SR-6.10-1 — Idempotent export
 
 | Field | Value |
 |---|---|
 | ID | SR-6.10-1 |
 | Parent ID | SEC-6.10 — Idempotent evidence export (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | The Audit & Evidence Service (E-21) **SHALL** export outbox events to the evidence journal exactly once per event ID, including after restart. |
-| Allocation | Elements: E-21 Audit & Evidence Service; Functions: F-55 |
+| Statement | The Audit & Evidence Service (E-21) **SHALL** feed journal events to the audit graph mirror (D-05) and to evidence export (X-09) exactly once per event ID, including after restart. |
+| Allocation | Elements: E-21 Audit & Evidence Service, E-26 Data Access Service; Functions: F-54, F-55; Internal interfaces: I-30; Data stores: D-05 |
 | Verification Method | Test |
-| Verification Statement | Crash the exporter mid-segment; confirm no duplicates and no gaps after restart. |
-| Source | SEC 6.10 |
-| Rationale | Reliable evidence. |
+| Verification Statement | Crash the mirror feed and the exporter mid-batch; restart; confirm the mirror and the export each hold every journal event once, with no duplicates and no gaps. |
+| Source | SEC 6.10; ARCH §2.2 A-9 |
+| Rationale | Reliable evidence downstream of the journal. |
 
 #### SR-6.11-1 — Export lag stop
 
@@ -5663,7 +6823,7 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 |---|---|
 | ID | SR-6.11-1 |
 | Parent ID | SEC-6.11 — Export lag boundary (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | When journal export lag exceeds the CP-27 stop thresholds, the Enforcement Coordinator (E-12) **SHALL** refuse new launch authorizations. |
+| Statement | When the oldest journal event not yet in a signed segment is older than, or the count of such events exceeds, the CP-27 stop thresholds, the Enforcement Coordinator (E-12) **SHALL** refuse new launch authorizations. |
 | Allocation | Elements: E-12 Enforcement Coordinator, E-21 Audit & Evidence Service, E-23 Health & Safety Monitor; Functions: F-29, F-61 |
 | Verification Method | Test |
 | Verification Statement | Stall the exporter; confirm dispatch stops at the thresholds. |
@@ -5689,12 +6849,12 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 |---|---|
 | ID | SR-6.13-1 |
 | Parent ID | SEC-6.13 — Failure evidence spool (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | When the Data Server is unavailable, the Audit & Evidence Service (E-21) **SHALL** write denial and failure events to a 64 MiB protected local spool and **SHALL** import them on recovery with their original policy status. |
-| Allocation | Elements: E-21 Audit & Evidence Service; Functions: F-53 |
+| Statement | When the graph mirror is unavailable, the Audit & Evidence Service (E-21) **SHALL** continue to record every event, including denials and failures, in the Evidence Journal, and **SHALL** backfill the mirror from the journal on recovery with each event's original policy status. |
+| Allocation | Elements: E-21 Audit & Evidence Service; Functions: F-53, F-54; Data stores: D-06, D-05 |
 | Verification Method | Test |
-| Verification Statement | Stop the database, generate denials, restart; confirm the spooled events with `policy_status=unavailable`. |
-| Source | SEC 6.13 |
-| Rationale | Evidence during outage. |
+| Verification Statement | Stop the graph database, generate permits, denials and failures, restart it; confirm every event is in the journal during the outage and in the mirror after recovery with its original `policy_status`. |
+| Source | SEC 6.13; ARCH §2.2 A-9 |
+| Rationale | The journal is the protected local record that SEC 6.13 asks for; the mirror catches up from it. |
 
 #### SR-6.14-1 — Referenced version retention
 
@@ -5834,12 +6994,12 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 |---|---|
 | ID | SR-7.3-1 |
 | Parent ID | SEC-7.3 — Graph integrity validation (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | The Data Access Service (E-26) **SHALL** validate required fields, types, enumerations and relationship cardinalities of the active policy at publication and at startup, and the Health & Safety Monitor (E-23) **SHALL** enter `fail-closed` on failure. |
-| Allocation | Elements: E-26 Data Access Service, E-23 Health & Safety Monitor; Functions: F-72, F-62 |
+| Statement | The Policy Administration Service (E-05) **SHALL** validate the signature, schema, required fields, types, enumerations and cross-references of the active policy revision at publication and at startup, and the Health & Safety Monitor (E-23) **SHALL** enter `fail-closed` on failure. |
+| Allocation | Elements: E-05 Policy Administration Service, E-23 Health & Safety Monitor; Functions: F-10, F-62; Data stores: D-01 |
 | Verification Method | Test |
-| Verification Statement | Corrupt a stored rule; restart; confirm `fail-closed`. |
-| Source | SEC 7.3 |
-| Rationale | Application-level integrity checks replace missing Community Edition constraints. |
+| Verification Statement | Corrupt a stored rule, break a cross-reference and remove the signature, restarting after each; confirm `fail-closed` with the matching cause. |
+| Source | SEC 7.3; ARCH §2.2 A-9 |
+| Rationale | The policy authority is a file set; it is validated as a whole before it is trusted. |
 
 #### SR-7.4-1 — Graph engine hardening
 
@@ -5866,6 +7026,19 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 | Verification Statement | Attempt creation without, with an expired and with a used credential; confirm only valid first use succeeds. |
 | Source | SEC 7.5 |
 | Rationale | Protected initial administration. |
+
+#### SR-7.5-2 — No secrets on the command line
+
+| Field | Value |
+|---|---|
+| ID | SR-7.5-2 |
+| Parent ID | SEC-7.5 — Secure bootstrap (MUST, `MCP_Gateway_Security_SRS.md`) |
+| Statement | The `smcpctl bootstrap`, `smcpctl install` and `smcpctl hash-password` commands **SHALL** read a password or bootstrap secret only from an interactive prompt or from a file with mode 0600 or stricter, and **SHALL** refuse one supplied as a command-line argument. |
+| Allocation | Elements: E-24 Management Console & Control API; Functions: F-63, F-97 |
+| Verification Method | Test |
+| Verification Statement | Run each command with a password argument, with a mode 0644 file, with a mode 0600 file and with the prompt; confirm refusal for the first two and success for the others. |
+| Source | SEC 7.5; REVIEW (minor: bootstrap secret must not be passed on the command line) |
+| Rationale | Command-line arguments are visible to other local processes and kept in shell history. |
 
 #### SR-7.6-1 — Emergency stop serialization
 
@@ -5899,12 +7072,12 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 |---|---|
 | ID | SR-7.7-1 |
 | Parent ID | SEC-7.7 — CE-compatible backup (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | The `smcpctl backup` command **SHALL** stop dispatch, drain in-flight calls, stop the graph engine, dump it, copy the Observation Store, configuration, encrypted vault and checkpoints, and keep dispatch stopped until the backup completes. |
-| Allocation | Elements: E-28 Data Lifecycle & Memory Manager, E-12 Enforcement Coordinator; Functions: F-79 |
+| Statement | The `smcpctl backup` command **SHALL** stop dispatch, drain in-flight calls, seal the open journal segment, copy the Policy Store, Server Registry, configuration, encrypted vault, Evidence Journal, key material and trust anchors into the encrypted archive of FR-17.6, optionally add an Observation Store copy and a graph dump, and keep dispatch stopped until the archive is written and checksummed. |
+| Allocation | Elements: E-28 Data Lifecycle & Memory Manager, E-12 Enforcement Coordinator, E-21 Audit & Evidence Service; Functions: F-79; Data stores: D-15 |
 | Verification Method | Test |
-| Verification Statement | Run a backup under load; confirm the sequence and that dispatch remains stopped throughout. |
-| Source | SEC 7.7 |
-| Rationale | Community Edition supports offline backup only. |
+| Verification Statement | Run a backup under load; confirm the sequence from the journal, that dispatch remains stopped throughout and resumes after, and that the archive contains each listed component. |
+| Source | SEC 7.7; ARCH §2.2 A-9 |
+| Rationale | The authorities are files and are copied consistently while dispatch is stopped; the graph is optional because it can be rebuilt. |
 
 #### SR-7.8-1 — Restore verification
 
@@ -5912,7 +7085,7 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 |---|---|
 | ID | SR-7.8-1 |
 | Parent ID | SEC-7.8 — Verified restoration (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | The `smcpctl restore` command **SHALL** restore into an isolated instance and verify relationship counts, checksums and the presence of every revocation recorded in the evidence journal before enabling service. |
+| Statement | The `smcpctl restore` command **SHALL** restore into an isolated directory, verify the archive checksum, the journal chain and signatures and the policy revision signatures, re-apply every revocation recorded in the restored journal and in the current journal when present, and rebuild the graph mirror from the restored journal before enabling service. |
 | Allocation | Elements: E-28 Data Lifecycle & Memory Manager; Functions: F-79 |
 | Verification Method | Test |
 | Verification Statement | Restore a backup taken before a revocation; confirm the revocation is re-applied from the journal before service starts. |
@@ -5925,7 +7098,7 @@ Each security requirement is a **SHALL** control whose parent is a **MUST** in `
 |---|---|
 | ID | SR-7.9-1 |
 | Parent ID | SEC-7.9 — Safe rollback (MUST, `MCP_Gateway_Security_SRS.md`) |
-| Statement | The Policy Administration Service (E-05) **SHALL** carry forward current revocation epochs and server suspensions when rolling back policy or application versions. |
+| Statement | The Policy Administration Service (E-05) **SHALL** carry forward current credential revocations, principal suspensions and server suspensions when rolling back policy or application versions. |
 | Allocation | Elements: E-05 Policy Administration Service, E-12 Enforcement Coordinator; Functions: F-12, F-32 |
 | Verification Method | Test |
 | Verification Statement | Revoke, then roll back policy; confirm the revocation remains effective. |
@@ -5994,7 +7167,7 @@ Values marked **SEC** are inherited from `MCP_Gateway_Security_SRS.md` Appendix 
 |---|---|---|---|
 | CP-01 | Northbound MCP endpoint path | `/mcp` | New |
 | CP-02 | Harness listeners | TLS: `127.0.0.1:8443`; UDS (profile): `/run/smcp/harness.sock` | New |
-| CP-03 | Admin listener | `127.0.0.1:9443` (TLS) | New |
+| CP-03 | Admin listener | `127.0.0.1:8444` (TLS; `[admin_listener] address`) | New |
 | CP-04 | Northbound supported protocol versions | `["2026-07-28", "2025-11-25"]`, both served in the baseline | SEC 5.1 |
 | CP-05 | Southbound protocol eras | Modern `2026-07-28`; legacy `2025-11-25` | SEC 5.1 |
 | CP-06 | Header limit / header deadline | 16 KiB / 5 s | SEC |
@@ -6002,7 +7175,7 @@ Values marked **SEC** are inherited from `MCP_Gateway_Security_SRS.md` Appendix 
 | CP-08 | Expanded result size / JSON depth | 8 MiB / 32 | SEC |
 | CP-09 | Connections / unauthenticated work / per-source rate | 128 / 32 concurrent / 10 req/s, burst 20 | SEC |
 | CP-10 | Tool concurrency / queue | 4 per principal, 16 total / 32 | SEC |
-| CP-11 | Default principal tool rate | 60 calls/min, burst 10 | SEC |
+| CP-11 | Default principal tool rate | 60 calls/min, burst 10 (at most 10 calls in any 10 s window; `[limits] principal_calls_per_minute`, `principal_call_burst`) | SEC |
 | CP-12 | Decision deadline / candidate rules | 500 ms / 256 | SEC |
 | CP-13 | Upstream execution / client deadline | 45 s / 60 s | SEC |
 | CP-14 | Required filter deadline | 2 s per profile | SEC |
@@ -6014,11 +7187,11 @@ Values marked **SEC** are inherited from `MCP_Gateway_Security_SRS.md` Appendix 
 | CP-20 | Listen keep-alive / listen streams per session | 15 s / 2 | New |
 | CP-21 | Progress relay rate | ≤ 10 notifications/s per request | New |
 | CP-22 | Gateway error codes | Appendix B | New |
-| CP-23 | Gateway metadata names | `_meta` prefix `local.smcpgw/`; session token in `Authorization: Bearer` (RFC 6750 header only) on the TLS listener and `_meta["local.smcpgw/session"]` on the UDS listener; egress header `Smcp-Egress-Auth` | New |
+| CP-23 | Gateway metadata names | `_meta` prefix `local.smcpgw/`; session token in `Authorization: Bearer` (RFC 6750 header only) on the TLS listener; on the UDS listener the session is bound to the connection (first message `local.smcpgw/authenticate`, FR-2.15); egress header `Smcp-Egress-Auth`, whose one-use capabilities each call delivers in `_meta` `local.smcpgw/egress_auth` | New |
 | CP-24 | Default instance budget | 512 MiB RAM, 1 CPU, 128 PIDs | SEC |
 | CP-25 | Retention defaults | Metadata 90 d; payload 7 d; temporary full capture ≤ 24 h | SEC |
 | CP-26 | Audit/evidence quota | 10 GiB; warn at 80% | SEC |
-| CP-27 | Journal export lag | Target 5 s; stop at > 60 s or > 1,000 events | SEC |
+| CP-27 | Journal signing lag | Target 5 s; stop when the oldest unsigned event is older than 60 s or more than 1,000 events are unsigned | SEC |
 | CP-28 | Argon2id | 64 MiB, t = 3, p = 1, salt ≥ 16 B | SEC |
 | CP-29 | Admin session | 15 min idle, 8 h absolute | SEC |
 | CP-30 | Anomaly defaults | Bands: normal \|z\| < 2, elevated < 3, abnormal < 4, critical ≥ 4; n_min = 30; σ_floor from catalog | ARCH §9.2 |
@@ -6032,13 +7205,25 @@ Values marked **SEC** are inherited from `MCP_Gateway_Security_SRS.md` Appendix 
 | CP-38 | Instance idle teardown | 10 min | New |
 | CP-39 | MRTR `requestState` lifetime | 5 min | New |
 | CP-40 | Research pseudonym function | HMAC-SHA-256, per-dataset key | ARCH §4 E-32 |
-| CP-41 | OAuth parameters | Authorization-code grant; PKCE `S256` only; resource URI `https://127.0.0.1:8443/mcp`; scope prefix `smcp:` with `template`, `purpose`, `project`, `user`; access-token lifetime = CP-18 idle timeout; refresh-token lifetime = CP-18 maximum lifetime; client-secret lifetime = CP-15; `iss` in authorization responses | New |
+| CP-41 | OAuth parameters | Authorization-code grant (Remote Access listener also: the RFC 8628 device authorization grant used by `smcp-connect`, device code lifetime 10 min, poll interval 5 s); PKCE `S256` only; resource URI `https://127.0.0.1:8443/mcp` (Remote Access listener: the configured public URL followed by `/mcp`); scope prefix `smcp:` with `template`, `purpose`, `project`, `user`; access-token lifetime = CP-18 idle timeout; refresh-token lifetime = CP-18 maximum lifetime; client-secret lifetime = CP-15; `iss` in authorization responses | New |
 | CP-42 | Public tool names | `<alias>_<tool>`; alias `[a-z0-9]{1,16}`; tool part `[A-Za-z0-9_]`; whole name ≤ 64 characters | New |
 | CP-43 | Adapter credential file | `$XDG_CONFIG_HOME/smcp/credentials.toml` (default `~/.config/smcp/`), mode 0600; refresh at 50% of access-token lifetime | New |
+| CP-44 | Manifest classes | Risk class `low`, `moderate` or `high`; `high` = general SQL, code or shell execution, CAD scripting, browser automation, or process spawning beyond the declared argument vector (SEC 3.13). Side-effect class per tool: `read`, `write`, `external`, `execute`. `source_trust` per tool: `trusted` (content originates from the operator's own data) or `untrusted` (content from the Internet, third parties or other agents) | New |
+| CP-45 | Approval hold | Hold bound 120 s (`[limits] approval_hold`, configurable 0 to 600 s; 0 disables hold); keep-alive interval 10 s (`[approvals] keepalive`); approval URL `https://<CP-03 admin listener>/approvals/<approvalId>`, or `[approvals] console_url` followed by `/approvals/<approvalId>` when set | New |
+| CP-46 | Directories and service identities | **Enforced:** configuration `/etc/smcp` (root:smcp, 0750); state `/var/lib/smcp` with `policy/`, `registry/`, `artifacts/` (owner `smcp-core`, 0700), `journal/` (owner `smcp-evidence`, 0700), `keys/` (owner `smcp-keys`, 0700), `vault/` (owner `smcp-vault`, 0700), `exports/` (owner `smcp-core`, 0750); runtime `/run/smcp` (0750); logs `/var/log/smcp` (0750). Identities `smcp-core`, `smcp-evidence`, `smcp-keys`, `smcp-vault`, `smcp-data`, `smcp-console`, and `smcp-srv` with a subordinate range of 65,536 UIDs and GIDs for rootless Podman. **Standalone macOS:** `~/Library/Application Support/smcp-gateway/` with `config/` and `state/`, logs `~/Library/Logs/smcp-gateway/`, all 0700. **Standalone Linux:** configuration `$XDG_CONFIG_HOME/smcp-gateway` (default `~/.config/smcp-gateway`), state `$XDG_STATE_HOME/smcp-gateway` (default `~/.local/state/smcp-gateway`) including `log/`, runtime `$XDG_RUNTIME_DIR/smcp-gateway`, all 0700 | New |
+| CP-47 | Upgrade bounds | Health wait after start 60 s; migration time limit 120 s | New |
+| CP-48 | Remote listener | The first of `127.0.0.1:8444` and `127.0.0.1:8445` that the CP-03 admin listener does not use (`127.0.0.1:8445` with the default admin listener; `[remote] address` overrides); TLS, Remote Access Profile only; public name set by the operator | New |
+| CP-49 | Remote limits | Calls 30/min per client ID, burst 5; OAuth endpoints 10 req/s per source address, burst 20; lockout after 5 consecutive failed sign-ins or token requests, for 15 min; body 256 KiB; headers 8 KiB; concurrency 4 per client, 16 total; remote session maximum lifetime 2 h, idle timeout 15 min; pending dynamic registrations at most 32 in total and 4 per source address (IPv6: per /64), each kept 24 h | New |
+| CP-50 | Diagnostic log and reload | Rotate at 10 MiB, keep 5 files. Reloadable keys: `log.level`, `limits.principal_calls_per_minute`, `limits.principal_call_burst`. Restart required: every other key, among them listener addresses, `state.dir`, `profile` and the other `limits.*` (read at startup by the components that hold them); servers are enabled and disabled at run time through G-10, and clients are managed in G-11 | New |
+| CP-51 | Metrics endpoint | `127.0.0.1:9464`, path `/metrics`; disabled by default | New |
+| CP-52 | Client ID Metadata Document allowlist | Empty by default; entries are added only by `[[client_metadata]]` configuration entries (`smcpctl clients setup` does not add them). Fetch only allowlisted HTTPS URLs; 5 s timeout; 64 KiB limit; cache 24 h; no redirects to other hosts | New |
+| CP-53 | Local server CA | Validity 365 days; listener certificate validity 90 days, renewed when 30 days remain; CA name constraints are dNSName subtrees only, permitting `localhost` and the configured listener host names (no iPAddress subtrees, which BoringSSL-based TLS clients reject); listener certificate IP addresses are limited to loopback addresses and the configured listener IP literals; path length 0 | New |
 
-## Appendix B — Gateway error codes
+## Appendix B — Gateway error codes and reason codes
 
-Gateway-specific codes lie outside the JSON-RPC reserved range (`-32768` to `-32000`), as the MCP specification recommends. Every error carries `data.reasonCode` and `data.correlationId`, plus `data.decisionId` when a decision exists (FR-1.20).
+Gateway-specific codes lie outside the JSON-RPC reserved range (`-32768` to `-32000`), as the MCP specification recommends. Every error carries `data.reasonCode`, `data.correlationId` and the plain-language `data.message` of Table B.2, plus `data.decisionId` when a decision exists (FR-1.20, FR-1.51).
+
+### B.1 Error codes
 
 | Code | Name | HTTP status (Streamable HTTP) | Meaning |
 |---|---|---|---|
@@ -6055,34 +7240,128 @@ Gateway-specific codes lie outside the JSON-RPC reserved range (`-32768` to `-32
 
 Standard codes used: `-32700`, `-32600`, `-32601`, `-32602`, `-32603`, `-32020` (HeaderMismatch), `-32022` (UnsupportedProtocolVersion).
 
+### B.2 Reason codes and messages
+
+`docs/troubleshooting.md` repeats this table with the operator's next action for each reason code (FR-18.7).
+
+| Reason code | Code | Meaning | `data.message` |
+|---|---|---|---|
+| `NO_PERMIT` | `-31001` | No rule of the session's template permits the call | The Gateway's policy does not allow this tool in this session. Ask the Gateway operator to grant it. |
+| `NO_TEMPLATE` | `-31001` | The session's template is not in the active policy | This session's policy template no longer exists. Sign in again to start a new session. |
+| `TEMPLATE_NOT_PERMITTED` | `-31001` | A session create request named a template the principal's Framework Profile does not permit (FR-2.6) | The requested policy template is not permitted for this agent. Request a template its framework profile allows, or none for the default. |
+| `PRINCIPAL_DISABLED` | `-31001` | The principal is disabled or suspended (SR-1.5-1) | This agent's access to the Gateway is suspended. Ask the Gateway operator. |
+| `CREDENTIAL_INVALID` | `-31001` | The client credential is expired or revoked (SR-1.5-1) | This agent's Gateway credential is no longer valid. Ask the Gateway operator for a new one. |
+| `REVISION_NOT_ENABLED` | `-31001` | The tool's server revision is not enabled (SR-1.5-1) | The tool's server is not enabled on the Gateway. Ask the Gateway operator. |
+| `NO_ROUTE` | `-31001` | No route serves the tool's server and tool revision (SR-1.11-1) | The tool's server is not available right now. Try again later or ask the Gateway operator. |
+| `AMBIGUOUS_ROUTE` | `-31001` | More than one route is eligible for the tool (SR-1.11-1) | The Gateway could not choose how to reach this tool and refused the call. Ask the Gateway operator. |
+| `HIGH_RISK_UNFLAGGED` | `-31001` | The server is in a high-risk class the template or framework profile does not flag (SR-3.13-1) | This tool is in a high-risk class that this session's policy does not allow. |
+| `DENY_RULE` | `-31001` | A deny rule of the session's template covers the tool (SR-1.4-1) | The Gateway's policy forbids this tool in this session. |
+| `EVAL_BOUND` | `-31001` | The evaluation exceeded the CP-12 deadline or candidate-rule bound (SR-1.20-1) | The Gateway could not finish checking this call within its limits and refused it. Ask the operator to simplify the policy. |
+| `APPROVAL_DENIED` | `-31001` | An approver denied the call | A person reviewing this call denied it. |
+| `TAINT_DENIED` | `-31001` | The session is tainted and the template denies this side-effect class | This session has read untrusted content, so tools that write or send data are blocked. Start a new session to use them. |
+| `ARGUMENTS_INVALID` | `-31001` | The arguments are not valid JSON (`size-limit` and argument filters) | The request arguments could not be read. |
+| `ARGUMENTS_TOO_LARGE` | `-31001` | The arguments exceed the `size-limit` byte or string bound | The request is too large for this tool. Send less data in one call. |
+| `ARGUMENTS_TOO_DEEP` | `-31001` | The arguments nest deeper than the `size-limit` depth bound | The request is nested too deeply. Simplify the arguments. |
+| `UNICODE_CONTROL` | `-31001` | An argument contains bidirectional, invisible or tag characters (`unicode-control`) | The request contains hidden or direction-changing characters. Remove them and try again. |
+| `SECRET_IN_ARGUMENTS` | `-31001` | An argument contains a known credential format or a registered secret (`secret-fingerprint`, SR-5.8-1) | The request appears to contain a password, key or token, so it was not sent. Remove the secret and try again. |
+| `DATA_CLASS_IN_ARGUMENTS` | `-31001` | An argument matches a data-class rule whose request action is block (`pii-detect` named by the decision, SR-5.8-1) | The request contains personal or classified data that this tool may not receive, so it was not sent. Remove it and try again. |
+| `PATH_INVALID` | `-31001` | A path argument uses an encoded separator, NUL, backslash traversal, home-relative or remote file form (`path-canonicalize`) | A file path in the request is not allowed in this form. Use a plain path. |
+| `PATH_OUTSIDE_ROOTS` | `-31001` | A path argument resolves outside the granted roots (`path-canonicalize`, SR-1.8-4) | A file path in the request is outside the folders this tool may use. |
+| `URL_INVALID` | `-31001` | A URL argument cannot be parsed or canonicalized (`url-canonicalize`) | A web address in the request is not valid. |
+| `URL_NOT_ALLOWED` | `-31001` | A URL argument's scheme or host is not allowed, or it carries user information (`url-canonicalize`, SR-1.8-5) | A web address in the request is not allowed for this tool. |
+| `URL_PRIVATE_ADDRESS` | `-31001` | A URL argument names a loopback, private, link-local or reserved destination (`url-canonicalize`) | A web address in the request points to a local or private network address, which this tool may not use. |
+| `FILTER_UNAVAILABLE` | `-31001` | The decision's obligations name a filter that is not registered | The Gateway could not run a required check for this tool. Give the operator the correlation ID {correlationId}. |
+| `FILTER_ERROR` | `-31001`, `-31003` | A required filter failed; the request is blocked or the result withheld (SR-5.10-1) | A Gateway safety check failed, so the call was stopped. Give the operator the correlation ID {correlationId}. |
+| `FILTER_TIMEOUT` | `-31001`, `-31003` | A filter chain exceeded the CP-14 deadline (SR-5.10-1) | A Gateway safety check took too long, so the call was stopped. Try a smaller request. |
+| `APPROVAL_REQUIRED` | `-31002` | The call is waiting for a person to approve it | This call needs approval. Open {approvalUrl} to approve it, then run the same request again. |
+| `TAINT_APPROVAL` | `-31002` | Approval required because the session is tainted | This session has read untrusted content, so this tool needs approval. Open {approvalUrl} to approve it, then run the same request again. |
+| `APPROVAL_EXPIRED` | `-31002` | The approval expired (CP-17) while the call was held | The approval for this call expired before it was used. Run the same request again to ask for a new approval. |
+| `APPROVAL_CONSUMED` | `-31002` | An identical held call consumed the one-use approval first | The approval for this call was already used by an identical call. Run the same request again to ask for a new approval. |
+| `APPROVAL_UNAVAILABLE` | `-31002` | The call needs approval and the Approval Service could not take the request | This call needs approval, but the Gateway's approval service is not available. Ask the Gateway operator to approve the call or check `smcpctl health`, then run the same request again. |
+| `FILTER_BLOCKED` | `-31003` | A required response filter blocked the result | The tool's result was withheld by a Gateway content filter. The operator can see why in the audit record {correlationId}. |
+| `SECRET_LEAK` | `-31003` | A registered secret fingerprint matched the result | The tool's result was withheld because it appeared to contain a protected secret. |
+| `RESULT_TOO_LARGE` | `-31003` | The result exceeded the CP-08 bound | The tool's result was too large to inspect and was withheld. Narrow the request. |
+| `RESULT_INVALID` | `-31003` | The backend response failed envelope, request-ID or `CallToolResult` validation, or carried an unrecognized `resultType` (SR-5.20-1, FR-5.23) | The tool's server returned a result the Gateway could not validate, so it was withheld. |
+| `RELEASE_REFUSED` | `-31003` | The release recheck failed (session ended, policy changed or stop) | The result was withheld because the session or policy changed while the tool ran. Run the request again. |
+| `OUTCOME_UNRECORDED` | `-31003` | The tool ran but its outcome could not be written to the Evidence Journal, so the result is withheld (SR-6.3-1) | The tool ran, but the Gateway could not record its outcome, so the result was withheld. It may have completed the action; check before trying again. The operator can see the cause with `smcpctl health`. |
+| `ANOMALY_WITHHELD` | `-31003` | Synchronous scoring placed the call in the Anomaly Response Policy's withhold band (FR-4.15) | The tool's result was withheld because the call looked unusual for this agent. The operator can see why in the audit record {correlationId}. |
+| `FAIL_CLOSED` | `-31004` | A critical dependency is unavailable | The Gateway is not accepting tool calls right now because a safety check failed. The operator can see the cause with `smcpctl health`. |
+| `EMERGENCY_STOP` | `-31004` | An emergency stop is in effect | The Gateway operator has stopped all tool calls. |
+| `NO_SNAPSHOT` | `-31004` | No verified policy revision is loaded | The Gateway has no valid policy loaded and is refusing all tool calls. |
+| `JOURNAL_UNAVAILABLE` | `-31004` | The decision intent could not be written to the Evidence Journal | The Gateway could not record this call and did not run it. The operator can see the cause with `smcpctl health`. |
+| `POLICY_REVISION_CHANGED` | `-31004` | The policy changed between decision and launch | The Gateway's policy changed while this call was being checked. Run the request again. |
+| `CAPABILITY` | `-31004` | The one-use launch capability was missing or already used | The Gateway refused to run this call because an internal check failed. Run the request again; if it repeats, give the operator the correlation ID {correlationId}. |
+| `RATE_LIMITED` | `-31005` | A rate limit was reached | Too many tool calls in a short time. Wait a minute and try again. |
+| `QUOTA_EXHAUSTED` | `-31005` | The session used its per-session call quota | This session has used all the tool calls its policy allows. Start a new session. |
+| `QUEUE_FULL` | `-31005` | The dispatch queue is full | The Gateway is busy. Try again shortly. |
+| `SESSION_LIMIT` | `-31005` | A session create request would exceed the CP-18 concurrent-session limit of the principal (FR-2.10) | This agent already has the maximum number of open sessions. End one, then try again. |
+| `LISTEN_LIMIT` | `-31005` | The session already holds the CP-20 number of open listen streams | This session already has the maximum number of open listen streams. Close one, then try again. |
+| `SESSION_INVALID` | `-31006` | Missing, expired or unknown token | Your Gateway session is not valid. Sign in again. |
+| `SESSION_STATE` | `-31006` | The session is suspended or terminated | Your Gateway session has ended. Sign in again. |
+| `BACKEND_ERROR` | `-31007` | The backend returned a protocol error | The tool's server reported an error. |
+| `DISPATCH_FAILED` | `-31007` | The backend could not be reached or started | The tool's server could not be started or reached. The operator can check it in the Servers view. |
+| `BACKEND_OUTPUT_INVALID` | `-31007` | The instance wrote a stdout line that is not a single-line UTF-8 JSON-RPC message; the instance is replaced (FR-5.14) | The tool's server sent data that is not valid MCP, so the call was stopped and the server restarted. |
+| `CLIENT_DEADLINE` | `-31008` | The CP-13 client deadline expired | The tool did not finish in time. |
+| `UPSTREAM_TIMEOUT` | `-31009` | The backend did not answer within CP-13; it may have acted | The tool's server stopped responding. It may have completed the action; check before trying again. |
+| `INSTANCE_FAILED` | `-31009` | The instance ended after a call to a tool of side-effect class `write`, `external` or `execute`, or an unclassified tool, was dispatched; it may have acted and is not retried (SR-7.2-1) | The tool's server stopped while running this call. It may have completed the action; check before trying again. |
+| `CANCELLED` | `-31009` | The harness cancelled the call after dispatch; the backend may have acted | The call was cancelled before it finished. It may have completed the action; check before trying again. |
+| `INPUT_REQUIRED_UNSUPPORTED` | `-31010` | The backend asked for client input without the MRTR profile | The tool asked for input that the Gateway does not relay. |
+| `SCHEMA_INVALID` | `-32602` | Arguments do not match the tool's input schema | The arguments do not match what this tool accepts. |
+
+### B.3 Reason codes no request reaches
+
+The Gateway keeps these Table B.2 codes as defense in depth: an earlier check of the same call always answers first, so no request produces them. FR-1.51's verification confirms their message text through the error builder instead of the wire.
+
+| Reason code | Why no request reaches it |
+|---|---|
+| `AMBIGUOUS_ROUTE` | Routes are server aliases, which are unique, and a public name resolves to one server, so the decision never sees two eligible routes |
+| `NO_ROUTE` | The catalog presents a tool only while the registry resolves it to its server; when the route goes, the name leaves the catalog (an unknown tool, `-32602`) or the server is suspended (`REVISION_NOT_ENABLED`) |
+| `DENY_RULE` | The catalog presents only granted tools that no deny rule covers (FR-1.26), so a call to a denied tool is an unknown tool (`-32602`) |
+| `CREDENTIAL_INVALID` | Revoking a credential terminates its sessions under the Enforcement Coordinator's barrier (SR-1.16-1), so the session check answers first (`SESSION_INVALID`) |
+| `PRINCIPAL_DISABLED` | Suspending a principal terminates its sessions under the same barrier, with the same effect |
+| `CAPABILITY` | The launch capability is issued and consumed within one call; only a Gateway defect produces this code |
+| `ARGUMENTS_INVALID` | `tools/call` arguments are decoded as a JSON object before the inspection chain runs; any other value is refused with `-32602` by the protocol layer |
+| `CANCELLED` | MCP cancellation: the harness that cancelled the call gets no response to it; the code is recorded in the journal only |
+
 ## Appendix C — Application role matrix
 
-| Operation | Administrator | Operator | Policy Author | Approver | Auditor | Researcher |
-|---|---|---|---|---|---|---|
-| Emergency stop / resume | Stop + resume | Stop | — | — | — | — |
-| View health and status | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Edit, simulate policy drafts | ✓ | — | ✓ | — | — | Observation drafts and campaigns only |
-| Publish / roll back policy | ✓ | — | ✓ | — | — | — |
-| Approve research campaign | ✓ | — | ✓ | — | — | — |
-| Decide tool-call approvals | ✓ | — | — | ✓ | — | — |
-| Enable / suspend / retire servers; aliases | ✓ | Suspend only | — | — | — | — |
-| Enroll trust anchors | ✓ | — | — | — | — | — |
-| Principals, credentials, sessions | ✓ | Suspend/terminate sessions | — | — | — | — |
-| Secret create / rotate / revoke | ✓ | — | — | — | — | — |
-| Audit query and redacted export | ✓ | ✓ | ✓ | — | ✓ | — |
-| Observation analytics (S0/S1) | ✓ | ✓ | ✓ | — | ✓ | ✓ |
-| Observation S2 fields | ✓ | — | ✓ | — | ✓ | Pseudonymized |
-| Payload (S3) access | Separate grant | — | — | — | Separate grant | Campaign grant only |
-| Baseline promotion / rollback | ✓ | — | ✓ | — | — | — |
-| Memory budgets, backups | ✓ | ✓ | — | — | — | — |
-| Dataset export | ✓ | — | — | — | — | ✓ (approved campaigns) |
-| Purge | ✓ | — | — | — | — | — |
+| Operation | Administrator | Operator | Policy Author | Approver | Session Approver | Auditor | Researcher |
+|---|---|---|---|---|---|---|---|
+| Emergency stop / resume | Stop + resume | Stop | — | — | — | — | — |
+| View health and status | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Edit, simulate policy drafts | ✓ | — | ✓ | — | — | — | Observation drafts and campaigns only |
+| Publish / roll back policy | ✓ | — | ✓ | — | — | — | — |
+| Approve research campaign | ✓ | — | ✓ | — | — | — | — |
+| Decide tool-call approvals | ✓ | — | — | ✓ | — | — | — |
+| Approve harness sign-in (OAuth authorization) | — | — | — | — | ✓ | — | — |
+| Approve dynamic client registrations (Remote Access) | ✓ | — | — | — | ✓ | — | — |
+| Enable / suspend / retire servers; aliases | ✓ | Suspend only | — | — | — | — | — |
+| Enroll trust anchors | ✓ | — | — | — | — | — | — |
+| Enable or disable the Remote Access Profile | ✓ | — | — | — | — | — | — |
+| Principals, credentials, sessions | ✓ | Suspend/terminate sessions | — | — | — | — | — |
+| Create Session Approver accounts | ✓ | — | — | — | — | — | — |
+| Secret create / rotate / revoke | ✓ | — | — | — | — | — | — |
+| Audit query and redacted export | ✓ | ✓ | ✓ | — | — | ✓ | — |
+| Observation analytics (S0/S1) | ✓ | ✓ | ✓ | — | — | ✓ | ✓ |
+| Observation S2 fields | ✓ | — | ✓ | — | — | ✓ | Pseudonymized |
+| Payload (S3) access | Separate grant | — | — | — | — | Separate grant | Campaign grant only |
+| Baseline promotion / rollback | ✓ | — | ✓ | — | — | — | — |
+| Memory budgets, backups, key rotation | ✓ | ✓ | — | — | — | — | — |
+| Dataset export | ✓ | — | — | — | — | — | ✓ (approved campaigns) |
+| Purge | ✓ | — | — | — | — | — | — |
 
-Harness principals have no control-plane role (SR-2.5-1).
+One person may hold several roles; on a single-user installation the Administrator usually also holds Approver and Session Approver accounts. Each role is a separate account with its own password: the Administrator account itself cannot complete a harness sign-in (FR-2.19, FR-2.23), so the Administrator password is never typed into a harness sign-in page. Harness principals have no control-plane role (SR-2.5-1).
 
-## Appendix D — Graph data model
+The rows name operations. Control API routes the rows do not name follow these rules (FR-8.2):
 
-Every label has a uniqueness constraint on `id` (FR-9.1). Required-property and cardinality checks are enforced by the Data Access Service (SR-7.3-1), because Community Edition lacks Enterprise existence constraints.
+- Reads. Health, status and the API description are open to every role, and each role reads and ends its own sign-in session. Policy revisions, filters, servers and the tool catalog, decision explanations and the graph investigation queries are read with the audit journal, by the roles of the audit query row. Sessions, principals and their credentials, secret metadata, package revisions, server instances and egress are operational inventory, read by the Administrator, Operator and Auditor. Every other read route is open to the roles of the row it serves: keys and backups to that row, observation status, catalog, analytics, baselines and anomalies to the observation analytics row, client registrations to the Administrator and Session Approver (the Operator also reads the Remote Access Profile state), approvals to the Administrator and Approver, campaigns to the campaign roles and the Auditor, dataset exports to the Administrator and Researcher, Session Approver accounts to the Administrator.
+- Restricting operations. Tightening a tool's classification (SR-3.11-1), killing a server instance and scanning the library (which imports and verifies revisions without enabling them) belong to the Operator's suspend permission. Rebuilding the graph mirror belongs to the memory budgets, backups and key rotation row. Verifying the journal belongs to the audit query row. Building a baseline snapshot and excluding a session from learning belong to the baseline row. Publishing an Audit Profile, Observation Policy or Anomaly Response Policy is publishing policy.
+- Everything else is the Administrator's alone, including resuming a suspended session, acknowledging a latched integrity cause (FR-7.13), revoking an approved client registration, and reloading the configuration or the Secret Use Policy.
+- Observation S2 fields reach the Operator's records removed (SR-6-3); the Researcher sees them only pseudonymized, in dataset exports (FR-10.33). Release 1.0 stores no payloads (SR-6.6-1), so the Payload (S3) row has no control API operation; S3 fields leave the Gateway only in an export of a campaign with a raw-export grant (SR-6-2).
+
+## Appendix D — Graph data model (mirror)
+
+The graph holds a **mirror** of policy, registry, session and audit records, fed from the Policy Store (D-01) and the Evidence Journal (D-06), and is the system of record only for the behavior model (`BaselineContext`, `FeatureStat`, `BaselineSnapshot`, `AbnormalEvent`) and the Parameter Catalog copy (A-9). Every label has a uniqueness constraint on `id` (FR-9.1). Required-property and cardinality checks are enforced by the Data Access Service, because Community Edition lacks Enterprise existence constraints. The evidence mirror derives `AuditEvent`, `Session`, `Principal`, `Invocation` (keyed by correlation ID), `Decision`, `PolicyRevision`, `PolicyControl`, `ServerRevision`, `ToolRevision` and `Approval` from journal events; `Checkpoint` records the mirror's journal position and the schema version (FR-9.2).
 
 | Node label | Key properties | Owner |
 |---|---|---|
@@ -6111,8 +7390,9 @@ Every label has a uniqueness constraint on `id` (FR-9.1). Required-property and 
 | `TARGETED`, `SELECTED_ROUTE` | Decision → ServerRevision / RouteRevision |
 | `SCORED_AGAINST` | Decision → BaselineSnapshot |
 | `AUTHORIZED_BY` | Invocation → Decision |
-| `FOR_DECISION`, `FOR_INVOCATION`, `OBSERVED_FROM`, `RECORDED_UNDER`, `HAS_EXPORT` | AuditEvent → Decision / Invocation / ServerRevision / PolicyObject / OutboxRecord |
-| `IN_SESSION`, `OF_PRINCIPAL` | Decision, Session → Session, Principal |
+| `INVOKED` | Invocation → ToolRevision |
+| `FOR_DECISION`, `FOR_INVOCATION`, `OBSERVED_FROM`, `RECORDED_UNDER`, `HAS_EXPORT` | AuditEvent → Decision / Invocation / ServerRevision / PolicyObject or PolicyRevision / OutboxRecord; `FOR_INVOCATION` also Approval → Invocation |
+| `IN_SESSION`, `OF_PRINCIPAL` | Decision, Invocation, Approval, AuditEvent, Session → Session, Principal |
 | `HAS_CONTEXT`, `HAS_STAT`, `INCLUDES`, `IN_CONTEXT`, `NEXT_TOOL` | Principal/ToolRevision → BaselineContext → FeatureStat; BaselineSnapshot → FeatureStat; AbnormalEvent → BaselineContext; ToolRevision → ToolRevision |
 | `USES_SECRET` | SecretUse → SecretRef, Decision |
 | `VERIFIED_BY`, `SIGNED_BY` | ServerRevision → ImportReceipt → TrustAnchor |
@@ -6123,13 +7403,13 @@ Every requirement of `MCP_Gateway_Security_SRS.md` is listed. A MUST is covered 
 
 | SEC ID | Title | Imperative | Coverage | Children / citing requirements |
 |---|---|---|---|---|
-| 1 | Graph policy and routing authority | MUST | Realized by SR | SR-1-1, SR-1-2, SR-1-3 |
-| 1.1 | Authoritative graph | MUST | Realized by SR | SR-1.1-1 |
+| 1 | Graph policy and routing authority | MUST | Realized by SR | SR-1-2, SR-1-3 |
+| 1.1 | Authoritative graph | MUST | Realized by SR | SR-1.1-1, SR-1.1-2 |
 | 1.2 | Graph outage | MUST | Realized by SR | SR-1.2-1, SR-1.2-2 |
 | 1.3 | Default denial | MUST | Realized by SR | SR-1.3-1 |
 | 1.4 | Deny precedence | MUST | Realized by SR | SR-1.4-1 |
 | 1.5 | Admission prerequisites | MUST | Realized by SR | SR-1.5-1 |
-| 1.6 | Exact scoped rules | MUST | Realized by SR | SR-1.6-1 |
+| 1.6 | Exact scoped rules | MUST | Deferred | SR-1.6-1 (Appendix N) |
 | 1.7 | Typed predicates | MUST | Realized by SR | SR-1.7-1, SR-1.7-2 |
 | 1.8 | Argument scope | MUST | Realized by SR | SR-1.8-1, SR-1.8-2, SR-1.8-3, SR-1.8-4, SR-1.8-5 |
 | 1.9 | Unambiguous permits | MUST | Realized by SR | SR-1.9-1 |
@@ -6152,11 +7432,11 @@ Every requirement of `MCP_Gateway_Security_SRS.md` is listed. A MUST is covered 
 | 2.5 | Admin identity | MUST | Realized by SR | SR-2.5-1 |
 | 2.6 | Protected admin session | MUST | Realized by SR | SR-2.6-1 |
 | 2.7 | Password verification | MUST | Realized by SR | SR-2.7-1 |
-| 2.8 | Authenticated transport | MUST | Realized by SR | SR-2.8-1, SR-2.8-2, SR-2.8-3 |
+| 2.8 | Authenticated transport | MUST | Realized by SR | SR-2.8-1, SR-2.8-3, SR-2.8-4 |
 | 2.9 | Origin and Host | MUST | Realized by SR | SR-2.9-1, SR-2.9-2, SR-2.9-3 |
 | 2.10 | Credential separation | MUST | Realized by SR | SR-2.10-1 |
-| 2.11 | OAuth boundary | MUST | Realized by SR | SR-2.11-1 |
-| 2.12 | State ownership | MUST | Realized by SR | SR-2.12-1 |
+| 2.11 | OAuth boundary | MUST | Realized by SR | SR-2.11-1, SR-2.11-2, SR-2.11-4, SR-2.11-5 |
+| 2.12 | State ownership | MUST | Deferred | SR-2.12-1 (Appendix N) |
 | 2.13 | Encrypted secrets | MUST | Realized by SR | SR-2.13-1, SR-2.13-2, SR-2.13-3 |
 | 2.14 | Minimal backend environment | MUST | Realized by SR | SR-2.14-1 |
 | 3 | Source-inspectable server admission | MUST | Realized by SR | SR-3-1, SR-3-2, SR-3-3, SR-3-4, SR-3-5 |
@@ -6164,7 +7444,7 @@ Every requirement of `MCP_Gateway_Security_SRS.md` is listed. A MUST is covered 
 | 3.2 | Source-to-artifact binding | MUST | Realized by SR | SR-3.2-1 |
 | 3.3 | Safe source viewer | MUST | Realized by SR | SR-3.3-1 |
 | 3.4 | Dependency inspection | MUST | Realized by SR | SR-3.4-1 |
-| 3.5 | Quarantine execution | MUST | Disposition | Moved to the MCP Curation System (ARCH §2.2 A-1). Quarantine probing happens before signing; the Gateway relies on SR-3-1, SR-3.2-1 and SR-3.1-1 to verify the resulting evidence. |
+| 3.5 | Quarantine execution | MUST | Realized by SR | SR-3.5-1 |
 | 3.6 | No runtime bootstrap | MUST | Realized by SR | SR-3.6-1 |
 | 3.7 | Manifest binding | MUST | Realized by SR | SR-3.7-1 |
 | 3.8 | Drift suspension | MUST | Realized by SR | SR-3.8-1 |
@@ -6174,35 +7454,35 @@ Every requirement of `MCP_Gateway_Security_SRS.md` is listed. A MUST is covered 
 | 3.12 | No administrative tool exposure | MUST | Realized by SR | SR-3.12-1 |
 | 3.13 | High-risk candidates | MUST | Realized by SR | SR-3.13-1 |
 | 3.14 | Stateful tool admission | MUST | Realized by SR | SR-3.14-1 |
-| 4 | Contained local execution | MUST | Decomposed in SEC | SEC 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 4.9, 4.10, 4.11, 4.12, 4.13, 4.14 |
+| 4 | Contained local execution | MUST | Realized by SR | SR-4-1 |
 | 4.1 | Separate OS identities | MUST | Realized by SR | SR-4.1-1, SR-4.1-2 |
 | 4.2 | Private graph access | MUST | Realized by SR | SR-4.2-1, SR-4.2-2 |
-| 4.3 | CE access boundary | MUST | Realized by SR | SR-4.3-1 |
-| 4.4 | Agent network allowlist | MUST | Disposition | Agent-sandbox network policy belongs to the harness deployment outside the SoI. The X-01 ICD (FR-1.48) documents the required agent allowlist. |
+| 4.3 | CE access boundary | MUST | Deferred | SR-4.3-1 (Appendix N) |
+| 4.4 | Agent network allowlist | MUST | Disposition | Agent-sandbox network policy belongs to the harness deployment outside the SoI. The Security Limitations document (FR-18.2) states that an agent's native network and shell tools bypass the Gateway; the lockdown profiles (FR-15.1) cover MCP configuration only. |
 | 4.5 | Backend egress | MUST | Realized by SR | SR-4.5-1, SR-4.5-2 |
 | 4.6 | Filesystem authority | MUST | Realized by SR | SR-4.6-1 |
 | 4.7 | Host-management exclusion | MUST | Realized by SR | SR-4.7-1, SR-4.7-2 |
 | 4.8 | Safe process launch | MUST | Realized by SR | SR-4.8-1 |
-| 4.9 | Hermes endpoint | MUST | Disposition | Harness-specific endpoint configuration belongs to the Hermes Harness Adapter outside the SoI. Verified through the adapter qualification in the X-01 ICD. |
-| 4.10 | Runtime tool guard | MUST | Disposition | Client-side runtime tool guard belongs to the qualified harness outside the SoI. The Gateway supports it with deterministic, manifest-derived catalogs (FR-1.25, FR-1.27). |
-| 4.11 | Protected client configuration | MUST | Disposition | Agent configuration protection belongs to the harness deployment outside the SoI. |
-| 4.12 | Local inference path | MUST | Disposition | Local inference routing belongs to the harness deployment outside the SoI. |
-| 4.13 | Additional clients | MUST | Disposition | Client qualification labeling belongs to the harness-adapter qualification process outside the SoI. |
-| 4.14 | Overlay least privilege | MUST | Realized by SR | SR-4.14-1 |
+| 4.9 | Hermes endpoint | MUST | Realized by SR | SR-4.9-1 |
+| 4.10 | Runtime tool guard | MUST | Disposition | Client-side runtime tool guard belongs to the harness. The Gateway supports it with deterministic, manifest-derived catalogs (FR-1.25, FR-1.27) and the Claude Code lockdown profile limits MCP servers to the Gateway (FR-15.2). |
+| 4.11 | Protected client configuration | MUST | Realized by SR | SR-4.11-1 |
+| 4.12 | Local inference path | MUST | Disposition | Local inference routing belongs to the harness deployment outside the SoI; cloud-hosted models are expected for the supported clients and are stated in the Security Limitations document (FR-18.2). |
+| 4.13 | Additional clients | MUST | Realized by SR | SR-4.13-1 |
+| 4.14 | Overlay least privilege | MUST | Realized by SR | SR-4.14-1, SR-4.14-2 |
 | 5 | Protocol and content boundary | MUST | Decomposed in SEC | SEC 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 5.9, 5.10, 5.11, 5.12, 5.13, 5.14, 5.15, 5.16, 5.17, 5.18, 5.19, 5.20 |
-| 5.1 | Explicit protocol profiles | MUST | Realized by SR | SR-5.1-1, SR-5.1-2 |
+| 5.1 | Explicit protocol profiles | MUST | Realized by SR | SR-5.1-1 |
 | 5.2 | Header/body agreement | MUST | Realized by SR | SR-5.2-1, SR-5.2-2 |
-| 5.3 | No unsafe downgrade | MUST | Realized by SR | SR-5.3-1, SR-5.3-2 |
+| 5.3 | No unsafe downgrade | MUST | Realized by SR | SR-5.3-1 |
 | 5.4 | Authorized discovery | MUST | Realized by SR | SR-5.4-1 |
 | 5.5 | Independent invocation check | MUST | Realized by SR | SR-5.5-1 |
 | 5.6 | Unqualified capabilities | MUST | Realized by SR | SR-5.6-1, SR-5.6-2 |
 | 5.7 | Private caches | MUST | Realized by SR | SR-5.7-1, SR-5.7-2, SR-5.7-3 |
 | 5.8 | Outgoing filtering | MUST | Realized by SR | SR-5.8-1, SR-5.8-2 |
-| 5.9 | Incoming filtering | MUST | Realized by SR | SR-5.9-1 |
+| 5.9 | Incoming filtering | MUST | Realized by SR | SR-5.9-1, SR-5.9-2 |
 | 5.10 | Filter failure | MUST | Realized by SR | SR-5.10-1 |
 | 5.11 | Buffered release | MUST | Realized by SR | SR-5.11-1 |
 | 5.12 | Safe transformation | MUST | Realized by SR | SR-5.12-1 |
-| 5.13 | Untrusted content treatment | MUST | Realized by SR | SR-5.13-1 |
+| 5.13 | Untrusted content treatment | MUST | Realized by SR | SR-5.13-1, SR-5.13-2 |
 | 5.14 | Context-sensitive text checks | MUST | Realized by SR | SR-5.14-1 |
 | 5.15 | Connection-time destination checks | MUST | Realized by SR | SR-5.15-1, SR-5.15-2 |
 | 5.16 | One-use web authorization | MUST | Realized by SR | SR-5.16-1 |
@@ -6216,10 +7496,10 @@ Every requirement of `MCP_Gateway_Security_SRS.md` is listed. A MUST is covered 
 | 6.3 | Outcome before release | MUST | Realized by SR | SR-6.3-1 |
 | 6.4 | Exact historical links | MUST | Realized by SR | SR-6.4-1 |
 | 6.5 | Event origin versus target | MUST | Realized by SR | SR-6.5-1 |
-| 6.6 | Policy-directed payload storage | MUST | Realized by SR | SR-6.6-1 |
+| 6.6 | Policy-directed payload storage | MUST | Deferred | SR-6.6-1 (Appendix N) |
 | 6.7 | Secret removal | MUST | Realized by SR | SR-6.7-1 |
-| 6.8 | Payload encryption | MUST | Realized by SR | SR-6.8-1 |
-| 6.9 | Retention conflict | MUST | Realized by SR | SR-6.9-1 |
+| 6.8 | Payload encryption | MUST | Deferred | SR-6.8-1 (Appendix N) |
+| 6.9 | Retention conflict | MUST | Deferred | SR-6.9-1 (Appendix N) |
 | 6.10 | Idempotent evidence export | MUST | Realized by SR | SR-6.10-1 |
 | 6.11 | Export lag boundary | MUST | Realized by SR | SR-6.11-1 |
 | 6.12 | Independent tamper evidence | MUST | Realized by SR | SR-6.12-1 |
@@ -6236,7 +7516,7 @@ Every requirement of `MCP_Gateway_Security_SRS.md` is listed. A MUST is covered 
 | 7.2 | Indeterminate mutation | MUST | Realized by SR | SR-7.2-1 |
 | 7.3 | Graph integrity validation | MUST | Realized by SR | SR-7.3-1 |
 | 7.4 | Neo4j hardening | MUST | Realized by SR | SR-7.4-1 |
-| 7.5 | Secure bootstrap | MUST | Realized by SR | SR-7.5-1 |
+| 7.5 | Secure bootstrap | MUST | Realized by SR | SR-7.5-1, SR-7.5-2 |
 | 7.6 | Emergency stop | MUST | Realized by SR | SR-7.6-1, SR-7.6-2 |
 | 7.7 | CE-compatible backup | MUST | Realized by SR | SR-7.7-1 |
 | 7.8 | Verified restoration | MUST | Realized by SR | SR-7.8-1 |
@@ -6245,7 +7525,7 @@ Every requirement of `MCP_Gateway_Security_SRS.md` is listed. A MUST is covered 
 | 7.11 | Pre-routing bounds | MUST | Realized by SR | SR-7.11-1 |
 | 7.12 | Cancellation propagation | MUST | Realized by SR | SR-7.12-1 |
 | 8 | Local operator product | SHALL | Source of FR | FR-8 |
-| 8.1 | Server lifecycle GUI | SHALL | Source of FR | FR-5.7, FR-8.18 |
+| 8.1 | Server lifecycle GUI | SHALL | Disposition | The draft, quarantine and test states are realized before import by the packaging command: `smcpctl package build` is the quarantine probe (SR-3.5-1) and its manifest is the reviewed draft (FR-14.3). Approve is the import with signature verification (SR-3-1), and enable, suspend and retire are the registry states shown and changed in G-10 (FR-5.7, FR-8.18). |
 | 8.2 | Policy GUI | SHALL | Source of FR | FR-8.4 |
 | 8.3 | Policy graph explanation | SHALL | Source of FR | FR-8.22 |
 | 8.4 | Operator graph search | SHALL | Source of FR | FR-7.3 |
@@ -6259,20 +7539,20 @@ Every requirement of `MCP_Gateway_Security_SRS.md` is listed. A MUST is covered 
 | 9.1 | Open-source inventory | SHALL | Source of FR | FR-12.1 |
 | 9.2 | Community Edition | SHALL | Source of FR | FR-12.11 |
 | 9.3 | Local execution | SHALL | Source of FR | FR-12.2 |
-| 9.4 | Curated engineering catalog | SHALL | Disposition | The engineering server catalog is now curation-system content delivered through the Trusted MCP Server Library (ARCH §16 root 9); it is not a Gateway requirement. |
-| 9.5 | Initial functions | SHALL | Disposition | Initial engineering functions are curation-system catalog content; the Gateway hosts whatever verified servers the library supplies. |
+| 9.4 | Curated engineering catalog | SHALL | Disposition | The V1 engineering server catalog is replaced by the four reference packages (FR-14.9) and the packaging guide (FR-18.6); further servers are operator-packaged. |
+| 9.5 | Initial functions | SHALL | Disposition | Scoped file reading and local repository inspection are provided by the reference filesystem and git packages (FR-14.9). Local document search and tabular analysis are left to operator-packaged servers in v1. |
 | 9.6 | Public web exception | SHALL | Source of FR | SR-5.19-1 |
-| 9.7 | Conditional client scope | SHALL | Disposition | Client-profile labeling belongs to harness-adapter documentation outside the SoI. |
+| 9.7 | Conditional client scope | SHALL | Disposition | Realized by the client matrix labels (SR-4.13-1) and the cloud agent records (FR-15.9). |
 | 10 | Qualification and versioned baselines | SHALL | Decomposed in SEC | SEC 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7, 10.8, 10.9 |
 | 10.1 | SRS baseline identity | SHALL | Disposition | Satisfied by the V1 security SRS baseline itself; this SRS carries its own baseline identity in its header. |
 | 10.2 | Local version control | SHALL | Disposition | Satisfied by the existing Git tag `mcp-gateway-srs-v1`; this SRS will be tagged on approval. |
 | 10.3 | Requirement records | SHALL | Source of FR | FR-12.10 |
 | 10.4 | Document authority | SHALL | Disposition | Satisfied by Section 1.4 of this SRS (document authority). |
 | 10.5 | Performance qualification | SHALL | Source of FR | FR-11 |
-| 10.6 | Acceptance evidence | SHALL | Source of FR | FR-12.9, FR-12.10 |
-| 10.7 | Release provenance | SHALL | Source of FR | FR-12.8 |
-| 10.8 | Local security review | SHALL | Disposition | Source review and vulnerability findings for servers are curation-system outputs (ARCH §2.2 A-1); Gateway release scanning is covered by FR-12.8. |
-| 10.9 | Operator procedures | SHALL | Source of FR | FR-12.7 |
+| 10.6 | Acceptance evidence | SHALL | Source of FR | FR-8.34, FR-12.9, FR-12.10, FR-19, FR-19.3, FR-19.4 |
+| 10.7 | Release provenance | SHALL | Source of FR | FR-12.8, FR-13.1, FR-13.2 |
+| 10.8 | Local security review | SHALL | Disposition | Source review of packaged servers is the operator's decision at packaging (FR-14.3, FR-14.5); Gateway release scanning is covered by FR-12.8. |
+| 10.9 | Operator procedures | SHALL | Source of FR | FR-12.7, FR-18, FR-18.4, FR-18.8 |
 
 ## Appendix F — Allocation matrix (element → requirements)
 
@@ -6280,39 +7560,39 @@ Use this matrix to code element by element. A requirement allocated to several e
 
 | Element | Name | Functional (FR) | Security (SR) |
 |---|---|---|---|
-| E-01 | Harness Interface Endpoint | FR-1, FR-1.1, FR-1.2, FR-1.3, FR-1.41, FR-1.47, FR-1.48, FR-9.17, FR-11, FR-11.5, FR-12, FR-12.1, FR-12.2, FR-12.6, FR-12.8, FR-12.10 | SR-2.8-1, SR-2.8-2, SR-2.8-3, SR-2.9-1, SR-2.9-2, SR-2.9-3, SR-4.14-1, SR-7.11-1 |
-| E-02 | Protocol Mediator | FR-1, FR-1.4, FR-1.5, FR-1.6, FR-1.7, FR-1.8, FR-1.9, FR-1.10, FR-1.11, FR-1.12, FR-1.13, FR-1.14, FR-1.15, FR-1.16, FR-1.17, FR-1.18, FR-1.19, FR-1.20, FR-1.21, FR-1.22, FR-1.28, FR-1.31, FR-1.32, FR-1.33, FR-1.34, FR-1.35, FR-1.36, FR-1.37, FR-1.38, FR-1.39, FR-1.42, FR-1.43, FR-1.44, FR-1.45, FR-1.46, FR-1.47, FR-1.48, FR-3.14, FR-4.1, FR-4.2, FR-5.24, FR-5.25, FR-11.5, FR-12.9 | SR-2-1, SR-5.1-1, SR-5.2-1, SR-5.2-2, SR-5.3-1, SR-5.6-1, SR-5.11-1 |
-| E-03 | Identity & Authentication Service | FR-2, FR-2.1, FR-2.5, FR-2.6, FR-2.15, FR-2.17, FR-2.18 | SR-2.1-1, SR-2.1-2, SR-2.1-3, SR-2.11-1 |
-| E-04 | Session Manager | FR-1.48, FR-2, FR-2.2, FR-2.3, FR-2.4, FR-2.6, FR-2.7, FR-2.8, FR-2.9, FR-2.10, FR-2.11, FR-2.12, FR-2.13, FR-2.16, FR-2.19, FR-2.20, FR-2.21, FR-2.22 | SR-2.1-2, SR-2.3-1 |
-| E-05 | Policy Administration Service | FR-3, FR-3.1, FR-3.2, FR-3.3, FR-3.4, FR-3.5, FR-3.6, FR-3.7, FR-3.8, FR-3.9, FR-6.5, FR-6.9, FR-10.37 | SR-1-1, SR-1-3, SR-1.9-1, SR-1.14-1, SR-1.15-1, SR-3.13-1, SR-6.9-1, SR-7.9-1 |
-| E-06 | Policy Decision Service | FR-3, FR-3.10, FR-3.11, FR-3.12, FR-3.13, FR-11, FR-11.2 | SR-1-2, SR-1.1-1, SR-1.2-1, SR-1.3-1, SR-1.4-1, SR-1.5-1, SR-1.6-1, SR-1.7-1, SR-1.7-2, SR-1.10-1, SR-1.11-1, SR-1.12-1, SR-1.12-2, SR-1.12-3, SR-1.15-1, SR-1.18-1, SR-1.19-1, SR-1.20-1, SR-3.10-1, SR-5.12-1 |
-| E-07 | Approval Service | FR-3, FR-3.14, FR-3.15, FR-3.16, FR-3.17, FR-3.18 | SR-1.18-2, SR-1.18-3 |
-| E-08 | Access Enforcement Point | FR-1.23, FR-1.24, FR-1.25, FR-1.26, FR-1.27, FR-1.28, FR-1.29, FR-1.30, FR-1.35, FR-1.50, FR-4, FR-4.1, FR-4.3, FR-11.5 | SR-1.2-1, SR-2.12-1, SR-3.12-1, SR-5.4-1, SR-5.5-1, SR-5.7-1, SR-5.7-2, SR-5.18-2 |
-| E-09 | Request Inspection Pipeline | FR-4, FR-4.3, FR-4.4, FR-4.5, FR-4.7, FR-4.15, FR-8.27, FR-11.5 | SR-1.8-1, SR-1.8-2, SR-1.8-3, SR-1.8-4, SR-1.8-5, SR-1.18-3, SR-5.8-1, SR-5.10-1, SR-5.12-1, SR-5.14-1 |
-| E-10 | Tool Dispatcher | FR-1.32, FR-1.39, FR-1.40, FR-1.41, FR-1.43, FR-4, FR-4.3, FR-4.8, FR-4.9, FR-4.10, FR-4.13, FR-5, FR-5.13, FR-5.14, FR-5.16, FR-5.17, FR-5.18, FR-5.19, FR-5.20, FR-5.21, FR-5.23, FR-5.24, FR-5.25, FR-5.26, FR-5.28, FR-5.29, FR-5.30, FR-5.31, FR-5.32, FR-11.5, FR-12.9 | SR-2.10-1, SR-5.1-2, SR-5.3-2, SR-5.6-2, SR-5.7-3, SR-7.2-1, SR-7.6-2, SR-7.12-1 |
-| E-11 | Response Inspection Pipeline | FR-4, FR-4.3, FR-4.4, FR-4.6, FR-4.7, FR-4.11, FR-4.12, FR-4.15, FR-8.27, FR-11.5 | SR-2-1, SR-2.12-1, SR-5.7-3, SR-5.9-1, SR-5.10-1, SR-5.13-1, SR-5.14-1, SR-5.18-1, SR-5.20-1, SR-5.20-2 |
-| E-12 | Enforcement Coordinator | FR-4, FR-4.3, FR-4.13, FR-4.14, FR-11.5, FR-11.10 | SR-1.2-2, SR-1.16-1, SR-1.17-1, SR-1.17-2, SR-2.4-1, SR-4.1-1, SR-5.11-1, SR-5.16-1, SR-6.2-1, SR-6.3-1, SR-6.11-1, SR-7.6-1, SR-7.6-2, SR-7.7-1, SR-7.9-1, SR-7.10-1 |
-| E-13 | Library Trust Verifier | FR-5, FR-5.1, FR-5.2, FR-5.3, FR-5.4 | SR-3-1, SR-3-2, SR-3-3, SR-3-4, SR-3-5, SR-3.1-1, SR-3.2-1 |
-| E-14 | Local Server Registry | FR-1.26, FR-1.27, FR-1.49, FR-5, FR-5.5, FR-5.6, FR-5.7, FR-5.8, FR-5.17, FR-5.21, FR-5.22, FR-5.31, FR-5.39 | SR-1-1, SR-3-3, SR-3.4-1, SR-3.7-1, SR-3.8-1, SR-3.9-1, SR-3.11-1, SR-3.14-1 |
-| E-15 | Server Runtime Manager | FR-5, FR-5.9, FR-5.10, FR-5.11, FR-5.12, FR-5.14, FR-5.15, FR-5.27, FR-5.37, FR-12.3 | SR-2.14-1, SR-3-2, SR-3.6-1, SR-3.8-1, SR-4.8-1 |
-| E-16 | Execution Sandbox | FR-5, FR-12.3 | SR-4.1-2, SR-4.5-1, SR-4.6-1, SR-4.7-1, SR-4.7-2 |
+| E-01 | Harness Interface Endpoint | FR-1, FR-1.1, FR-1.2, FR-1.3, FR-1.41, FR-1.47, FR-1.48, FR-9.17, FR-11, FR-11.5, FR-12, FR-12.1, FR-12.2, FR-12.6, FR-12.8, FR-12.10, FR-15, FR-15.8, FR-15.9, FR-16, FR-16.1, FR-16.2, FR-16.3, FR-16.4, FR-16.6, FR-16.7, FR-16.8, FR-16.11 | SR-2.8-1, SR-2.8-3, SR-2.9-1, SR-2.9-2, SR-2.9-3, SR-4.14-1, SR-4.14-2, SR-7.11-1 |
+| E-02 | Protocol Mediator | FR-1, FR-1.4, FR-1.5, FR-1.6, FR-1.7, FR-1.8, FR-1.9, FR-1.10, FR-1.11, FR-1.12, FR-1.13, FR-1.14, FR-1.15, FR-1.16, FR-1.17, FR-1.18, FR-1.19, FR-1.20, FR-1.21, FR-1.22, FR-1.28, FR-1.31, FR-1.32, FR-1.33, FR-1.34, FR-1.35, FR-1.36, FR-1.37, FR-1.38, FR-1.39, FR-1.42, FR-1.43, FR-1.44, FR-1.45, FR-1.46, FR-1.47, FR-1.48, FR-1.51, FR-3.14, FR-3.19, FR-3.21, FR-3.22, FR-3.25, FR-4.1, FR-4.2, FR-5.24, FR-11.5, FR-12.9, FR-18.7, FR-18.9 | SR-2-1, SR-5.1-1, SR-5.2-1, SR-5.2-2, SR-5.3-1, SR-5.6-1, SR-5.11-1 |
+| E-03 | Identity & Authentication Service | FR-2, FR-2.1, FR-2.5, FR-2.6, FR-2.15, FR-2.17, FR-2.18, FR-2.23, FR-16, FR-16.3, FR-16.5, FR-16.6 | SR-2.1-1, SR-2.1-2, SR-2.1-3, SR-2.11-1, SR-2.11-2, SR-2.11-5, SR-4.14-2 |
+| E-04 | Session Manager | FR-1.48, FR-2, FR-2.2, FR-2.3, FR-2.4, FR-2.6, FR-2.7, FR-2.8, FR-2.9, FR-2.10, FR-2.11, FR-2.12, FR-2.13, FR-2.19, FR-2.20, FR-2.21, FR-2.22, FR-16.12 | SR-2.1-2, SR-2.3-1, SR-2.11-4, SR-5.13-2 |
+| E-05 | Policy Administration Service | FR-3, FR-3.1, FR-3.2, FR-3.4, FR-3.5, FR-3.6, FR-3.8, FR-3.9, FR-6.5, FR-6.9, FR-9.17, FR-10.37, FR-18.5 | SR-1-3, SR-1.1-1, SR-1.1-2, SR-1.9-1, SR-1.14-1, SR-1.15-1, SR-3.13-1, SR-7.3-1, SR-7.9-1 |
+| E-06 | Policy Decision Service | FR-3, FR-3.10, FR-3.11, FR-3.12, FR-3.13, FR-11, FR-11.2 | SR-1-2, SR-1.1-1, SR-1.1-2, SR-1.2-1, SR-1.3-1, SR-1.4-1, SR-1.5-1, SR-1.7-1, SR-1.7-2, SR-1.10-1, SR-1.11-1, SR-1.12-1, SR-1.12-2, SR-1.12-3, SR-1.15-1, SR-1.18-1, SR-1.19-1, SR-1.20-1, SR-3.10-1, SR-5.12-1, SR-5.13-2 |
+| E-07 | Approval Service | FR-3, FR-3.14, FR-3.15, FR-3.16, FR-3.17, FR-3.18, FR-3.19, FR-3.20, FR-3.21, FR-3.22, FR-3.23, FR-3.24, FR-3.25 | SR-1.18-2, SR-1.18-3 |
+| E-08 | Access Enforcement Point | FR-1.23, FR-1.24, FR-1.25, FR-1.26, FR-1.27, FR-1.28, FR-1.29, FR-1.30, FR-1.35, FR-1.50, FR-1.52, FR-4, FR-4.1, FR-4.3, FR-11.5 | SR-1.2-1, SR-3.12-1, SR-5.4-1, SR-5.5-1, SR-5.7-1, SR-5.7-2, SR-5.18-2 |
+| E-09 | Request Inspection Pipeline | FR-4, FR-4.3, FR-4.4, FR-4.5, FR-4.7, FR-4.15, FR-4.16, FR-4.17, FR-8.27, FR-11.5, FR-19, FR-19.1, FR-19.5 | SR-1.8-1, SR-1.8-2, SR-1.8-3, SR-1.8-4, SR-1.8-5, SR-1.18-3, SR-5.8-1, SR-5.10-1, SR-5.12-1, SR-5.14-1 |
+| E-10 | Tool Dispatcher | FR-1.32, FR-1.39, FR-1.40, FR-1.41, FR-1.43, FR-4, FR-4.3, FR-4.8, FR-4.9, FR-4.10, FR-4.13, FR-5, FR-5.13, FR-5.14, FR-5.19, FR-5.20, FR-5.21, FR-5.23, FR-5.24, FR-5.26, FR-5.32, FR-5.40, FR-11.5, FR-12.9 | SR-2.10-1, SR-5.6-2, SR-5.7-3, SR-7.2-1, SR-7.6-2, SR-7.12-1 |
+| E-11 | Response Inspection Pipeline | FR-4, FR-4.3, FR-4.4, FR-4.6, FR-4.7, FR-4.11, FR-4.12, FR-4.15, FR-4.16, FR-4.17, FR-4.18, FR-8.27, FR-11.5, FR-19, FR-19.1, FR-19.5 | SR-2-1, SR-5.7-3, SR-5.9-1, SR-5.10-1, SR-5.13-1, SR-5.14-1, SR-5.18-1, SR-5.20-1, SR-5.20-2 |
+| E-12 | Enforcement Coordinator | FR-3.20, FR-4, FR-4.3, FR-4.13, FR-4.14, FR-11.5, FR-11.10, FR-18.8 | SR-1.2-2, SR-1.16-1, SR-1.17-1, SR-1.17-2, SR-2.4-1, SR-4.1-1, SR-5.11-1, SR-5.16-1, SR-6.2-1, SR-6.3-1, SR-6.11-1, SR-7.6-1, SR-7.6-2, SR-7.7-1, SR-7.9-1, SR-7.10-1 |
+| E-13 | Library Trust Verifier | FR-5, FR-5.1, FR-5.2, FR-5.3, FR-5.4, FR-14, FR-14.1, FR-14.2, FR-14.3, FR-14.4, FR-14.5, FR-14.6, FR-14.7, FR-14.9, FR-14.11, FR-14.12, FR-18.6 | SR-3-1, SR-3-2, SR-3-3, SR-3-4, SR-3-5, SR-3.1-1, SR-3.2-1, SR-3.5-1, SR-5.9-2 |
+| E-14 | Local Server Registry | FR-1.26, FR-1.27, FR-1.49, FR-4.16, FR-5, FR-5.5, FR-5.6, FR-5.7, FR-5.8, FR-5.21, FR-5.22, FR-5.39, FR-5.40, FR-14, FR-14.9, FR-19.1, FR-19.5 | SR-3-3, SR-3.4-1, SR-3.7-1, SR-3.8-1, SR-3.9-1, SR-3.11-1, SR-3.14-1, SR-4-1, SR-5.9-2 |
+| E-15 | Server Runtime Manager | FR-5, FR-5.9, FR-5.12, FR-5.14, FR-5.15, FR-5.27, FR-5.37, FR-12.3, FR-14.10, FR-19.1 | SR-2.14-1, SR-3-2, SR-3.6-1, SR-3.8-1, SR-4.8-1 |
+| E-16 | Execution Sandbox | FR-5, FR-12.3, FR-13.5, FR-19.1 | SR-4.1-2, SR-4.5-1, SR-4.6-1, SR-4.7-1, SR-4.7-2 |
 | E-17 | Runtime Monitor | FR-5, FR-5.33, FR-5.34, FR-5.35 | — |
-| E-18 | Egress Broker | FR-5, FR-5.36, FR-5.37, FR-5.38, FR-6.6, FR-12.2 | SR-4.5-1, SR-4.5-2, SR-5.8-2, SR-5.15-1, SR-5.15-2, SR-5.16-1, SR-5.17-1, SR-5.19-1 |
+| E-18 | Egress Broker | FR-5, FR-5.36, FR-5.37, FR-5.38, FR-6.6, FR-12.2, FR-19.1 | SR-4.5-1, SR-4.5-2, SR-5.8-2, SR-5.15-1, SR-5.15-2, SR-5.16-1, SR-5.17-1, SR-5.19-1 |
 | E-19 | Secret Vault | FR-6, FR-6.1, FR-6.2, FR-6.3, FR-6.4, FR-6.12 | SR-2.13-1, SR-2.13-3, SR-4.1-1 |
-| E-20 | Secret Broker | FR-6, FR-6.6, FR-6.7, FR-6.8, FR-6.9, FR-6.10, FR-6.11 | SR-2-1, SR-2.13-2, SR-2.13-3, SR-7.6-2 |
-| E-21 | Audit & Evidence Service | FR-7, FR-7.1, FR-7.2, FR-7.3, FR-7.4, FR-7.5, FR-7.6, FR-7.14, FR-12.7 | SR-4.1-1, SR-6.1-1, SR-6.2-1, SR-6.3-1, SR-6.4-1, SR-6.5-1, SR-6.6-1, SR-6.7-1, SR-6.8-1, SR-6.10-1, SR-6.11-1, SR-6.12-1, SR-6.13-1, SR-6.15-1, SR-6.16-1, SR-6.18-1, SR-6.19-1, SR-6.20-1 |
-| E-22 | Key & Trust Anchor Manager | FR-2.14, FR-2.18, FR-7, FR-7.7, FR-7.8, FR-7.9, FR-7.10, FR-12.5 | SR-2.2-1, SR-2.3-1, SR-2.13-1, SR-3-1, SR-6.8-1, SR-6.12-1 |
-| E-23 | Health & Safety Monitor | FR-7, FR-7.11, FR-7.12, FR-7.13 | SR-6.11-1, SR-7.3-1, SR-7.10-1 |
-| E-24 | Management Console & Control API | FR-2.19, FR-8, FR-8.1, FR-8.2, FR-8.3, FR-8.4, FR-8.5, FR-8.6, FR-8.7, FR-8.8, FR-8.9, FR-8.10, FR-8.11, FR-8.12, FR-8.13, FR-8.14, FR-8.15, FR-8.16, FR-8.17, FR-8.18, FR-8.19, FR-8.20, FR-8.21, FR-8.22, FR-8.23, FR-8.24, FR-8.25, FR-8.26, FR-8.27, FR-11, FR-11.8, FR-12, FR-12.1, FR-12.2, FR-12.5, FR-12.7, FR-12.8, FR-12.10 | SR-1.19-1, SR-2-2, SR-2.5-1, SR-2.6-1, SR-2.7-1, SR-2.8-1, SR-2.9-2, SR-2.9-3, SR-3.3-1, SR-3.4-1, SR-3.9-1, SR-4.1-1, SR-4.14-1, SR-6-3, SR-6.16-1, SR-6.17-1, SR-7.5-1, SR-8.9-1 |
-| E-25 | Graph Database Engine | FR-9, FR-9.1, FR-9.18, FR-11.1, FR-12, FR-12.1, FR-12.2, FR-12.5, FR-12.8, FR-12.11 | SR-1.1-1, SR-1.15-1, SR-4.1-1, SR-4.2-1, SR-7.4-1 |
-| E-26 | Data Access Service | FR-9, FR-9.2, FR-9.3, FR-9.4, FR-9.5, FR-9.6, FR-9.17, FR-11.1, FR-11.6, FR-11.8 | SR-1.2-2, SR-1.13-1, SR-1.13-2, SR-1.14-1, SR-4.2-1, SR-4.3-1, SR-6-3, SR-6.2-1, SR-7.1-1, SR-7.3-1 |
+| E-20 | Secret Broker | FR-3.1, FR-6, FR-6.6, FR-6.7, FR-6.8, FR-6.9, FR-6.10, FR-6.11 | SR-2-1, SR-2.13-2, SR-2.13-3, SR-7.6-2 |
+| E-21 | Audit & Evidence Service | FR-7, FR-7.1, FR-7.2, FR-7.3, FR-7.4, FR-7.5, FR-7.14, FR-9.17, FR-12.7, FR-13.8, FR-16.8, FR-17.7, FR-17.8 | SR-1.2-2, SR-4.1-1, SR-6.1-1, SR-6.2-1, SR-6.3-1, SR-6.4-1, SR-6.5-1, SR-6.7-1, SR-6.10-1, SR-6.11-1, SR-6.12-1, SR-6.13-1, SR-6.15-1, SR-6.16-1, SR-6.18-1, SR-6.19-1, SR-6.20-1, SR-7.7-1 |
+| E-22 | Key & Trust Anchor Manager | FR-2.18, FR-7, FR-7.7, FR-7.8, FR-7.10, FR-13, FR-14, FR-14.8, FR-17, FR-17.7 | SR-1.1-2, SR-2.2-1, SR-2.3-1, SR-2.8-4, SR-2.13-1, SR-3-1, SR-6.12-1 |
+| E-23 | Health & Safety Monitor | FR-7, FR-7.11, FR-7.12, FR-7.13, FR-12.3, FR-13, FR-13.7, FR-13.9, FR-13.10, FR-13.13, FR-17, FR-17.1, FR-17.2, FR-17.3, FR-17.4, FR-17.5, FR-17.9, FR-19.3 | SR-4-1, SR-6.11-1, SR-7.3-1, SR-7.10-1 |
+| E-24 | Management Console & Control API | FR-2.19, FR-2.23, FR-3.1, FR-3.23, FR-3.24, FR-3.25, FR-8, FR-8.1, FR-8.2, FR-8.3, FR-8.4, FR-8.5, FR-8.6, FR-8.7, FR-8.8, FR-8.9, FR-8.10, FR-8.11, FR-8.12, FR-8.13, FR-8.14, FR-8.15, FR-8.16, FR-8.17, FR-8.18, FR-8.19, FR-8.20, FR-8.21, FR-8.22, FR-8.23, FR-8.24, FR-8.25, FR-8.26, FR-8.27, FR-8.28, FR-8.29, FR-8.30, FR-8.31, FR-8.32, FR-8.33, FR-8.34, FR-8.35, FR-11, FR-11.8, FR-12, FR-12.1, FR-12.2, FR-12.4, FR-12.7, FR-12.8, FR-12.10, FR-13, FR-13.1, FR-13.2, FR-13.3, FR-13.4, FR-13.5, FR-13.6, FR-13.7, FR-13.8, FR-13.10, FR-13.11, FR-13.12, FR-13.13, FR-14.10, FR-16.5, FR-16.11, FR-17.9, FR-18, FR-18.1, FR-18.2, FR-18.4, FR-18.8, FR-18.9, FR-19, FR-19.2, FR-19.3, FR-19.4 | SR-1.19-1, SR-2-2, SR-2.5-1, SR-2.6-1, SR-2.7-1, SR-2.8-1, SR-2.9-2, SR-2.9-3, SR-3.3-1, SR-3.4-1, SR-3.9-1, SR-4.1-1, SR-4.14-1, SR-6-3, SR-6.16-1, SR-6.17-1, SR-7.5-1, SR-7.5-2, SR-8.9-1 |
+| E-25 | Graph Database Engine | FR-9, FR-9.1, FR-9.18, FR-11.1, FR-12, FR-12.1, FR-12.2, FR-12.8, FR-12.11 | SR-4.1-1, SR-4.2-1, SR-7.4-1 |
+| E-26 | Data Access Service | FR-9, FR-9.2, FR-9.3, FR-9.5, FR-9.6, FR-11.1, FR-11.6, FR-11.8 | SR-1.13-1, SR-1.13-2, SR-4.2-1, SR-6-3, SR-6.10-1, SR-7.1-1 |
 | E-27 | Observation Store | FR-9, FR-9.7, FR-9.8, FR-9.9, FR-11, FR-11.1, FR-11.6, FR-12, FR-12.1, FR-12.11 | SR-4.2-2 |
-| E-28 | Data Lifecycle & Memory Manager | FR-9, FR-9.10, FR-9.11, FR-9.12, FR-9.13, FR-9.14, FR-9.15, FR-9.16, FR-11, FR-11.9, FR-12, FR-12.4, FR-12.6, FR-12.7 | SR-6.14-1, SR-7.7-1, SR-7.8-1, SR-7.10-1 |
-| E-29 | Observation Collector | FR-1.44, FR-1.45, FR-10, FR-10.1, FR-10.2, FR-10.3, FR-10.4, FR-10.5, FR-10.6, FR-10.7, FR-10.8, FR-10.9, FR-10.10, FR-10.11, FR-10.37, FR-11, FR-11.4 | SR-6.6-1, SR-6.7-1 |
+| E-28 | Data Lifecycle & Memory Manager | FR-9, FR-9.10, FR-9.11, FR-9.12, FR-9.14, FR-9.15, FR-9.16, FR-11, FR-11.9, FR-12, FR-12.4, FR-12.6, FR-12.7, FR-13, FR-13.7, FR-13.8, FR-17, FR-17.6, FR-18.8 | SR-6.14-1, SR-7.7-1, SR-7.8-1, SR-7.10-1 |
+| E-29 | Observation Collector | FR-1.44, FR-1.45, FR-10, FR-10.1, FR-10.2, FR-10.3, FR-10.4, FR-10.5, FR-10.6, FR-10.7, FR-10.8, FR-10.9, FR-10.10, FR-10.11, FR-10.37, FR-11, FR-11.4 | SR-6.7-1 |
 | E-30 | Behavior Baseline Engine | FR-10, FR-10.12, FR-10.13, FR-10.14, FR-10.15, FR-10.16, FR-10.17, FR-10.18, FR-10.19, FR-10.20, FR-10.21, FR-11.7 | SR-7-1 |
 | E-31 | Anomaly Scorer | FR-4.15, FR-10, FR-10.22, FR-10.23, FR-10.24, FR-10.25, FR-10.26, FR-10.27, FR-10.28, FR-10.29, FR-11, FR-11.3 | SR-1.12-2, SR-7-1 |
-| E-32 | Research Dataset Service | FR-10, FR-10.30, FR-10.31, FR-10.32, FR-10.33, FR-10.34, FR-10.35, FR-10.36, FR-12.4 | SR-6-1, SR-6-2, SR-6.17-1 |
-| E-33 | Harness Adapter Kit | FR-1.48, FR-12.12, FR-12.13 | SR-2.3-2 |
+| E-32 | Research Dataset Service | FR-3.1, FR-10, FR-10.30, FR-10.31, FR-10.32, FR-10.33, FR-10.34, FR-10.35, FR-10.36, FR-12.4 | SR-6-1, SR-6-2, SR-6.17-1 |
+| E-33 | Harness Adapter Kit | FR-1.48, FR-12.12, FR-12.13, FR-15, FR-15.1, FR-15.2, FR-15.3, FR-15.4, FR-15.5, FR-15.6, FR-15.7, FR-15.8, FR-15.9, FR-15.10, FR-16, FR-16.2, FR-16.9, FR-16.10, FR-18, FR-18.2, FR-18.3 | SR-2.3-2, SR-4.9-1, SR-4.11-1, SR-4.13-1 |
 
 ## Appendix G — Architecture coverage
 
@@ -6320,51 +7600,51 @@ Use this matrix to code element by element. A requirement allocated to several e
 
 | ID | Name | Requirements |
 |---|---|---|
-| F-01 | Terminate harness transport | FR-1, FR-1.1, FR-1.2, FR-1.3, FR-1.41, FR-1.47, FR-9.17, SR-2.8-1, SR-2.8-2, SR-2.8-3, SR-2.9-1, SR-2.9-2, SR-2.9-3, SR-7.11-1 |
-| F-02 | Validate and normalize MCP messages | FR-1, FR-1.4, FR-1.5, FR-1.8, FR-1.10, FR-1.11, FR-1.16, FR-1.21, FR-1.22, FR-1.28, FR-1.33, FR-1.38, FR-1.44, FR-1.45, FR-1.47, FR-4.1, FR-4.2, SR-5.2-1, SR-5.2-2, SR-5.6-1 |
+| F-01 | Terminate harness transport | FR-1, FR-1.1, FR-1.2, FR-1.3, FR-1.41, FR-1.47, FR-9.17, FR-16, FR-16.1, FR-16.2, FR-16.3, FR-16.4, FR-16.6, FR-16.7, SR-2.8-1, SR-2.8-3, SR-2.9-1, SR-2.9-2, SR-2.9-3, SR-4.14-2, SR-7.11-1, SR-2.8-2 (deferred) |
+| F-02 | Validate and normalize MCP messages | FR-1, FR-1.4, FR-1.5, FR-1.8, FR-1.10, FR-1.11, FR-1.16, FR-1.21, FR-1.22, FR-1.28, FR-1.33, FR-1.38, FR-1.44, FR-1.45, FR-1.47, FR-4.1, FR-4.2, FR-18.9, SR-5.2-1, SR-5.2-2, SR-5.6-1 |
 | F-03 | Negotiate protocol profile | FR-1, FR-1.9, FR-1.12, FR-1.17, FR-1.46, SR-5.1-1, SR-5.3-1, SR-5.6-1 |
-| F-04 | Authenticate framework instance | FR-2, FR-2.1, FR-2.15, FR-2.17, FR-2.18, SR-2.1-1, SR-2.1-3, SR-2.11-1 |
+| F-04 | Authenticate framework instance | FR-2, FR-2.1, FR-2.15, FR-2.17, FR-2.18, FR-16.3, FR-16.6, SR-2.1-1, SR-2.1-3, SR-2.11-1, SR-2.11-5, SR-4.14-2, SR-2.11-3 (deferred) |
 | F-05 | Verify session proof | FR-2, FR-2.5, SR-2.1-2, SR-2.1-3 |
-| F-06 | Establish session | FR-2, FR-2.2, FR-2.3, FR-2.4, FR-2.10, FR-2.19, FR-2.20, SR-2.3-1 |
-| F-07 | Bind Allow policy to session | FR-2, FR-2.4, FR-2.6, FR-2.7, FR-2.12, FR-2.13, FR-2.20, FR-2.21 |
-| F-08 | Maintain session state and expiry | FR-2, FR-2.2, FR-2.8, FR-2.9, FR-2.22 |
-| F-09 | Terminate or revoke session | FR-2, FR-2.2, FR-2.11, FR-2.16 |
-| F-10 | Validate policy revision | FR-3, FR-3.1, FR-3.2, FR-3.3, FR-3.8, FR-6.5, FR-6.9, FR-8.4, SR-1-1, SR-1-3, SR-1.9-1, SR-3.13-1, SR-6.9-1 |
+| F-06 | Establish session | FR-2, FR-2.2, FR-2.3, FR-2.4, FR-2.10, FR-2.19, FR-2.20, FR-16.12, SR-2.3-1 |
+| F-07 | Bind Allow policy to session | FR-2, FR-2.4, FR-2.6, FR-2.7, FR-2.12, FR-2.13, FR-2.20, FR-2.21, FR-16.12 |
+| F-08 | Maintain session state and expiry | FR-2, FR-2.2, FR-2.8, FR-2.9, FR-2.22, FR-2.16 (deferred) |
+| F-09 | Terminate or revoke session | FR-2, FR-2.2, FR-2.11, SR-2.11-4, FR-2.16 (deferred) |
+| F-10 | Validate policy revision | FR-3, FR-3.1, FR-3.2, FR-3.8, FR-6.5, FR-6.9, FR-8.4, FR-18.5, SR-1-3, SR-1.9-1, SR-3.13-1, SR-7.3-1, FR-3.26 (deferred), FR-3.3 (deferred), SR-1-1 (deferred), SR-6.9-1 (deferred) |
 | F-11 | Simulate policy | FR-3, FR-3.5, FR-3.6, FR-8.4 |
-| F-12 | Publish/activate policy revision | FR-3, FR-3.4, FR-3.9, FR-8.4, SR-1.14-1, SR-1.15-1, SR-7.9-1 |
-| F-13 | Evaluate access decision | FR-3, FR-3.10, FR-3.11, FR-11.2, SR-1-2, SR-1.1-1, SR-1.2-1, SR-1.3-1, SR-1.4-1, SR-1.5-1, SR-1.6-1, SR-1.7-1, SR-1.7-2, SR-1.11-1, SR-1.12-1, SR-1.12-3, SR-1.15-1, SR-1.20-1, SR-3.10-1 |
-| F-14 | Compute effective obligations | FR-3, FR-3.11, FR-3.12, FR-3.13, SR-1.10-1, SR-1.11-1, SR-1.12-2, SR-1.18-1 |
+| F-12 | Publish/activate policy revision | FR-3, FR-3.4, FR-3.9, FR-8.4, SR-1.1-2, SR-1.14-1, SR-1.15-1, SR-7.9-1 |
+| F-13 | Evaluate access decision | FR-3, FR-3.10, FR-3.11, FR-11.2, SR-1-2, SR-1.1-1, SR-1.1-2, SR-1.2-1, SR-1.3-1, SR-1.4-1, SR-1.5-1, SR-1.7-1, SR-1.7-2, SR-1.11-1, SR-1.12-1, SR-1.12-3, SR-1.15-1, SR-1.20-1, SR-3.10-1, SR-1.6-1 (deferred) |
+| F-14 | Compute effective obligations | FR-3, FR-3.11, FR-3.12, FR-3.13, SR-1.10-1, SR-1.11-1, SR-1.12-2, SR-1.18-1, SR-5.13-2 |
 | F-15 | Evaluate secret-use decision | FR-3 |
 | F-16 | Explain decision | FR-3, SR-1.12-3, SR-1.19-1 |
-| F-17 | Request approval | FR-3, FR-3.14, FR-3.18, SR-1.18-3 |
-| F-18 | Record and consume approval | FR-3, FR-3.15, FR-3.16, FR-3.17, FR-8.21, SR-1.18-2 |
-| F-19 | Present session-scoped catalog | FR-1.23, FR-1.24, FR-1.25, FR-1.26, FR-1.27, FR-1.28, FR-1.35, FR-1.50, SR-3.12-1, SR-5.4-1, SR-5.7-1, SR-5.7-2, SR-5.18-2 |
-| F-20 | Enforce access decision | FR-1.29, FR-1.30, FR-4.3, SR-1.2-1, SR-2.12-1, SR-5.5-1 |
-| F-21 | Inspect and transform request | FR-4.3, FR-4.4, FR-4.5, FR-4.7, FR-4.15, FR-8.27, SR-1.8-1, SR-1.8-2, SR-1.8-3, SR-1.8-4, SR-1.8-5, SR-1.18-3, SR-5.8-1, SR-5.10-1, SR-5.12-1, SR-5.14-1 |
-| F-22 | Serialize released response | FR-1, FR-1.6, FR-1.7, FR-1.13, FR-1.14, FR-1.15, FR-1.18, FR-1.19, FR-1.20, FR-1.31, FR-1.32, FR-1.34, FR-1.35, FR-1.36, FR-1.37, FR-1.39, FR-1.42, FR-1.43, FR-5.24, FR-5.25, SR-5.11-1 |
-| F-23 | Dispatch tool call | FR-4.8, FR-4.13, FR-5.13, FR-5.16, FR-5.17, FR-5.18, FR-5.19, FR-5.28, FR-5.29, FR-5.32, SR-2.10-1, SR-5.1-2, SR-5.3-2, SR-5.6-2 |
-| F-24 | Correlate and collect response | FR-1.32, FR-1.39, FR-1.40, FR-4.10, FR-5.13, FR-5.14, FR-5.20, FR-5.21, FR-5.23, FR-5.24, FR-5.25, FR-5.28, FR-5.30, FR-5.31, SR-7.2-1 |
+| F-17 | Request approval | FR-3, FR-3.14, FR-3.18, FR-3.19, FR-3.20, FR-3.22, FR-3.23, FR-3.25, SR-1.18-3 |
+| F-18 | Record and consume approval | FR-3, FR-3.15, FR-3.16, FR-3.17, FR-3.20, FR-3.21, FR-3.24, FR-3.25, FR-8.21, SR-1.18-2 |
+| F-19 | Present session-scoped catalog | FR-1.23, FR-1.24, FR-1.25, FR-1.26, FR-1.27, FR-1.28, FR-1.35, FR-1.50, FR-1.52, SR-3.12-1, SR-5.4-1, SR-5.7-1, SR-5.7-2, SR-5.18-2 |
+| F-20 | Enforce access decision | FR-1.29, FR-1.30, FR-4.3, SR-1.2-1, SR-5.5-1, SR-2.12-1 (deferred) |
+| F-21 | Inspect and transform request | FR-4.3, FR-4.4, FR-4.5, FR-4.7, FR-4.15, FR-4.16, FR-4.17, FR-8.27, FR-19, FR-19.1, FR-19.5, SR-1.8-1, SR-1.8-2, SR-1.8-3, SR-1.8-4, SR-1.8-5, SR-1.18-3, SR-5.8-1, SR-5.10-1, SR-5.12-1, SR-5.14-1 |
+| F-22 | Serialize released response | FR-1, FR-1.6, FR-1.7, FR-1.13, FR-1.14, FR-1.15, FR-1.18, FR-1.19, FR-1.20, FR-1.31, FR-1.32, FR-1.34, FR-1.35, FR-1.36, FR-1.37, FR-1.39, FR-1.42, FR-1.43, FR-1.51, FR-5.24, FR-18.7, SR-5.11-1, FR-5.25 (deferred) |
+| F-23 | Dispatch tool call | FR-4.8, FR-4.13, FR-5.13, FR-5.19, FR-5.32, FR-5.40, SR-2.10-1, SR-5.6-2, FR-5.16 (deferred), FR-5.17 (deferred), FR-5.18 (deferred), FR-5.28 (deferred), FR-5.29 (deferred), SR-5.1-2 (deferred), SR-5.3-2 (deferred) |
+| F-24 | Correlate and collect response | FR-1.32, FR-1.39, FR-1.40, FR-4.10, FR-5.13, FR-5.14, FR-5.20, FR-5.21, FR-5.23, FR-5.24, SR-7.2-1, FR-5.25 (deferred), FR-5.28 (deferred), FR-5.30 (deferred), FR-5.31 (deferred) |
 | F-25 | Cancel in-flight call | FR-1.41, FR-1.43, FR-4.9, FR-5.26, SR-7.2-1, SR-7.12-1 |
 | F-26 | Validate response conformance | SR-5.20-1, SR-5.20-2 |
-| F-27 | Inspect and transform response | FR-4.4, FR-4.6, FR-4.7, FR-4.11, FR-4.15, FR-8.27, SR-2.12-1, SR-5.9-1, SR-5.10-1, SR-5.14-1, SR-5.18-1 |
-| F-28 | Label provenance | FR-4.12, SR-5.13-1 |
+| F-27 | Inspect and transform response | FR-4.4, FR-4.6, FR-4.7, FR-4.11, FR-4.15, FR-4.16, FR-4.17, FR-4.18, FR-8.27, FR-19, FR-19.1, FR-19.5, SR-5.9-1, SR-5.10-1, SR-5.14-1, SR-5.18-1, SR-2.12-1 (deferred) |
+| F-28 | Label provenance | FR-4.12, FR-4.17, FR-4.18, SR-5.13-1 |
 | F-29 | Authorize launch under barrier | FR-4.3, FR-4.13, SR-1.2-2, SR-1.16-1, SR-1.17-1, SR-6.2-1, SR-6.11-1, SR-7.10-1 |
 | F-30 | Authorize release under barrier | FR-4.3, SR-1.16-1, SR-1.17-2, SR-5.11-1, SR-6.3-1 |
-| F-31 | Execute emergency stop | FR-4.14, FR-8.3, FR-11.10, SR-1.16-1, SR-7.6-1, SR-7.6-2 |
+| F-31 | Execute emergency stop | FR-4.14, FR-8.3, FR-11.10, FR-18.8, SR-1.16-1, SR-7.6-1, SR-7.6-2 |
 | F-32 | Apply revocation | SR-1.16-1, SR-2.4-1, SR-7.9-1 |
-| F-33 | Verify package signature and integrity | FR-5.1, FR-5.2, FR-5.3, FR-5.4, SR-3-1, SR-3-2, SR-3-5, SR-3.2-1 |
-| F-34 | Validate server manifest | FR-5.2, SR-3.1-1, SR-3.2-1 |
-| F-35 | Process revocation feed | FR-5.3, SR-3-3, SR-3-4 |
-| F-36 | Maintain verified server inventory | FR-1.49, FR-5.5, FR-5.6, FR-5.7, FR-5.39, SR-3.7-1, SR-3.9-1, SR-3.11-1, SR-3.14-1 |
-| F-37 | Detect drift and expiry | FR-5.8, FR-5.17, FR-5.21, FR-5.22, FR-5.31, SR-3.8-1 |
-| F-38 | Instantiate server instance | FR-5.9, FR-5.10, FR-5.37, SR-2.14-1, SR-3-2, SR-3.6-1, SR-4.8-1 |
-| F-39 | Supervise lifecycle | FR-5.11, FR-5.12, FR-5.15 |
-| F-40 | Tear down and sanitize | FR-5.11, FR-5.14, FR-5.27, SR-3.8-1 |
-| F-41 | Contain server execution | SR-4.1-2, SR-4.5-1, SR-4.6-1, SR-4.7-1, SR-4.7-2 |
+| F-33 | Verify package signature and integrity | FR-5.1, FR-5.2, FR-5.3, FR-5.4, FR-14.7, SR-3-1, SR-3-2, SR-3-5, SR-3.2-1 |
+| F-34 | Validate server manifest | FR-1.52, FR-4.16, FR-5.2, FR-14.3, FR-14.4, FR-14.11, FR-19.5, SR-3.1-1, SR-3.2-1, SR-5.9-2 |
+| F-35 | Process revocation feed | FR-5.3, FR-14.12, SR-3-3, SR-3-4 |
+| F-36 | Maintain verified server inventory | FR-1.49, FR-5.5, FR-5.6, FR-5.7, FR-5.39, FR-14.9, SR-3.7-1, SR-3.9-1, SR-3.11-1, SR-3.14-1, SR-4-1, SR-5.9-2 |
+| F-37 | Detect drift and expiry | FR-5.8, FR-5.21, FR-5.22, FR-19.1, SR-3.8-1, FR-5.17 (deferred), FR-5.31 (deferred) |
+| F-38 | Instantiate server instance | FR-5.9, FR-5.37, FR-14.10, SR-2.14-1, SR-3-2, SR-3.6-1, SR-4.8-1, FR-5.10 (deferred) |
+| F-39 | Supervise lifecycle | FR-5.12, FR-5.15, FR-5.11 (deferred) |
+| F-40 | Tear down and sanitize | FR-5.14, FR-5.27, SR-3.8-1, FR-5.11 (deferred) |
+| F-41 | Contain server execution | FR-19.1, SR-4.1-2, SR-4.5-1, SR-4.6-1, SR-4.7-1, SR-4.7-2 |
 | F-42 | Observe runtime behavior | FR-5.33 |
 | F-43 | Detect declared-behavior deviation | FR-5.34 |
 | F-44 | Trigger containment response | FR-5.35 |
-| F-45 | Authorize and mediate egress | FR-5.36, FR-5.38, SR-4.5-2, SR-5.8-2, SR-5.15-1, SR-5.15-2, SR-5.16-1, SR-5.17-1, SR-5.19-1 |
+| F-45 | Authorize and mediate egress | FR-5.36, FR-5.38, FR-19.1, SR-4.5-2, SR-5.8-2, SR-5.15-1, SR-5.15-2, SR-5.16-1, SR-5.17-1, SR-5.19-1 |
 | F-46 | Inject credential at egress | FR-6.6, SR-5.8-2 |
 | F-47 | Store and protect secrets | FR-6, FR-6.1, FR-6.2, FR-6.12, SR-2.13-1 |
 | F-48 | Rotate and retire secrets | FR-6, FR-6.3, FR-6.4 |
@@ -6372,36 +7652,36 @@ Use this matrix to code element by element. A requirement allocated to several e
 | F-50 | Deliver secret | FR-6, FR-6.6, FR-6.7, FR-6.8, FR-6.9, FR-6.11, SR-2.13-2 |
 | F-51 | Register leak fingerprints | FR-6, FR-6.10 |
 | F-52 | Revoke secret delivery | FR-6, FR-6.7, FR-6.8, SR-7.6-2 |
-| F-53 | Record security event | FR-7.1, FR-7.2, FR-7.6, SR-6.1-1, SR-6.6-1, SR-6.7-1, SR-6.8-1, SR-6.13-1, SR-6.19-1 |
-| F-54 | Link evidence | SR-6.4-1, SR-6.5-1, SR-6.18-1, SR-6.20-1 |
-| F-55 | Produce tamper-evident journal | FR-7.4, FR-7.5, FR-7.14, SR-6.10-1, SR-6.12-1 |
+| F-53 | Record security event | FR-7.1, FR-7.2, FR-16.8, SR-6.1-1, SR-6.7-1, SR-6.13-1, SR-6.19-1, FR-7.6 (deferred), SR-6.6-1 (deferred), SR-6.8-1 (deferred) |
+| F-54 | Link evidence | SR-6.4-1, SR-6.5-1, SR-6.10-1, SR-6.13-1, SR-6.18-1, SR-6.20-1 |
+| F-55 | Produce tamper-evident journal | FR-7.4, FR-7.5, FR-7.14, FR-17.7, FR-17.8, SR-1.2-2, SR-6.2-1, SR-6.3-1, SR-6.10-1, SR-6.12-1 |
 | F-56 | Enforce retention and purge | SR-6.15-1 |
 | F-57 | Serve audit queries | FR-7.3, FR-8.22, FR-11.8, SR-6.16-1 |
-| F-58 | Manage trust anchors | FR-7.10 |
-| F-59 | Issue and revoke framework credentials | FR-2.14, FR-2.18, FR-7.7, SR-2.2-1, SR-2.3-1 |
-| F-60 | Protect Gateway keys | FR-7.7, FR-7.8, FR-7.9, SR-2.13-1 |
-| F-61 | Monitor enforcement health | FR-7.11, FR-7.12, SR-6.11-1 |
-| F-62 | Drive fail-closed state | FR-7.12, FR-7.13, FR-9.17, SR-7.3-1 |
-| F-63 | Authenticate administrative user | FR-2.19, FR-8, SR-2.5-1, SR-2.6-1, SR-2.7-1, SR-7.5-1, SR-8.9-1 |
-| F-64 | Enforce administrative roles | FR-8, FR-8.2, SR-2-2, SR-6-3, SR-6.16-1 |
-| F-65 | Present management views | FR-8, FR-8.1, FR-8.3, FR-8.4, FR-8.5, FR-8.14, FR-8.17, FR-8.18, FR-8.19, FR-8.20, FR-8.21, FR-8.22, FR-8.23, FR-8.25, FR-8.26, FR-8.27, SR-3.3-1, SR-3.4-1, SR-6.17-1 |
-| F-66 | Estimate observation cost | FR-3.7, FR-8.11 |
+| F-58 | Manage trust anchors | FR-7.10, FR-14.8 |
+| F-59 | Issue and revoke framework credentials | FR-2.18, FR-7.7, FR-16, FR-16.5, SR-2.2-1, SR-2.3-1, SR-2.11-2, FR-2.14 (deferred), FR-7.15 (deferred) |
+| F-60 | Protect Gateway keys | FR-7.7, FR-7.8, FR-17, FR-17.7, SR-2.8-4, SR-2.13-1, FR-7.15 (deferred), FR-7.9 (deferred) |
+| F-61 | Monitor enforcement health | FR-7.11, FR-7.12, FR-13.9, FR-13.10, FR-17, FR-17.1, FR-17.2, FR-17.3, FR-17.4, FR-17.5, FR-17.9, FR-19.3, SR-4-1, SR-6.11-1 |
+| F-62 | Drive fail-closed state | FR-7.12, FR-7.13, FR-9.17, FR-13.9, FR-13.13, SR-7.3-1 |
+| F-63 | Authenticate administrative user | FR-2.19, FR-2.23, FR-8, SR-2.5-1, SR-2.6-1, SR-2.7-1, SR-7.5-1, SR-7.5-2, SR-8.9-1 |
+| F-64 | Enforce administrative roles | FR-2.23, FR-8, FR-8.2, SR-2-2, SR-6-3, SR-6.16-1 |
+| F-65 | Present management views | FR-8, FR-8.1, FR-8.3, FR-8.4, FR-8.5, FR-8.14, FR-8.17, FR-8.18, FR-8.19, FR-8.20, FR-8.21, FR-8.22, FR-8.23, FR-8.25, FR-8.26, FR-8.27, FR-8.28, FR-8.29, FR-8.30, FR-8.31, FR-8.32, FR-8.33, FR-8.34, FR-8.35, FR-13.10, FR-18, FR-18.4, FR-19.2, FR-19.4, SR-3.3-1, SR-3.4-1, SR-6.17-1 |
+| F-66 | Estimate observation cost | FR-8.11, FR-3.7 (deferred) |
 | F-67 | Provide parameter-selection workbench | FR-8, FR-8.6, FR-8.7, FR-8.8, FR-8.9, FR-8.10, FR-8.11, FR-8.12, FR-8.24, FR-8.25 |
 | F-68 | Present behavior analytics | FR-8, FR-8.13 |
 | F-69 | Present performance and resource views | FR-8, FR-8.15, FR-8.16 |
 | F-70 | Persist and index graph data | FR-9.1, FR-9.18 |
 | F-71 | Execute bounded graph queries and transactions | FR-9.18 |
-| F-72 | Authorize and execute typed data operations | FR-9.2, FR-9.3, SR-1.13-1, SR-1.13-2, SR-4.3-1, SR-6-3, SR-7.1-1, SR-7.3-1 |
-| F-73 | Batch and route writes | FR-9.4, FR-9.5, FR-11.6 |
+| F-72 | Authorize and execute typed data operations | FR-9.2, FR-9.3, SR-1.13-1, SR-1.13-2, SR-6-3, SR-7.1-1, SR-4.3-1 (deferred) |
+| F-73 | Batch and route writes | FR-9.5, FR-11.6, FR-9.4 (deferred) |
 | F-74 | Apply backpressure | FR-9.6 |
 | F-75 | Store observation and meta-metric records | FR-9.7, FR-9.8, FR-11.6 |
 | F-76 | Serve aggregate queries | FR-9.9, FR-11.8 |
 | F-77 | Allocate and enforce memory budgets | FR-9.10, FR-9.11, FR-9.12, FR-11.9 |
-| F-78 | Manage storage tiers, retention and quotas | FR-9.13, FR-9.14, FR-9.15, SR-6.14-1, SR-7.10-1 |
-| F-79 | Schedule and verify backups | FR-9.16, SR-7.7-1, SR-7.8-1 |
+| F-78 | Manage storage tiers, retention and quotas | FR-9.14, FR-9.15, SR-6.14-1, SR-7.10-1, FR-9.13 (deferred) |
+| F-79 | Schedule and verify backups | FR-9.16, FR-13.7, FR-13.8, FR-17, FR-17.6, FR-18.8, SR-7.7-1, SR-7.8-1 |
 | F-80 | Collect raw observables | FR-1.44, FR-1.45, FR-10.1, FR-10.3, FR-11.4 |
 | F-81 | Extract features | FR-10.3, FR-10.5 |
-| F-82 | Apply sampling, sensitivity and escalation rules | FR-10.4, FR-10.6, FR-10.7, FR-10.8, SR-6.6-1, SR-6.7-1 |
+| F-82 | Apply sampling, sensitivity and escalation rules | FR-10.4, FR-10.6, FR-10.7, FR-10.8, SR-6.7-1, SR-6.6-1 (deferred) |
 | F-83 | Collect meta-metrics | FR-10.2, FR-10.8, FR-10.9, FR-10.10, FR-10.11 |
 | F-84 | Update baseline statistics | FR-10.12, FR-10.13, FR-10.14, FR-10.15, FR-10.16, FR-10.17 |
 | F-85 | Build baseline snapshot | FR-10.18, FR-11.7 |
@@ -6413,25 +7693,34 @@ Use this matrix to code element by element. A requirement allocated to several e
 | F-91 | Manage research capture campaigns | FR-8.17, FR-10.30, FR-10.31 |
 | F-92 | Extract and pseudonymize datasets | FR-10.32, FR-10.33, SR-6-1, SR-6-2 |
 | F-93 | Export datasets with data dictionary | FR-8.17, FR-10.34, FR-10.35, FR-10.36, SR-6-2, SR-6.17-1 |
-| F-94 | Obtain and refresh harness session | FR-12.12, SR-2.3-2 |
-| F-95 | Bridge stdio to the harness interface | FR-12.13 |
+| F-94 | Obtain and refresh harness session | FR-12.12, FR-15, FR-15.8, FR-18.3, SR-2.3-2 |
+| F-95 | Bridge stdio to the harness interface | FR-12.13, FR-15, FR-15.8, FR-15.9, FR-16, FR-16.9, FR-18.3 |
+| F-96 | Build, sign and verify server package | FR-14, FR-14.1, FR-14.2, FR-14.3, FR-14.5, FR-14.6, FR-14.7, FR-14.9, FR-14.10, FR-14.12, FR-18.6, SR-3.5-1 |
+| F-97 | Install, upgrade and remove the Gateway | FR-12.4, FR-12.7, FR-13, FR-13.1, FR-13.2, FR-13.3, FR-13.4, FR-13.5, FR-13.6, FR-13.7, FR-13.8, FR-13.11, FR-13.12, FR-13.13, FR-16.11, FR-17.9, FR-18.1, SR-4.14-1, SR-7.5-2, FR-12.5 (deferred) |
+| F-98 | Diagnose and lock down harness configuration | FR-15, FR-15.1, FR-15.2, FR-15.3, FR-15.4, FR-15.5, FR-15.6, FR-15.7, FR-15.10, FR-16.10, FR-18, FR-18.2, FR-18.3, SR-4.9-1, SR-4.11-1, SR-4.13-1 |
+| F-99 | Track session taint | SR-5.13-2 |
 
 ### G.2 External interfaces
 
 | ID | Requirements |
 |---|---|
-| X-01 | FR-1, FR-1.1, FR-1.2, FR-1.3, FR-1.4, FR-1.5, FR-1.6, FR-1.7, FR-1.8, FR-1.9, FR-1.10, FR-1.11, FR-1.12, FR-1.13, FR-1.14, FR-1.15, FR-1.16, FR-1.17, FR-1.18, FR-1.19, FR-1.20, FR-1.21, FR-1.22, FR-1.23, FR-1.24, FR-1.25, FR-1.26, FR-1.27, FR-1.28, FR-1.29, FR-1.30, FR-1.31, FR-1.32, FR-1.33, FR-1.34, FR-1.35, FR-1.36, FR-1.37, FR-1.38, FR-1.39, FR-1.40, FR-1.41, FR-1.42, FR-1.43, FR-1.44, FR-1.46, FR-1.47, FR-1.48, FR-1.50, FR-2.2, FR-2.3, FR-2.4, FR-2.5, FR-2.15, FR-2.17, FR-2.18, FR-2.19, FR-2.20, FR-2.21, FR-2.22, FR-3.14, FR-3.16, FR-4.12, FR-5.25, FR-12.9, FR-12.12, FR-12.13, SR-2-1, SR-2.1-2, SR-2.8-1, SR-2.8-2, SR-2.9-1, SR-2.9-2, SR-2.11-1, SR-5.2-1, SR-5.2-2 |
-| X-02 | context only — outside SoI |
-| X-03 | FR-5.1, FR-5.2, FR-5.3 |
-| X-04 | FR-2.19, FR-8, FR-8.1, FR-8.2, FR-8.3, FR-8.4, FR-8.5, FR-8.6, FR-8.9, FR-8.10, FR-8.11, FR-8.12, FR-8.13, FR-8.14, FR-8.15, FR-8.16, FR-8.17, FR-8.18, FR-8.19, FR-8.20, FR-8.22, FR-8.23, FR-8.24, FR-8.26, FR-8.27, SR-2.5-1, SR-2.8-1, SR-2.9-2 |
-| X-05 | FR-3.17, FR-3.18, FR-8.21 |
+| X-01 | FR-1, FR-1.1, FR-1.2, FR-1.3, FR-1.4, FR-1.5, FR-1.6, FR-1.7, FR-1.8, FR-1.9, FR-1.10, FR-1.11, FR-1.12, FR-1.13, FR-1.14, FR-1.15, FR-1.16, FR-1.17, FR-1.18, FR-1.19, FR-1.20, FR-1.21, FR-1.22, FR-1.23, FR-1.24, FR-1.25, FR-1.26, FR-1.27, FR-1.28, FR-1.29, FR-1.30, FR-1.31, FR-1.32, FR-1.33, FR-1.34, FR-1.35, FR-1.36, FR-1.37, FR-1.38, FR-1.39, FR-1.40, FR-1.41, FR-1.42, FR-1.43, FR-1.44, FR-1.46, FR-1.47, FR-1.48, FR-1.50, FR-1.51, FR-1.52, FR-2.2, FR-2.3, FR-2.4, FR-2.5, FR-2.15, FR-2.17, FR-2.18, FR-2.19, FR-2.20, FR-2.21, FR-2.22, FR-2.23, FR-3.14, FR-3.16, FR-3.19, FR-3.21, FR-3.22, FR-3.25, FR-4.12, FR-12.9, FR-12.12, FR-12.13, FR-15, FR-15.8, SR-2-1, SR-2.1-2, SR-2.8-1, SR-2.9-1, SR-2.9-2, SR-2.11-1, SR-2.11-4, SR-2.11-5, SR-5.2-1, SR-5.2-2, FR-5.25 (deferred), SR-2.8-2 (deferred), SR-2.11-3 (deferred) |
+| X-02 | FR-14, FR-14.3, FR-14.5, FR-14.6, FR-14.9, FR-14.12 |
+| X-03 | FR-5.1, FR-5.2, FR-5.3, FR-14, FR-14.4, FR-14.11 |
+| X-04 | FR-2.19, FR-2.23, FR-8, FR-8.1, FR-8.2, FR-8.3, FR-8.4, FR-8.5, FR-8.6, FR-8.9, FR-8.10, FR-8.11, FR-8.12, FR-8.13, FR-8.14, FR-8.15, FR-8.16, FR-8.17, FR-8.18, FR-8.19, FR-8.20, FR-8.22, FR-8.23, FR-8.24, FR-8.26, FR-8.27, FR-8.28, FR-8.29, FR-8.30, FR-8.31, FR-8.32, FR-8.33, FR-8.34, FR-8.35, FR-16.5, SR-2.5-1, SR-2.8-1, SR-2.9-2 |
+| X-05 | FR-3.17, FR-3.18, FR-3.23, FR-3.24, FR-3.25, FR-8.21 |
 | X-06 | FR-5.36, FR-5.38, SR-4.5-2, SR-5.15-1 |
-| X-07 | FR-7.9, FR-12.3, FR-12.4, FR-12.5, FR-12.11, SR-4.1-1, SR-4.1-2, SR-4.2-1, SR-4.14-1, SR-7.4-1 |
+| X-07 | FR-12.3, FR-12.4, FR-12.11, FR-13, FR-13.4, FR-13.5, FR-13.6, FR-13.9, FR-13.11, FR-13.12, FR-15.4, SR-4.1-1, SR-4.1-2, SR-4.2-1, SR-4.14-1, SR-7.4-1, FR-7.9 (deferred), FR-12.5 (deferred) |
 | X-08 | FR-6.2 |
 | X-09 | FR-7.14 |
 | X-10 | FR-10.2 |
 | X-11 | FR-10.34, FR-10.35, FR-10.36, SR-6-1 |
-| X-12 | FR-1.48, FR-12.12, FR-12.13, SR-2.3-2 |
+| X-12 | FR-1.48, FR-12.12, FR-12.13, FR-15, FR-15.1, FR-15.2, FR-15.3, FR-15.6, FR-15.7, FR-15.8, FR-15.10, FR-16.9, FR-18.3, SR-2.3-2, SR-4.9-1, SR-4.11-1, SR-4.13-1 |
+| X-13 | FR-15.9, FR-16, FR-16.1, FR-16.2, FR-16.3, FR-16.4, FR-16.5, FR-16.6, FR-16.7, FR-16.8, FR-16.9, FR-16.10, FR-16.11, FR-16.12, FR-18.3, SR-2.11-2, SR-4.14-1, SR-4.14-2 |
+| X-14 | FR-3.23 |
+| X-15 | FR-17.4, FR-17.5 |
+| X-16 | FR-13, FR-13.1, FR-13.2, FR-13.3, FR-13.7 |
+| X-17 | FR-14, FR-14.1, FR-14.2, SR-3.5-1 |
 
 ### G.3 Internal interfaces
 
@@ -6442,22 +7731,22 @@ Use this matrix to code element by element. A requirement allocated to several e
 | I-03 | FR-1.11, FR-1.23, FR-4.1 |
 | I-04 | FR-2.6, SR-2.1-2 |
 | I-05 | FR-2.6, FR-2.7, FR-2.12, FR-2.13, SR-1-2, SR-1.5-1 |
-| I-06 | FR-2.14, FR-2.18, FR-3.1, FR-3.3, FR-3.5, FR-3.6, FR-3.7, FR-3.8, FR-3.9, FR-4.14, FR-5.6, FR-6.2, FR-6.12, FR-7.3, FR-7.6, FR-7.10, FR-7.12, FR-8.1, FR-9.3, FR-10.19, SR-1.19-1, SR-4.3-1 |
-| I-07 | FR-1.27, FR-2.1, FR-3.1, FR-3.2, FR-3.10, FR-9.3, SR-1-1, SR-1.1-1, SR-1.14-1, SR-4.3-1 |
+| I-06 | FR-2.18, FR-3.1, FR-3.5, FR-3.6, FR-3.8, FR-3.9, FR-4.14, FR-5.6, FR-6.2, FR-6.12, FR-7.3, FR-7.10, FR-7.12, FR-8.1, FR-9.3, FR-10.19, FR-14.8, SR-1.19-1, FR-2.14 (deferred), FR-3.26 (deferred), FR-3.3 (deferred), FR-3.7 (deferred), FR-7.6 (deferred), SR-4.3-1 (deferred) |
+| I-07 | FR-1.27, FR-2.1, FR-3.1, FR-3.2, FR-3.10, FR-9.3, SR-1-1 (deferred), SR-4.3-1 (deferred) |
 | I-08 | FR-1.29, FR-1.50, FR-3.11, FR-3.12, FR-3.13, SR-1-2 |
 | I-09 | SR-5.12-1 |
-| I-10 | FR-3.14, FR-3.15 |
-| I-11 | FR-4.13 |
-| I-12 | FR-5.10 |
-| I-13 | FR-1.39, FR-4.9, FR-4.10, FR-5.13, FR-5.14, FR-5.16, FR-5.18, FR-5.19, FR-5.20, FR-5.21, FR-5.23, FR-5.24, FR-5.25, FR-5.26, FR-5.28, FR-5.29, FR-5.30, FR-5.31, FR-5.32, FR-12.9, SR-2.10-1 |
+| I-10 | FR-3.14, FR-3.15, FR-3.20 |
+| I-11 | FR-3.20, FR-4.13 |
+| I-12 | FR-5.10 (deferred) |
+| I-13 | FR-1.39, FR-4.9, FR-4.10, FR-5.13, FR-5.14, FR-5.19, FR-5.20, FR-5.21, FR-5.23, FR-5.24, FR-5.26, FR-5.32, FR-5.40, FR-12.9, SR-2.10-1, FR-5.16 (deferred), FR-5.18 (deferred), FR-5.25 (deferred), FR-5.28 (deferred), FR-5.29 (deferred), FR-5.30 (deferred), FR-5.31 (deferred) |
 | I-14 | FR-6.10 |
 | I-15 | FR-4.11 |
 | I-16 | FR-1.31 |
 | I-17 | SR-3-1 |
-| I-18 | FR-3.17, FR-4.2, FR-5.34, FR-6.4, FR-6.11, FR-7.1, FR-10.29, SR-6.1-1 |
+| I-18 | FR-3.17, FR-4.2, FR-5.34, FR-6.4, FR-6.11, FR-7.1, FR-10.29, SR-5.9-2, SR-6.1-1 |
 | I-19 | FR-5.12, FR-5.35, FR-7.13 |
 | I-20 | FR-2.11, SR-2.4-1, SR-7.6-2 |
-| I-21 | FR-5.4, FR-5.5, FR-5.39 |
+| I-21 | FR-5.4, FR-5.5, FR-5.39, SR-5.9-2 |
 | I-22 | FR-5.9, FR-5.37 |
 | I-23 | FR-5.9, FR-5.27 |
 | I-24 | FR-5.33 |
@@ -6466,12 +7755,12 @@ Use this matrix to code element by element. A requirement allocated to several e
 | I-27 | SR-2.13-3 |
 | I-28 | FR-6.7, FR-6.8 |
 | I-29 | FR-1.44, FR-1.45, FR-4.2, FR-4.7, FR-5.15, FR-10.1, FR-10.2, FR-10.29 |
-| I-30 | FR-7.3, FR-9.3, SR-1.2-2, SR-4.3-1, SR-6.2-1, SR-6.3-1 |
+| I-30 | FR-7.3, FR-9.3, SR-6.10-1, SR-4.3-1 (deferred) |
 | I-31 | FR-4.15, FR-10.7, FR-10.28, SR-1.12-2 |
 | I-32 | FR-7.11, FR-9.11, FR-9.12, FR-9.15 |
-| I-33 | FR-9.3, FR-9.4, FR-9.6, SR-4.3-1 |
-| I-34 | FR-9.3, FR-10.12, SR-4.3-1 |
-| I-35 | FR-9.3, FR-10.32, FR-10.33, SR-4.3-1 |
+| I-33 | FR-9.3, FR-9.6, FR-9.4 (deferred), SR-4.3-1 (deferred) |
+| I-34 | FR-9.3, FR-10.12, SR-4.3-1 (deferred) |
+| I-35 | FR-9.3, FR-10.32, FR-10.33, SR-4.3-1 (deferred) |
 | I-36 | FR-9.2, SR-1.13-1, SR-4.2-1 |
 | I-37 | FR-9.5, FR-9.9, SR-1.13-1, SR-4.2-2 |
 | I-38 | FR-9.6, FR-9.10, FR-9.11, FR-9.12 |
@@ -6481,38 +7770,40 @@ Use this matrix to code element by element. A requirement allocated to several e
 
 | ID | Requirements |
 |---|---|
-| D-01 | FR-2.1, FR-2.18, FR-3.1, FR-3.4, FR-6.5, FR-9.1, FR-9.16, FR-10.30, SR-1.1-1 |
-| D-02 | FR-1.49, FR-5.4, FR-5.5, FR-5.7, FR-5.8, FR-9.1 |
-| D-03 | FR-5.39, SR-3-2 |
+| D-01 | FR-2.1, FR-2.18, FR-3.1, FR-3.4, FR-6.5, FR-9.1, FR-9.16, FR-10.30, SR-1.1-1, SR-1.1-2, SR-1.14-1, SR-1.15-1, SR-7.3-1, FR-3.26 (deferred) |
+| D-02 | FR-1.49, FR-5.4, FR-5.5, FR-5.7, FR-5.8, FR-9.1, FR-9.16 |
+| D-03 | FR-5.39, FR-14.1, SR-3-2 |
 | D-04 | FR-6.1, FR-9.16 |
-| D-05 | FR-9.1 |
-| D-06 | FR-7.4, FR-7.5, FR-7.14, FR-9.16, SR-6.12-1 |
-| D-07 | FR-2.8, FR-2.13, FR-2.16, FR-2.20, FR-9.1 |
-| D-08 | FR-7.7, FR-7.8, FR-7.9 |
-| D-09 | FR-9.7, FR-9.8, FR-9.13, FR-9.14, FR-9.16 |
+| D-05 | FR-9.1, SR-6.10-1, SR-6.13-1 |
+| D-06 | FR-7.4, FR-7.5, FR-7.14, FR-9.16, FR-13.11, FR-13.12, FR-17.8, SR-1.2-2, SR-6.2-1, SR-6.3-1, SR-6.12-1, SR-6.13-1 |
+| D-07 | FR-2.8, FR-2.13, FR-2.20, FR-9.1, FR-2.16 (deferred) |
+| D-08 | FR-7.7, FR-7.8, FR-9.16, FR-17.7, SR-1.1-2, SR-2.8-4, FR-7.15 (deferred), FR-7.9 (deferred) |
+| D-09 | FR-9.7, FR-9.8, FR-9.14, FR-9.13 (deferred) |
 | D-10 | FR-9.1, FR-10.13, FR-10.15, FR-10.16, FR-10.18 |
 | D-11 | FR-8.6, FR-8.7, FR-8.8, FR-9.1, FR-10.5, FR-10.37 |
 | D-12 | FR-9.14, FR-10.35, FR-10.36 |
-| D-13 | FR-9.7, FR-9.13, FR-10.9, FR-10.11 |
+| D-13 | FR-9.7, FR-10.9, FR-10.11, FR-9.13 (deferred) |
+| D-14 | FR-17.1, FR-17.2, FR-17.3 |
+| D-15 | FR-9.16, FR-13.11, FR-17.6, SR-7.7-1 |
 
 ### G.5 GUI view modules
 
 | ID | Requirements naming the module |
 |---|---|
-| G-01 | FR-8.3 |
+| G-01 | FR-8.3, FR-8.28, FR-8.29, FR-8.31, FR-8.34 |
 | G-02 | FR-8.4, FR-8.27 |
-| G-03 | FR-8.5 |
-| G-04 | FR-8.6, FR-8.7, FR-8.8, FR-8.9, FR-8.10, FR-8.11, FR-8.12, FR-8.24 |
+| G-03 | FR-8.4, FR-8.5 |
+| G-04 | FR-8.4, FR-8.6, FR-8.7, FR-8.8, FR-8.9, FR-8.10, FR-8.11, FR-8.12, FR-8.24 |
 | G-05 | FR-8.13 |
-| G-06 | FR-8.14 |
+| G-06 | FR-8.4, FR-8.14 |
 | G-07 | FR-8.15 |
 | G-08 | FR-8.16 |
-| G-09 | FR-8.17, FR-10.36 |
+| G-09 | FR-8.4, FR-8.17, FR-10.36 |
 | G-10 | FR-8.18, SR-3.3-1, SR-3.4-1 |
-| G-11 | FR-2.18, FR-8.19 |
+| G-11 | FR-2.18, FR-8.19, FR-16.5 |
 | G-12 | FR-8.20 |
-| G-13 | FR-8.21 |
-| G-14 | FR-8.22 |
+| G-13 | FR-3.23, FR-3.25, FR-8.21 |
+| G-14 | FR-8.22, FR-8.28, FR-8.29, FR-8.34 |
 
 ## Appendix H — Requirement index
 
@@ -6569,6 +7860,8 @@ Use this matrix to code element by element. A requirement allocated to several e
 | FR-1.48 | FR-1 | Inspection | E-01, E-02, E-04, E-33 | Harness interface specification |
 | FR-1.49 | FR-1 | Test | E-14 | Public name collisions |
 | FR-1.50 | FR-1 | Test | E-08 | Approval hint on presented tools |
+| FR-1.51 | FR-1 | Test | E-02 | Plain-language error message |
+| FR-1.52 | FR-1 | Test | E-08 | Tool metadata presentation scan |
 | FR-2 | — | Analysis | E-03, E-04 | Identity and sessions |
 | FR-2.1 | FR-2 | Inspection | E-03 | Principal registry |
 | FR-2.2 | FR-2 | Test | E-04 | Session API |
@@ -6583,23 +7876,20 @@ Use this matrix to code element by element. A requirement allocated to several e
 | FR-2.11 | FR-2 | Test | E-04 | Session termination effects |
 | FR-2.12 | FR-2 | Test | E-04 | Revision change handling |
 | FR-2.13 | FR-2 | Test | E-04 | Baseline context key |
-| FR-2.14 | FR-2 | Test | E-22 | Credential issuance |
 | FR-2.15 | FR-2 | Test | E-03 | UDS peer mapping |
-| FR-2.16 | FR-2 | Test | E-04 | Restart invalidation |
 | FR-2.17 | FR-2 | Test | E-03 | Authorization metadata |
 | FR-2.18 | FR-2 | Test | E-03, E-22 | Client registration |
 | FR-2.19 | FR-2 | Test | E-04, E-24 | Authorization endpoint |
 | FR-2.20 | FR-2 | Test | E-04 | Token endpoint as session creation |
 | FR-2.21 | FR-2 | Test | E-04 | Scope mapping |
 | FR-2.22 | FR-2 | Test | E-04 | Token refresh |
+| FR-2.23 | FR-2 | Test | E-24, E-03 | Session Approver sign-in account |
 | FR-3 | — | Analysis | E-05, E-06, E-07 | Policy capability |
-| FR-3.1 | FR-3 | Test | E-05 | Policy object types |
+| FR-3.1 | FR-3 | Test | E-05, E-20, E-24, E-32 | Policy object types |
 | FR-3.2 | FR-3 | Test | E-05 | Policy schema |
-| FR-3.3 | FR-3 | Demonstration | E-05 | Draft workspace |
 | FR-3.4 | FR-3 | Inspection | E-05 | Revision record |
 | FR-3.5 | FR-3 | Test | E-05 | Policy simulation |
 | FR-3.6 | FR-3 | Test | E-05 | Effective permission report |
-| FR-3.7 | FR-3 | Test | E-05 | Observation cost estimate |
 | FR-3.8 | FR-3 | Test | E-05 | Policy export and import |
 | FR-3.9 | FR-3 | Test | E-05 | Policy rollback |
 | FR-3.10 | FR-3 | Test | E-06 | Compiled decision snapshot |
@@ -6611,6 +7901,13 @@ Use this matrix to code element by element. A requirement allocated to several e
 | FR-3.16 | FR-3 | Test | E-07 | Approval status query |
 | FR-3.17 | FR-3 | Test | E-07 | Approver decision |
 | FR-3.18 | FR-3 | Inspection | E-07 | Approval evidence display |
+| FR-3.19 | FR-3 | Test | E-07, E-02 | Approval hold mode |
+| FR-3.20 | FR-3 | Test | E-07, E-12 | Approval during hold |
+| FR-3.21 | FR-3 | Test | E-07, E-02 | Denial during hold |
+| FR-3.22 | FR-3 | Test | E-07, E-02 | Hold bound fallback |
+| FR-3.23 | FR-3 | Test | E-07, E-24 | Approver notification |
+| FR-3.24 | FR-3 | Test | E-24, E-07 | Approval CLI |
+| FR-3.25 | FR-3 | Demonstration | E-07, E-02, E-24 | Real-harness approval acceptance |
 | FR-4 | — | Analysis | E-08, E-09, E-10, E-11, E-12 | Enforcement pipeline |
 | FR-4.1 | FR-4 | Test | E-02, E-08 | Canonical request object |
 | FR-4.2 | FR-4 | Test | E-02 | Correlation ID |
@@ -6627,6 +7924,9 @@ Use this matrix to code element by element. A requirement allocated to several e
 | FR-4.13 | FR-4 | Test | E-12, E-10 | Launch capability |
 | FR-4.14 | FR-4 | Test | E-12 | Emergency stop control |
 | FR-4.15 | FR-4 | Test | E-09, E-11, E-31 | Synchronous scoring integration |
+| FR-4.16 | FR-4 | Test | E-09, E-11, E-14 | Versioned detection rule sets |
+| FR-4.17 | FR-4 | Test | E-09, E-11 | Injection findings as tags |
+| FR-4.18 | FR-4 | Test | E-11 | Untrusted-content delimiting |
 | FR-5 | — | Analysis | E-10, E-13, E-14, E-15, E-16, E-17, E-18 | Server trust and execution |
 | FR-5.1 | FR-5 | Test | E-13 | Library sources |
 | FR-5.2 | FR-5 | Test | E-13 | Package contents |
@@ -6637,28 +7937,18 @@ Use this matrix to code element by element. A requirement allocated to several e
 | FR-5.7 | FR-5 | Test | E-14 | Enablement state |
 | FR-5.8 | FR-5 | Test | E-14 | Expiry suspension |
 | FR-5.9 | FR-5 | Inspection | E-15 | Launch specification |
-| FR-5.10 | FR-5 | Test | E-15 | Instance scope |
-| FR-5.11 | FR-5 | Test | E-15 | Instance reuse and idle teardown |
 | FR-5.12 | FR-5 | Test | E-15 | Crash handling |
 | FR-5.13 | FR-5 | Test | E-10 | stdio framing |
 | FR-5.14 | FR-5 | Test | E-10, E-15 | Invalid stdout |
 | FR-5.15 | FR-5 | Test | E-15 | stderr capture |
-| FR-5.16 | FR-5 | Test | E-10 | Era probe |
-| FR-5.17 | FR-5 | Test | E-10, E-14 | Era consistency with manifest |
-| FR-5.18 | FR-5 | Test | E-10 | Modern southbound requests |
 | FR-5.19 | FR-5 | Test | E-10 | Legacy southbound handshake |
 | FR-5.20 | FR-5 | Test | E-10 | Legacy server-initiated requests |
 | FR-5.21 | FR-5 | Test | E-10, E-14 | Startup tool list |
 | FR-5.22 | FR-5 | Test | E-14 | Backend tool definition validity |
 | FR-5.23 | FR-5 | Test | E-10 | Result type handling |
 | FR-5.24 | FR-5 | Test | E-10, E-02 | InputRequiredResult without MRTR profile |
-| FR-5.25 | FR-5 | Test | E-10, E-02 | MRTR Relay Profile |
 | FR-5.26 | FR-5 | Test | E-10 | Southbound cancellation |
 | FR-5.27 | FR-5 | Test | E-15 | Instance shutdown |
-| FR-5.28 | FR-5 | Test | E-10 | Southbound Streamable HTTP client |
-| FR-5.29 | FR-5 | Test | E-10 | Southbound header encoding |
-| FR-5.30 | FR-5 | Test | E-10 | Southbound SSE comments |
-| FR-5.31 | FR-5 | Test | E-10, E-14 | Southbound list-change watch |
 | FR-5.32 | FR-5 | Test | E-10 | Southbound progress token |
 | FR-5.33 | FR-5 | Test | E-17 | Runtime observables |
 | FR-5.34 | FR-5 | Test | E-17 | Declared-behavior rules |
@@ -6667,6 +7957,7 @@ Use this matrix to code element by element. A requirement allocated to several e
 | FR-5.37 | FR-5 | Inspection | E-15, E-18 | Egress configuration injection |
 | FR-5.38 | FR-5 | Test | E-18 | Egress limits |
 | FR-5.39 | FR-5 | Test | E-14 | Artifact cache |
+| FR-5.40 | FR-5 | Test | E-10, E-14 | Era agreement with the manifest |
 | FR-6 | — | Analysis | E-19, E-20 | Secret management |
 | FR-6.1 | FR-6 | Inspection | E-19 | Secret record |
 | FR-6.2 | FR-6 | Test | E-19 | Write-only values |
@@ -6686,10 +7977,8 @@ Use this matrix to code element by element. A requirement allocated to several e
 | FR-7.3 | FR-7 | Test | E-21 | Audit query API |
 | FR-7.4 | FR-7 | Inspection | E-21 | Journal segment format |
 | FR-7.5 | FR-7 | Test | E-21 | Journal verification |
-| FR-7.6 | FR-7 | Test | E-21 | Alerts |
 | FR-7.7 | FR-7 | Inspection | E-22 | Local certificate authorities |
 | FR-7.8 | FR-7 | Inspection | E-22 | Key purposes |
-| FR-7.9 | FR-7 | Test | E-22 | Key protection at rest |
 | FR-7.10 | FR-7 | Demonstration | E-22 | Trust anchor enrollment |
 | FR-7.11 | FR-7 | Test | E-23 | Health checks |
 | FR-7.12 | FR-7 | Test | E-23 | Health states |
@@ -6723,11 +8012,18 @@ Use this matrix to code element by element. A requirement allocated to several e
 | FR-8.25 | FR-8 | Inspection | E-24 | Inline help |
 | FR-8.26 | FR-8 | Test | E-24 | Local assets |
 | FR-8.27 | FR-8 | Demonstration | E-24, E-09, E-11 | Filter test workbench |
+| FR-8.28 | FR-8 | Test | E-24 | Navigation and deep links |
+| FR-8.29 | FR-8 | Test | E-24 | Empty, error and loading states |
+| FR-8.30 | FR-8 | Test | E-24 | Supported browsers |
+| FR-8.31 | FR-8 | Test | E-24 | First-run checklist |
+| FR-8.32 | FR-8 | Test | E-24 | Accessibility conformance |
+| FR-8.33 | FR-8 | Test | E-24 | Keyboard operation |
+| FR-8.34 | FR-8 | Inspection | E-24 | Per-view acceptance tests |
+| FR-8.35 | FR-8 | Inspection | E-24 | Visual rules |
 | FR-9 | — | Analysis | E-25, E-26, E-27, E-28 | Data Server |
 | FR-9.1 | FR-9 | Inspection | E-25 | Graph data model |
 | FR-9.2 | FR-9 | Test | E-26 | Schema migrations |
 | FR-9.3 | FR-9 | Inspection | E-26 | Typed operation catalog |
-| FR-9.4 | FR-9 | Test | E-26 | Write priority classes |
 | FR-9.5 | FR-9 | Test | E-26 | Observation batching |
 | FR-9.6 | FR-9 | Test | E-26 | Backpressure |
 | FR-9.7 | FR-9 | Inspection | E-27 | Observation tables |
@@ -6736,11 +8032,10 @@ Use this matrix to code element by element. A requirement allocated to several e
 | FR-9.10 | FR-9 | Test | E-28 | Memory budget application |
 | FR-9.11 | FR-9 | Test | E-28 | Memory accounting |
 | FR-9.12 | FR-9 | Test | E-28 | Degradation order |
-| FR-9.13 | FR-9 | Test | E-28 | Storage tiering |
 | FR-9.14 | FR-9 | Test | E-28 | Retention execution |
 | FR-9.15 | FR-9 | Test | E-28 | Quota thresholds |
 | FR-9.16 | FR-9 | Test | E-28 | Backup scheduling |
-| FR-9.17 | FR-9 | Test | E-01, E-26 | Startup gating |
+| FR-9.17 | FR-9 | Test | E-01, E-05, E-21 | Startup gating |
 | FR-9.18 | FR-9 | Inspection | E-25 | Decision and event indexes |
 | FR-10 | — | Analysis | E-29, E-30, E-31, E-32 | Observation and analytics |
 | FR-10.1 | FR-10 | Test | E-29 | Observable emission |
@@ -6794,9 +8089,8 @@ Use this matrix to code element by element. A requirement allocated to several e
 | FR-12 | — | Analysis | E-01, E-24, E-25, E-27, E-28 | Implementation constraints |
 | FR-12.1 | FR-12 | Inspection | E-01, E-24, E-25, E-27 | Open-source components |
 | FR-12.2 | FR-12 | Test | E-01, E-18, E-24, E-25 | No external service dependency |
-| FR-12.3 | FR-12 | Demonstration | E-15, E-16 | Host platform |
-| FR-12.4 | FR-12 | Inspection | E-28, E-32 | Filesystem layout |
-| FR-12.5 | FR-12 | Test | E-25, E-22, E-24 | Service management |
+| FR-12.3 | FR-12 | Demonstration | E-15, E-16, E-23 | Host platform |
+| FR-12.4 | FR-12 | Inspection | E-28, E-32, E-24 | Filesystem layout |
 | FR-12.6 | FR-12 | Test | E-01, E-28 | Configuration file |
 | FR-12.7 | FR-12 | Demonstration | E-24, E-28, E-21 | Administrative CLI |
 | FR-12.8 | FR-12 | Inspection | E-01, E-24, E-25 | Release provenance |
@@ -6805,16 +8099,92 @@ Use this matrix to code element by element. A requirement allocated to several e
 | FR-12.11 | FR-12 | Inspection | E-25, E-27 | No paid database features |
 | FR-12.12 | FR-12 | Demonstration | E-33 | Session helper adapter |
 | FR-12.13 | FR-12 | Test | E-33 | Stdio bridge adapter |
-| SR-1-1 | SEC-1 | Test | E-05, E-14 | Capability ceiling |
+| FR-13 | — | Analysis | E-24, E-22, E-23, E-28 | Installation lifecycle |
+| FR-13.1 | FR-13 | Inspection | E-24 | Release archives |
+| FR-13.2 | FR-13 | Test | E-24 | Installer verification |
+| FR-13.3 | FR-13 | Test | E-24 | Homebrew formula |
+| FR-13.4 | FR-13 | Test | E-24 | Idempotent install |
+| FR-13.5 | FR-13 | Test | E-24, E-16 | Enforced profile installation |
+| FR-13.6 | FR-13 | Test | E-24 | Standalone profile installation |
+| FR-13.7 | FR-13 | Test | E-24, E-28, E-23 | Upgrade procedure |
+| FR-13.8 | FR-13 | Test | E-24, E-28, E-21 | Upgrade rollback |
+| FR-13.9 | FR-13 | Test | E-23 | No silent profile downgrade |
+| FR-13.10 | FR-13 | Test | E-23, E-24 | Standalone labelling |
+| FR-13.11 | FR-13 | Test | E-24 | Uninstall |
+| FR-13.12 | FR-13 | Test | E-24 | Purge |
+| FR-13.13 | FR-13 | Test | E-23, E-24 | Configuration schema version |
+| FR-14 | — | Analysis | E-13, E-14, E-22 | Operator self-curation |
+| FR-14.1 | FR-14 | Test | E-13 | Package build |
+| FR-14.2 | FR-14 | Test | E-13 | Pinned references only |
+| FR-14.3 | FR-14 | Test | E-13 | Manifest from live tool list |
+| FR-14.4 | FR-14 | Test | E-13 | Local servers only |
+| FR-14.5 | FR-14 | Inspection | E-13 | Provenance statement |
+| FR-14.6 | FR-14 | Test | E-13 | Package signing |
+| FR-14.7 | FR-14 | Test | E-13 | Offline package verification |
+| FR-14.8 | FR-14 | Test | E-22 | Operator key as a scoped trust anchor |
+| FR-14.9 | FR-14 | Test | E-13, E-14 | Reference packages |
+| FR-14.10 | FR-14 | Inspection | E-24, E-15 | Bootstrap uses a packaged server |
+| FR-14.11 | FR-14 | Test | E-13 | Manifest schema |
+| FR-14.12 | FR-14 | Test | E-13 | Revocation entries |
+| FR-15 | — | Analysis | E-33, E-01 | Harness integration |
+| FR-15.1 | FR-15 | Test | E-33 | Lockdown profiles |
+| FR-15.2 | FR-15 | Test | E-33 | Claude Code lockdown profile |
+| FR-15.3 | FR-15 | Test | E-33 | Doctor: MCP server inventory |
+| FR-15.4 | FR-15 | Test | E-33 | Doctor: readable paths |
+| FR-15.5 | FR-15 | Test | E-33 | Doctor output |
+| FR-15.6 | FR-15 | Test | E-33 | Reversible lockdown |
+| FR-15.7 | FR-15 | Test | E-33 | Per-client CA trust setup |
+| FR-15.8 | FR-15 | Test | E-33, E-01 | Client matrix regression |
+| FR-15.9 | FR-15 | Inspection | E-33, E-01 | Cloud agent matrix record |
+| FR-15.10 | FR-15 | Inspection | E-33 | Pinned client matrix file |
+| FR-16 | — | Analysis | E-01, E-03, E-33 | Remote Access Profile |
+| FR-16.1 | FR-16 | Test | E-01 | Remote listener |
+| FR-16.2 | FR-16 | Demonstration | E-01, E-33 | Tunnel providers |
+| FR-16.3 | FR-16 | Test | E-01, E-03 | Public name binding |
+| FR-16.4 | FR-16 | Test | E-01 | Remote endpoint set |
+| FR-16.5 | FR-16 | Test | E-03, E-24 | Operator-approved dynamic registration |
+| FR-16.6 | FR-16 | Test | E-01, E-03 | Remote rate limits and lockout |
+| FR-16.7 | FR-16 | Test | E-01 | Remote request bounds |
+| FR-16.8 | FR-16 | Test | E-21, E-01 | Remote origin evidence |
+| FR-16.9 | FR-16 | Test | E-33 | smcp-connect relay |
+| FR-16.10 | FR-16 | Inspection | E-33 | Vendor allowlist guidance |
+| FR-16.11 | FR-16 | Test | E-24, E-01 | Disabled by default |
+| FR-16.12 | FR-16 | Test | E-04 | Remote session limits |
+| FR-17 | — | Analysis | E-23, E-22, E-28 | Operations |
+| FR-17.1 | FR-17 | Test | E-23 | Diagnostic log |
+| FR-17.2 | FR-17 | Test | E-23 | Diagnostic log rotation |
+| FR-17.3 | FR-17 | Test | E-23 | Diagnostic log content limits |
+| FR-17.4 | FR-17 | Test | E-23 | Metrics endpoint |
+| FR-17.5 | FR-17 | Inspection | E-23 | Metric set and labels |
+| FR-17.6 | FR-17 | Test | E-28 | Encrypted backups |
+| FR-17.7 | FR-17 | Test | E-22, E-21 | Key rotation |
+| FR-17.8 | FR-17 | Test | E-21 | Verification across key transitions |
+| FR-17.9 | FR-17 | Test | E-23, E-24 | Configuration reload |
+| FR-18 | — | Analysis | E-24, E-33 | Documentation set |
+| FR-18.1 | FR-18 | Inspection | E-24 | Install guide |
+| FR-18.2 | FR-18 | Inspection | E-24, E-33 | Security Limitations |
+| FR-18.3 | FR-18 | Inspection | E-33 | Per-client quick starts |
+| FR-18.4 | FR-18 | Inspection | E-24 | Operator guide |
+| FR-18.5 | FR-18 | Test | E-05 | Policy reference |
+| FR-18.6 | FR-18 | Inspection | E-13 | Packaging guide |
+| FR-18.7 | FR-18 | Test | E-02 | Troubleshooting and reason codes |
+| FR-18.8 | FR-18 | Inspection | E-24, E-28, E-12 | Tested runbooks |
+| FR-18.9 | FR-18 | Inspection | E-24, E-02 | Scope statement |
+| FR-19 | — | Analysis | E-24, E-11, E-09 | Verification evidence |
+| FR-19.1 | FR-19 | Test | E-11, E-09, E-14, E-15, E-16, E-18 | Hostile backend fixture suite |
+| FR-19.2 | FR-19 | Inspection | E-24 | Hostile suite results |
+| FR-19.3 | FR-19 | Inspection | E-24, E-23 | Enforced label gating |
+| FR-19.4 | FR-19 | Inspection | E-24 | Acceptance scenario records |
+| FR-19.5 | FR-19 | Test | E-09, E-11, E-14 | Labelled detection corpora |
 | SR-1-2 | SEC-1 | Test | E-06 | Layer intersection |
 | SR-1-3 | SEC-1 | Test | E-05 | Template within profile |
-| SR-1.1-1 | SEC-1.1 | Inspection | E-06, E-25 | Single policy source |
+| SR-1.1-1 | SEC-1.1 | Inspection | E-06, E-05 | Single policy source |
+| SR-1.1-2 | SEC-1.1 | Test | E-05, E-06, E-22 | Signed policy revisions |
 | SR-1.2-1 | SEC-1.2 | Test | E-06, E-08 | Snapshot unavailability denial |
-| SR-1.2-2 | SEC-1.2 | Test | E-12, E-26 | Data Server outage |
+| SR-1.2-2 | SEC-1.2 | Test | E-12, E-21 | Data Server outage |
 | SR-1.3-1 | SEC-1.3 | Test | E-06 | Default deny |
 | SR-1.4-1 | SEC-1.4 | Test | E-06 | Deny precedence |
 | SR-1.5-1 | SEC-1.5 | Test | E-06 | Prerequisite checks |
-| SR-1.6-1 | SEC-1.6 | Test | E-06 | Exact match scope |
 | SR-1.7-1 | SEC-1.7 | Test | E-06 | Predicate operator set |
 | SR-1.7-2 | SEC-1.7 | Test | E-06 | Missing attribute denial |
 | SR-1.8-1 | SEC-1.8 | Test | E-09 | Argument schema validation |
@@ -6830,8 +8200,8 @@ Use this matrix to code element by element. A requirement allocated to several e
 | SR-1.12-3 | SEC-1.12 | Inspection | E-06 | Snapshot recording |
 | SR-1.13-1 | SEC-1.13 | Test | E-26 | Fixed query templates |
 | SR-1.13-2 | SEC-1.13 | Test | E-26 | Template integrity |
-| SR-1.14-1 | SEC-1.14 | Test | E-05, E-26 | Immutable revisions |
-| SR-1.15-1 | SEC-1.15 | Test | E-05, E-06, E-25 | Atomic activation |
+| SR-1.14-1 | SEC-1.14 | Test | E-05 | Immutable revisions |
+| SR-1.15-1 | SEC-1.15 | Test | E-05, E-06 | Atomic activation |
 | SR-1.16-1 | SEC-1.16 | Test | E-12 | Coordinator serialization |
 | SR-1.17-1 | SEC-1.17 | Test | E-12 | Pre-launch recheck |
 | SR-1.17-2 | SEC-1.17 | Test | E-12 | Pre-release recheck |
@@ -6853,14 +8223,16 @@ Use this matrix to code element by element. A requirement allocated to several e
 | SR-2.6-1 | SEC-2.6 | Test | E-24 | Admin session profile |
 | SR-2.7-1 | SEC-2.7 | Inspection | E-24 | Password hashing |
 | SR-2.8-1 | SEC-2.8 | Test | E-01, E-24 | TLS profile |
-| SR-2.8-2 | SEC-2.8 | Test | E-01 | Mutual TLS |
 | SR-2.8-3 | SEC-2.8 | Inspection | E-01 | UDS permissions |
 | SR-2.9-1 | SEC-2.9 | Test | E-01 | Origin validation |
 | SR-2.9-2 | SEC-2.9 | Test | E-01, E-24 | Host validation |
 | SR-2.9-3 | SEC-2.9 | Inspection | E-01, E-24 | Loopback binding |
+| SR-2.8-4 | SEC-2.8 | Test | E-22 | Local CA constraints |
 | SR-2.10-1 | SEC-2.10 | Test | E-10 | Credential separation |
 | SR-2.11-1 | SEC-2.11 | Test | E-03 | OAuth token validation |
-| SR-2.12-1 | SEC-2.12 | Test | E-08, E-11 | Handle ownership |
+| SR-2.11-2 | SEC-2.11 | Test | E-03 | Dynamic registration approval |
+| SR-2.11-4 | SEC-2.11 | Test | E-04 | Refresh token reuse |
+| SR-2.11-5 | SEC-2.11 | Test | E-03 | Truthful authorization metadata |
 | SR-2.13-1 | SEC-2.13 | Inspection | E-19, E-22 | Vault encryption |
 | SR-2.13-2 | SEC-2.13 | Inspection | E-20 | Plaintext lifetime |
 | SR-2.13-3 | SEC-2.13 | Test | E-19, E-20 | Vault isolation |
@@ -6874,6 +8246,7 @@ Use this matrix to code element by element. A requirement allocated to several e
 | SR-3.2-1 | SEC-3.2 | Test | E-13 | Provenance binding |
 | SR-3.3-1 | SEC-3.3 | Test | E-24 | Inert evidence display |
 | SR-3.4-1 | SEC-3.4 | Demonstration | E-24, E-14 | Dependency visibility |
+| SR-3.5-1 | SEC-3.5 | Test | E-13 | Packaging probe isolation |
 | SR-3.6-1 | SEC-3.6 | Test | E-15 | No runtime bootstrap |
 | SR-3.7-1 | SEC-3.7 | Inspection | E-14 | Manifest digest binding |
 | SR-3.8-1 | SEC-3.8 | Test | E-14, E-15 | Runtime drift suspension |
@@ -6884,23 +8257,25 @@ Use this matrix to code element by element. A requirement allocated to several e
 | SR-3.13-1 | SEC-3.13 | Test | E-05 | High-risk grants |
 | SR-3.14-1 | SEC-3.14 | Test | E-14 | Stateful tool contract |
 | SR-4.1-1 | SEC-4.1 | Inspection | E-12, E-25, E-19, E-21, E-24 | Service identities |
+| SR-4-1 | SEC-4 | Test | E-14, E-23 | Standalone profile restrictions |
 | SR-4.1-2 | SEC-4.1 | Inspection | E-16 | Instance identities |
 | SR-4.2-1 | SEC-4.2 | Test | E-25, E-26 | Private database listeners |
 | SR-4.2-2 | SEC-4.2 | Inspection | E-27 | Observation file protection |
-| SR-4.3-1 | SEC-4.3 | Test | E-26 | Caller allowlist |
+| SR-4.9-1 | SEC-4.9 | Test | E-33 | Single MCP endpoint per locked-down client |
+| SR-4.11-1 | SEC-4.11 | Test | E-33 | Protected client configuration |
+| SR-4.13-1 | SEC-4.13 | Inspection | E-33 | Exclusive-gateway label |
 | SR-4.5-1 | SEC-4.5 | Test | E-16, E-18 | Sandbox network isolation |
 | SR-4.5-2 | SEC-4.5 | Test | E-18 | Per-call egress grant |
 | SR-4.6-1 | SEC-4.6 | Test | E-16 | Mount restriction |
 | SR-4.7-1 | SEC-4.7 | Inspection | E-16 | Host exclusion |
 | SR-4.7-2 | SEC-4.7 | Test | E-16 | Resource limits |
 | SR-4.8-1 | SEC-4.8 | Inspection | E-15 | No shell launch |
-| SR-4.14-1 | SEC-4.14 | Test | E-01, E-24 | Overlay Profile |
+| SR-4.14-1 | SEC-4.14 | Test | E-01, E-24 | Remote Access host rules |
+| SR-4.14-2 | SEC-4.14 | Test | E-01, E-03 | Remote authentication |
 | SR-5.1-1 | SEC-5.1 | Inspection | E-02 | Profile separation |
-| SR-5.1-2 | SEC-5.1 | Test | E-10 | Southbound era by manifest |
 | SR-5.2-1 | SEC-5.2 | Test | E-02 | Header/body agreement |
 | SR-5.2-2 | SEC-5.2 | Test | E-02 | Required headers |
 | SR-5.3-1 | SEC-5.3 | Test | E-02 | No northbound downgrade |
-| SR-5.3-2 | SEC-5.3 | Test | E-10 | No southbound downgrade |
 | SR-5.4-1 | SEC-5.4 | Test | E-08 | Authorized discovery |
 | SR-5.5-1 | SEC-5.5 | Test | E-08 | Independent call authorization |
 | SR-5.6-1 | SEC-5.6 | Test | E-02 | Unqualified features rejected |
@@ -6911,10 +8286,12 @@ Use this matrix to code element by element. A requirement allocated to several e
 | SR-5.8-1 | SEC-5.8 | Test | E-09 | Outbound argument filtering |
 | SR-5.8-2 | SEC-5.8 | Test | E-18 | Egress content filtering |
 | SR-5.9-1 | SEC-5.9 | Test | E-11 | Response surfaces |
+| SR-5.9-2 | SEC-5.9 | Test | E-13, E-14 | Tool metadata scanning |
 | SR-5.10-1 | SEC-5.10 | Test | E-09, E-11 | Filter failure |
 | SR-5.11-1 | SEC-5.11 | Test | E-02, E-12 | No partial release |
 | SR-5.12-1 | SEC-5.12 | Test | E-09, E-06 | Re-authorization after transformation |
 | SR-5.13-1 | SEC-5.13 | Inspection | E-11 | Untrusted labeling |
+| SR-5.13-2 | SEC-5.13 | Test | E-04, E-06 | Session taint |
 | SR-5.14-1 | SEC-5.14 | Test | E-09, E-11 | Unicode corpus |
 | SR-5.15-1 | SEC-5.15 | Test | E-18 | Connection-time resolution |
 | SR-5.15-2 | SEC-5.15 | Test | E-18 | Reserved address denial |
@@ -6929,15 +8306,12 @@ Use this matrix to code element by element. A requirement allocated to several e
 | SR-6-2 | SEC-6 | Test | E-32 | S3 export grant |
 | SR-6-3 | SEC-6 | Test | E-26, E-24 | Observation access control |
 | SR-6.1-1 | SEC-6.1 | Test | E-21 | Mandatory event floor |
-| SR-6.2-1 | SEC-6.2 | Test | E-12, E-21, E-26 | Atomic intent commit |
+| SR-6.2-1 | SEC-6.2 | Test | E-12, E-21 | Atomic intent commit |
 | SR-6.3-1 | SEC-6.3 | Test | E-12, E-21 | Outcome before release |
 | SR-6.4-1 | SEC-6.4 | Inspection | E-21 | Exact links |
 | SR-6.5-1 | SEC-6.5 | Test | E-21 | Origin attribution |
-| SR-6.6-1 | SEC-6.6 | Test | E-21, E-29 | Policy-directed payload capture |
 | SR-6.7-1 | SEC-6.7 | Test | E-21, E-29 | Secret scrubbing |
-| SR-6.8-1 | SEC-6.8 | Inspection | E-21, E-22 | Payload encryption |
-| SR-6.9-1 | SEC-6.9 | Test | E-05 | Retention validation |
-| SR-6.10-1 | SEC-6.10 | Test | E-21 | Idempotent export |
+| SR-6.10-1 | SEC-6.10 | Test | E-21, E-26 | Idempotent export |
 | SR-6.11-1 | SEC-6.11 | Test | E-12, E-21, E-23 | Export lag stop |
 | SR-6.12-1 | SEC-6.12 | Test | E-21, E-22 | Signing key custody |
 | SR-6.13-1 | SEC-6.13 | Test | E-21 | Failure spool |
@@ -6951,12 +8325,13 @@ Use this matrix to code element by element. A requirement allocated to several e
 | SR-7-1 | SEC-7 | Test | E-31, E-30 | Baseline integrity |
 | SR-7.1-1 | SEC-7.1 | Inspection | E-26 | No side effects in retryable transactions |
 | SR-7.2-1 | SEC-7.2 | Test | E-10 | Indeterminate outcomes |
-| SR-7.3-1 | SEC-7.3 | Test | E-26, E-23 | Integrity validation |
+| SR-7.3-1 | SEC-7.3 | Test | E-05, E-23 | Integrity validation |
 | SR-7.4-1 | SEC-7.4 | Inspection | E-25 | Graph engine hardening |
 | SR-7.5-1 | SEC-7.5 | Test | E-24 | Secure bootstrap |
+| SR-7.5-2 | SEC-7.5 | Test | E-24 | No secrets on the command line |
 | SR-7.6-1 | SEC-7.6 | Test | E-12 | Emergency stop serialization |
 | SR-7.6-2 | SEC-7.6 | Test | E-12, E-10, E-20 | Stop cancellation |
-| SR-7.7-1 | SEC-7.7 | Test | E-28, E-12 | Offline backup procedure |
+| SR-7.7-1 | SEC-7.7 | Test | E-28, E-12, E-21 | Offline backup procedure |
 | SR-7.8-1 | SEC-7.8 | Test | E-28 | Restore verification |
 | SR-7.9-1 | SEC-7.9 | Test | E-05, E-12 | Rollback preserves revocations |
 | SR-7.10-1 | SEC-7.10 | Test | E-12, E-28, E-23 | Audit capacity stop |
@@ -6970,15 +8345,18 @@ Generated by the SRS build script from the requirement records, `ArchitectureV2.
 
 | Check | Result |
 |---|---|
-| Requirements | 445 total: 287 FR (12 roots), 158 SR |
-| Verification methods | Analysis 12, Demonstration 27, Inspection 58, Test 348 |
+| Requirements | 529 total: 367 FR (19 roots), 162 SR |
+| Deferred from release 1.0 (Appendix N) | 32: FR-2.14, FR-2.16, FR-3.26, FR-3.3, FR-3.7, FR-5.10, FR-5.11, FR-5.16, FR-5.17, FR-5.18, FR-5.25, FR-5.28, FR-5.29, FR-5.30, FR-5.31, FR-7.6, FR-7.15, FR-7.9, FR-9.4, FR-9.13, FR-12.5, SR-1-1, SR-1.6-1, SR-2.8-2, SR-2.11-3, SR-2.12-1, SR-4.3-1, SR-5.1-2, SR-5.3-2, SR-6.6-1, SR-6.8-1, SR-6.9-1 |
+| Verification methods | Analysis 19, Demonstration 28, Inspection 77, Test 405 |
 | Unique IDs; required fields; SHALL present; no MUST imperative | Pass |
 | Orphans (non-root without a valid parent) | None |
 | Every SR parent is a MUST in the security SRS | Pass |
 | Security MUSTs (122) covered (SR, SEC decomposition or disposition) | Pass |
-| SEC requirements with dispositions (realized outside the Gateway or by process) | SEC 3.5, SEC 4.4, SEC 4.9, SEC 4.10, SEC 4.11, SEC 4.12, SEC 4.13, SEC 9.4, SEC 9.5, SEC 9.7, SEC 10.1, SEC 10.2, SEC 10.4, SEC 10.8 |
+| SEC requirements with dispositions (realized outside the Gateway or by process) | SEC 4.4, SEC 4.10, SEC 4.12, SEC 8.1, SEC 9.4, SEC 9.5, SEC 9.7, SEC 10.1, SEC 10.2, SEC 10.4, SEC 10.8 |
 | Security SHALL items without citing FR | None |
 | Barren functional roots (no children) | None |
+| Parameter Catalog (`docs/parameters.json`) | 93 parameters; all 92 ARCH §10.3 IDs present |
+| Implementation status (`docs/status/elements.json`) | implemented 8, partial 25 |
 | Elements without an allocated requirement | None |
 | Functions without an allocated requirement | None |
 | External interfaces without an allocated requirement | None |
@@ -6990,7 +8368,594 @@ Generated by the SRS build script from the requirement records, `ArchitectureV2.
 
 ### I.1 Items for owner review
 
-1. **SEC wording versus V2.** Several parent MUSTs name V1 components (Neo4j "graph service", "admission worker", Hermes). The SR children realize them on V2 elements; the parent text is unchanged in the security SRS.
-2. **Dispositions.** The SEC requirements listed above are realized outside the Gateway (curation system or harness deployment). Confirm that these allocations are acceptable.
-3. **Owner-set values.** CP values marked *New* in Appendix A are engineering proposals and need owner confirmation.
-4. **Usability measure.** FR-8.24 turns "user friendly" into a timed task; confirm the threshold.
+The owner delegated specification decisions to the project team on 2026-10-16. The items below record the decisions taken under that delegation; each is explained in `CHANGELOG.md`.
+
+1. **SEC wording versus V2.** Several parent MUSTs name V1 components (Neo4j "graph service", "admission worker", Hermes). The SR children realize them on V2 elements; the parent text is unchanged in the security SRS. In particular, SEC 1.1, 6.2 and 6.3 name the graph as the authority; their SR children realize them on the Policy Store and the Evidence Journal (A-9).
+2. **Dispositions.** The SEC requirements listed above are realized outside the Gateway (harness deployment or process). V1.2 replaced the curation-system dispositions with packaging requirements (FR-14) and the harness dispositions for SEC 4.9, 4.11 and 4.13 with lockdown requirements.
+3. **Owner-set values.** CP values marked *New* in Appendix A are engineering values set under the delegation; they are revised by controlled change.
+4. **Usability measure.** FR-8.24 turns "user friendly" into a timed task.
+
+## Appendix J — Server package manifest schema
+
+The normative schema is `docs/schemas/manifest.schema.json` (JSON Schema 2020-12, `manifest_version` 1). The Library Trust Verifier validates every manifest against it (FR-14.11). This appendix summarizes the package layout and the schema; when the two disagree, the schema file governs.
+
+### J.1 Package layout
+
+A package is a directory in the library (OD-7), written by `smcpctl package build` and `smcpctl package sign` (FR-14.1 to FR-14.6):
+
+```
+<library>/<server-id>/<revision>/
+  index.json            package index: digests of the files below, package ID, created time
+  index.json.minisig    minisign signature over index.json (SR-3-1)
+  manifest.json         validated against docs/schemas/manifest.schema.json
+  provenance.json       source reference, licenses and artifact digest (FR-14.5, SR-3.2-1)
+  artifact/<sha256>     the pinned artifact, stored by SHA-256 (FR-14.1, D-03)
+<library>/revocations/<server-id>-<revision>.json(.minisig)   revocation entries (FR-14.12)
+```
+
+`index.json` has the members `package_format` (integer, 1), `server_id`, `revision`, `created_at`, and `files`, an object mapping each relative path above to its lowercase hex SHA-256. The signature covers the exact bytes of `index.json`.
+
+### J.2 Manifest field groups
+
+| Member | Required | Content | Checked by |
+|---|---|---|---|
+| `manifest_version` | Yes | Constant `1` | FR-14.11 |
+| `server` | Yes | `id`, `revision`, `alias` (CP-42), `publisher`, optional `description` and `homepage` | FR-5.5, SR-3-5 |
+| `artifact` | Yes | `type` (`npm`, `pypi`, `oci`, `binary`), `reference`, exact `version`, `sha256`, optional `registry_integrity` and `size_bytes` | FR-14.1, FR-14.2, SR-3-2 |
+| `launch` | Yes | `runtime` (`node`, `python`, `oci`, `native`), `argv` (no shell, no installer as the first element), `env_allowlist`, `env_fixed` | SR-3.6-1, SR-4.8-1, SR-2.14-1 |
+| `era` | Yes | `2026-07-28` or `2025-11-25` as observed at packaging | FR-5.17 |
+| `risk_class` | Yes | `low`, `moderate`, `high` (CP-44) | SR-3-1, SR-4-1, FR-14.8 |
+| `instance_scope` | Yes | Supported scopes | FR-5.10 |
+| `stateful` | No | Whether a handle contract applies | SR-3.14-1 |
+| `tools` | Yes | Per tool: `name`, `title`, `description`, `description_sha256`, `input_schema`, `output_schema`, `annotations`, `side_effect` and `source_trust` (CP-44), optional `risk_class` and `class` (`standard` or `gateway-admin`) | FR-5.5, SR-3.7-1, SR-5.13-2, SR-3.12-1 |
+| `tools_list_sha256` | No | Digest of the canonical `tools/list` read at packaging | SR-3.8-1 |
+| `capabilities` | Yes | `filesystem` slots with mode, `egress` destinations with ports, methods and optional request size, response size and duration limits, `spawns_processes`, `resources` | SR-1-1, SR-4.6-1, SR-4.5-2, FR-5.38 |
+| `secrets` | No | Slots with purpose, destination and delivery modes | FR-6.5 |
+| `behavior_hints` | No | Declared-behavior rules and expected ranges | FR-5.34 |
+| `provenance` | Yes | Source kind, URI and digest, SPDX licenses, provenance statement digest | SR-3.1-1, SR-3.2-1 |
+| `packaging` | Yes | Tool name and version, build time, operator note | FR-14.3 |
+| `attestations` | No | Review status, advisory check time, re-curation date | FR-5.8 |
+| `expires` | No | Date after which the revision is suspended | FR-5.8 |
+
+The schema has no member that names a network endpoint for the server; a remote backend cannot be expressed and is rejected (FR-14.4).
+
+## Appendix K — Client matrix
+
+The machine-readable matrix is `docs/clients/matrix.json` (FR-15.10). Pinned versions are set there, not here. "Lockdown mechanism" names the client's own control that the lockdown profile uses (FR-15.1); where a client offers none, `smcpctl doctor` reports the gap (FR-15.3, FR-15.4) and the client is labelled `gateway-available` rather than `exclusive-gateway` (SR-4.13-1). Mechanisms marked *to confirm at pinning* are not yet verified against the pinned version and are recorded with their result when the matrix job first runs (FR-15.8).
+
+### K.1 Local clients
+
+| Client | Connection mode | Session mechanism | Lockdown mechanism | CA trust | Notes |
+|---|---|---|---|---|---|
+| Claude Code (Anthropic) | Streamable HTTP to `/mcp`; `smcp-stdio` as fallback | OAuth 2.1 sign-in (pre-registered client ID or allowlisted metadata document); `headersHelper` with `smcp-session` | Managed settings: `allowedMcpServers`, managed-only allowlist where supported, `permissions.deny` on Gateway paths (FR-15.2) | `NODE_EXTRA_CA_CERTS` | Honors `anthropic/requiresUserInteraction` (FR-1.50). Primary client for the approval acceptance test (FR-3.25). |
+| Codex CLI (OpenAI) | Streamable HTTP; `smcp-stdio` | OAuth (`codex mcp login`) or `http_headers_helper` with `smcp-session` | Administrator requirements file with an MCP server allowlist matched by name and transport, where the pinned version supports it | *To confirm at pinning* | Treat as 2025-11-25 era until confirmed (CCB §2). |
+| Hermes Agent (Nous Research) | Streamable HTTP; `smcp-stdio` | OAuth with PKCE, or a static header from `smcp-session` | None documented; file permissions and doctor report | `ssl_verify` with a CA bundle path | Supports per-server mTLS (mTLS Harness Profile). |
+| OpenCode | Remote MCP over HTTP; local stdio with `smcp-stdio` | OAuth or headers from `smcp-session` | Global configuration `mcp` and `permission` settings; *to confirm at pinning* whether a non-user-writable scope exists | `NODE_EXTRA_CA_CERTS` *to confirm at pinning* | |
+| Gemini CLI (Google) | Streamable HTTP (`httpUrl`); `smcp-stdio` | OAuth or headers | System settings file defining `mcpServers` and the server allowlist; enterprise admin controls where available. The vendor states that name-based allowlists are not a security boundary. | `NODE_EXTRA_CA_CERTS` | Labelled `gateway-available` until bypass tests pass. |
+| Goose (Block) | stdio extension running `smcp-stdio`; Streamable HTTP | Headers from `smcp-session`; OAuth *to confirm at pinning* | `GOOSE_ALLOWLIST` environment variable naming a YAML allowlist matched on the extension command | *To confirm at pinning* | Allowlist is checked at extension installation. |
+| Grok Build (xAI, local CLI) | *To confirm at pinning*; `smcp-stdio` expected to work wherever a stdio command is accepted | *To confirm at pinning* | *To confirm at pinning* | *To confirm at pinning* | |
+
+### K.2 Cloud agents (Remote Access Profile)
+
+Cloud agents run on the vendor's computer. They reach the Gateway only through the Remote Access Profile (FR-16), and their built-in browser, terminal and connector tools are outside the Gateway's control (FR-18.2). Each entry records a dated manual run or, while none has been made, a `not-run` entry with its review date and reason (FR-15.9); live cloud-agent runs are descoped from release 1.x.
+
+| Agent | Connection mode | Registration | Vendor allowlist | Notes |
+|---|---|---|---|---|
+| Grok Bot (xAI) | Remote MCP URL through the tunnel, or `smcp-connect` where the agent accepts only a command | Dynamic Client Registration with operator approval (FR-16.5), or a pre-registered client | *To confirm*: vendor admin MCP allowlist | |
+| ChatGPT agent "dots" (OpenAI) | Remote MCP URL through Cloudflare Tunnel, Tailscale Funnel or the vendor's MCP tunnel where offered | Dynamic Client Registration with operator approval, or pre-registered | *To confirm*: workspace admin connector and MCP controls | The vendor tunnel, where used, is the forwarding path of FR-16.2. |
+| Meta Muse (Meta) | Remote MCP URL through the tunnel, or `smcp-connect` | *To confirm* | *To confirm* | |
+
+## Appendix L — Hostile backend fixture suite
+
+The hostile fixture is an MCP server built into the test binary that behaves as each row describes (FR-19.1). "Both" means the row is asserted in the Enforced and Standalone profiles; "Enforced" rows depend on E-16 to E-18 and are listed as limitations for the Standalone profile in the Security Limitations document. Results are published per row (FR-19.2).
+
+| ID | Attack | Fixture behavior | Expected outcome | Profiles | Requirements |
+|---|---|---|---|---|---|
+| HF-01 | Poisoned tool description | A description containing instructions to the model to call another tool or reveal data | Blocking metadata rule matches; the tool is suspended at import, not presented, and `metadata_blocked` is recorded | Both | SR-5.9-2, FR-1.52 |
+| HF-02 | Poisoned schema property description | The same text inside a nested `properties.*.description` | As HF-01 | Both | SR-5.9-2 |
+| HF-03 | Rug pull through `list_changed` | After enablement, sends `notifications/tools/list_changed` and returns a changed description and an added tool | The server revision is suspended for drift; the changed and added tools never appear in a catalog | Both | SR-3.8-1, SR-3.10-1, FR-5.31 |
+| HF-04 | Prompt injection in text content | Result text with injection phrases | Released with an injection-marker tag; P-143 recorded; the session is tainted if the tool's `source_trust` is `untrusted` | Both | FR-4.17, SR-5.13-2 |
+| HF-05 | Prompt injection in structured content | The same phrases inside `structuredContent` string fields | As HF-04 | Both | SR-5.9-1, FR-4.17 |
+| HF-06 | Prompt injection in an error result | `isError` result whose text carries the phrases | As HF-04; the error is filtered before release | Both | SR-5.9-1 |
+| HF-07 | Prompt injection in progress messages | `notifications/progress` messages carrying the phrases | Progress messages are filtered and tagged before relay | Both | SR-5.9-1, FR-1.39 |
+| HF-08 | Secret exfiltration in a result | Echoes a value registered as a secret fingerprint | Result withheld with `-31003` `SECRET_LEAK`; secret grant suspended | Both | FR-6.10, SR-5.11-1 |
+| HF-09 | Secret exfiltration in arguments | The agent passes a registered secret value as an argument | Request blocked before dispatch by the outbound argument filter | Both | SR-5.8-1 |
+| HF-10 | Schema smuggling: remote `$ref` | `inputSchema` with `$ref` to an external URL | Tool definition refused at import; no network request | Both | SR-1.8-2, SR-1.8-3 |
+| HF-11 | Schema smuggling: deep nesting | Schema nested beyond the CP-36 depth | Tool definition refused at import | Both | SR-1.8-3 |
+| HF-12 | Schema smuggling: huge enum | Enum with more subschemas or members than CP-36 allows | Tool definition refused at import | Both | SR-1.8-3 |
+| HF-13 | Schema smuggling: `additionalProperties` games | Runtime schema loosens `additionalProperties` or adds `patternProperties` compared with the manifest | Drift suspension; arguments are validated against the packaged schema only | Both | SR-3.7-1, SR-3.8-1, SR-1.8-1 |
+| HF-14 | Public-name collision | Two tools of one server whose names map to the same public name under FR-1.26 (for example `a.b` and `a_b`) | The revision is not enabled; the reason names both backend tool names | Both | FR-1.49 |
+| HF-15 | Cross-server shadowing | Descriptions that reference another server's public tool names or redefine their behavior | Blocking metadata rule matches; tool suspended | Both | SR-5.9-2 |
+| HF-16 | Oversized result | A result larger than CP-08 | Withheld with `-31003` `RESULT_TOO_LARGE`; nothing partial released | Both | SR-5.11-1, FR-4.10 |
+| HF-17 | Slow-drip response | Writes one byte per second | Call ends at the CP-13 deadline with `-31009` `UPSTREAM_TIMEOUT`; instance restarted | Both | FR-4.9, SR-7.2-1 |
+| HF-18 | Invalid stdout | Non-JSON lines on standard output | Instance terminated; call fails with `-31007`; event recorded | Both | FR-5.14 |
+| HF-19 | Never responding | Accepts the call and never answers | As HF-17 | Both | FR-4.9 |
+| HF-20 | Fork bomb | Spawns processes without limit | PID limit stops growth; instance killed; host unaffected | Enforced | SR-4.7-2, FR-5.35 |
+| HF-21 | Memory blow-up | Allocates without limit | cgroup memory limit kills the instance; Gateway unaffected | Enforced | SR-4.7-2 |
+| HF-22 | Symlink and path escape | Arguments with `../` and a symlink created to `/etc` inside its mount | Path arguments outside the grant are denied before dispatch; reads through the symlink fail inside the sandbox | Both (argument check); Enforced (mount) | SR-1.8-4, SR-4.6-1 |
+| HF-23 | Direct network escape | Opens TCP connections to the Internet, the LAN and loopback services | Every connection fails; only broker endpoints are reachable | Enforced | SR-4.5-1 |
+| HF-24 | DNS escape and rebinding | Resolves attacker names directly and through the broker with a rebinding answer | Direct resolution fails; the broker refuses the rebound private address | Enforced | SR-5.15-1, SR-5.15-2 |
+| HF-25 | Unsolicited client-input request | Returns `InputRequiredResult` asking for elicitation | `-31010` without the MRTR profile | Both | FR-5.24 |
+| HF-26 | Legacy server-initiated request | Sends `roots/list` or `sampling/createMessage` to the Gateway | Rejected; nothing relayed northbound | Both | FR-5.20, SR-5.6-2 |
+| HF-27 | Unicode control and bidirectional text | Result text with bidi overrides and zero-width characters | `unicode-control` filter finding per the versioned corpus | Both | SR-5.14-1 |
+
+## Appendix M — Acceptance scenarios and the enforced label
+
+The acceptance scenarios of `MCP_Gateway_Security_SRS.md` Appendix B are mapped below to V1.2 requirements. A release is labelled "enforced" only when every row has a passing automated or recorded result for the release commit in the Enforced profile (FR-19.3); records follow FR-19.4.
+
+| Scenario | V1.2 realization | Requirements | Evidence |
+|---|---|---|---|
+| AT-01 Identity and local HTTP | OAuth tokens, TLS, Host and Origin, header and body checks before dispatch | SR-2.1-1, SR-2.1-3, SR-2.8-1, SR-2.9-1, SR-2.9-2, SR-5.2-1, SR-7.11-1 | Automated |
+| AT-02 Exact authorization | Default deny, deny precedence, argument bounds, hidden-tool calls | SR-1.3-1, SR-1.4-1, SR-1.8-1, SR-5.5-1 | Automated |
+| AT-03 Policy authority and outage | Signed Policy Store as sole source; journal failure refuses dispatch; graph outage does not | SR-1.1-1, SR-1.1-2, SR-1.2-1, SR-1.2-2, SR-6.13-1, FR-9.17 | Automated |
+| AT-04 Routing and overlap | Single route; overlap rejected at publication | SR-1.9-1, SR-1.11-1 | Automated |
+| AT-05 Publication and revocation race | Serialized activation and launches; revocation bound | SR-1.15-1, SR-1.16-1, SR-2.4-1 | Automated |
+| AT-06 Source and build evidence | Packaging provenance, signature and digest checks; drift suspension | FR-14.5, SR-3-1, SR-3-2, SR-3.1-1, SR-3.2-1, SR-3.8-1 | Automated |
+| AT-07 Safe evidence display | Manifests, licenses and SBOMs rendered inert and bounded | SR-3.3-1, SR-6.17-1 | Automated (Playwright) |
+| AT-08 Worker containment | Path, symlink, host socket, privilege, network and DNS escapes fail | SR-4.5-1, SR-4.6-1, SR-4.7-1, SR-4.7-2; Appendix L HF-20 to HF-24 | Automated (Enforced) |
+| AT-09 Request and response filters | Secret, injection, malformed, binary and oversized content | SR-5.8-1, SR-5.9-1, SR-5.10-1, SR-5.11-1, SR-5.18-1; Appendix L HF-04 to HF-09, HF-16 | Automated |
+| AT-10 Web broker | Grant scope, reserved addresses, rebinding, redirects | SR-4.5-2, SR-5.15-1, SR-5.15-2, SR-5.19-1 | Automated (Enforced) |
+| AT-11 Audit linkage | Exact links survive rename, update and removal; denied targets not shown as executing | SR-6.4-1, SR-6.5-1, SR-6.20-1 | Automated |
+| AT-12 Audit consistency | Journal flush faults, mirror replay and duplicate IDs | SR-6.2-1, SR-6.3-1, SR-6.10-1, SR-6.11-1 | Automated |
+| AT-13 Integrity, privacy, retention | Journal tamper detection, no raw secrets, retention conflicts, purge receipts | FR-7.5, SR-6.7-1, SR-6.9-1, SR-6.15-1 | Automated |
+| AT-14 Retry and crash | No replay of possibly executed mutations | SR-7.1-1, SR-7.2-1 | Automated |
+| AT-15 Console authority | Harness credentials, Auditor mutations, CSRF, stale edits and approval replays denied | SR-2.5-1, SR-8.9-1, SR-1.18-2 | Automated (Playwright) |
+| AT-16 Harness lockdown | Single MCP endpoint, protected client configuration and doctor findings for every local client (generalizes the V1 Hermes cutover) | FR-15.1, FR-15.3, SR-4.9-1, SR-4.11-1 | Automated (client matrix) |
+| AT-17 Offline engineering workflow | Reference filesystem and git packages work with outbound access blocked | FR-12.2, FR-14.9 | Automated |
+| AT-18 Remote access | Remote listener only through the tunnel; pending registrations refused; no listener on a non-loopback address | FR-16.1, FR-16.5, SR-2.9-3, SR-4.14-1, SR-4.14-2 | Recorded (tunnel provider) and automated (local tunnel stand-in) |
+| AT-19 Backup, restore and rollback | Dispatch stopped during backup; restore verifies signatures and re-applies revocations; upgrade rollback | SR-7.7-1, SR-7.8-1, SR-7.9-1, FR-13.8 | Automated |
+| AT-20 Limits and load | Pre-routing bounds, latency targets, disk exhaustion, restart | SR-7.10-1, SR-7.11-1, FR-11.2, FR-11.5 | Automated (load job) |
+| AT-21 Version baseline | Requirement report complete; SRS regenerates without change; release tag resolves the matching documents | FR-12.10, FR-19.3 | Automated (CI) |
+
+## Appendix N — Requirements deferred from release 1.0
+
+These records keep their IDs and text so that a later release can restore them unchanged. They are not part of the requirement set of release 1.0 (Section 2.7): Appendices E to I and the requirement report leave them out, and no test or record needs to verify them. Each states why it is deferred and what release 1.0 does instead.
+
+#### FR-2.14 — Credential issuance (deferred)
+
+| Field | Value |
+|---|---|
+| ID | FR-2.14 |
+| Parent ID | FR-2 — Identity and sessions |
+| Statement | When the mTLS Harness Profile is enabled, the Key & Trust Anchor Manager (E-22) **SHALL** issue framework-instance client certificates by signing a submitted certificate signing request with the Gateway's local client CA. |
+| Allocation | Elements: E-22 Key & Trust Anchor Manager; Functions: F-59; Internal interfaces: I-06 |
+| Verification Method | Test |
+| Verification Statement | Enable the profile; submit a CSR through G-11; confirm the issued certificate chains to the client CA and names the principal ID. |
+| Source | ARCH §4 E-22; ARCH §19 OD-2; Client-Compatibility-Brief §4.2 |
+| Rationale | Only Hermes can present a per-server client certificate. mTLS is a hardening option, not the baseline credential. |
+| Deferral | Release 1.0 ships without the mTLS Harness Profile. Harness requests are authenticated by bearer access tokens over TLS on a loopback listener, and per-instance credentials are OAuth clients managed in G-11. Client-certificate issuance and the client CA are deferred with the profile. |
+
+#### FR-2.16 — Restart invalidation (deferred)
+
+| Field | Value |
+|---|---|
+| ID | FR-2.16 |
+| Parent ID | FR-2 — Identity and sessions |
+| Statement | When the Gateway restarts, the Session Manager (E-04) **SHALL** reject every access token issued before the restart and **SHALL** keep each unexpired session resumable only through its current refresh token (FR-2.22), until the session's CP-18 maximum lifetime. |
+| Allocation | Elements: E-04 Session Manager; Functions: F-08, F-09; Data stores: D-07 |
+| Verification Method | Test |
+| Verification Statement | Restart the Gateway with active sessions; confirm the old access tokens receive -31006, a refresh with the current refresh token resumes the same session ID, and a refresh after the maximum lifetime fails. |
+| Source | ARCH §13 D-07; OWNER (sessions may survive restart via refresh tokens) |
+| Rationale | Requiring a new browser sign-in after every restart or upgrade makes the product unusable; a rotated refresh token keeps the resume bound to the one client that holds it. |
+| Deferral | Release 1.0 ends every session when the Gateway restarts: sessions, their session-taint marks and their quota counters are held in memory, and resuming a session with a refresh token issued before the restart would reset its taint and quota. Every access and refresh token issued before a restart is refused, and the harness signs in again. Resumable sessions with persisted taint and quota state are deferred. |
+
+#### FR-3.26 — Response Policy and Runtime Profile objects (deferred)
+
+| Field | Value |
+|---|---|
+| ID | FR-3.26 |
+| Parent ID | FR-3 — Policy capability |
+| Statement | The Policy Administration Service (E-05) **SHALL** support Response Policy and Runtime Profile objects as published, versioned policy objects. |
+| Allocation | Elements: E-05 Policy Administration Service, E-11 Response Inspection Pipeline, E-15 Server Runtime Manager; Functions: F-10; Internal interfaces: I-06; Data stores: D-01 |
+| Verification Method | Test |
+| Verification Statement | Create, validate and publish one Response Policy and one Runtime Profile; confirm each is stored and evaluated by E-11 and E-15. |
+| Source | ARCH §7.2 |
+| Rationale | Separately published response and runtime objects let a policy author change response handling and instance limits without editing configuration. |
+| Deferral | Release 1.0 sets response handling with the `filters` obligations of permit rules and the `[filters]` configuration (where a requirement names the Response Policy, release 1.0 reads that configuration), and runtime limits with the verified manifest and the `[runtime]` configuration. Instance scopes that would need a Runtime Profile are already deferred (FR-5.10). Separate Response Policy and Runtime Profile objects need a publication path, schema and simulation support that release 1.0 does not have. |
+
+#### FR-3.3 — Draft workspace (deferred)
+
+| Field | Value |
+|---|---|
+| ID | FR-3.3 |
+| Parent ID | FR-3 — Policy capability |
+| Statement | The Policy Administration Service (E-05) **SHALL** hold edits in a named draft derived from a stated parent revision until the draft is published or discarded. |
+| Allocation | Elements: E-05 Policy Administration Service; Functions: F-10; Internal interfaces: I-06 |
+| Verification Method | Demonstration |
+| Verification Statement | Create a draft, edit it in two sessions of G-02, discard one and publish the other; confirm the active revision changes only on publish. |
+| Source | ARCH §4 E-05 |
+| Rationale | Authors iterate on policy without affecting enforcement. |
+| Deferral | Release 1.0 has no server-side named drafts. A document is validated and simulated through the control API without being stored, and published with a stated parent revision that must still be active (a stale parent is refused, so two editors cannot overwrite each other); the G-02 editor keeps the unpublished text in the browser. Named drafts shared between sessions are deferred. |
+
+#### FR-3.7 — Observation cost estimate (deferred)
+
+| Field | Value |
+|---|---|
+| ID | FR-3.7 |
+| Parent ID | FR-3 — Policy capability |
+| Statement | The Policy Administration Service (E-05) **SHALL** estimate records per day, storage per day and added p95 latency for a draft Observation Policy or Research Campaign from the trailing 7 days of call rates. |
+| Allocation | Elements: E-05 Policy Administration Service; Functions: F-66; Internal interfaces: I-06 |
+| Verification Method | Test |
+| Verification Statement | Estimate a policy over a replayed 7-day fixture traffic set; confirm estimates are within ±25% of the measured values after one replayed day. |
+| Source | ARCH §11 item 6; ARCH §5 F-66 |
+| Rationale | Researchers must know the cost of a capture choice before publishing it. |
+| Deferral | Release 1.0 reports the measured cost of observation instead of an estimate: GET /api/v1/observations/cost ranks the time spent per stage, policy revision and Observation Policy from recorded spans, and the meta-metrics give records and store growth per interval. A forecast for a draft Observation Policy or Research Campaign from seven days of call rates is deferred until those object types have drafts (FR-3.3). |
+
+#### FR-5.10 — Instance scope (deferred)
+
+| Field | Value |
+|---|---|
+| ID | FR-5.10 |
+| Parent ID | FR-5 — Server trust and execution |
+| Statement | The Server Runtime Manager (E-15) **SHALL** create instances per call, per session or shared, as selected by the Runtime Profile from the scopes the manifest allows, defaulting to per session. |
+| Allocation | Elements: E-15 Server Runtime Manager; Functions: F-38; Internal interfaces: I-12 |
+| Verification Method | Test |
+| Verification Statement | Configure each scope; confirm instance counts after calls from two sessions. |
+| Source | ARCH §4 E-15; ARCH §19 OD-3 |
+| Rationale | Isolation versus cold-start cost is a policy choice. |
+| Deferral | Release 1.0 runs one shared instance per enabled server revision, started with the Gateway and replaced after an upstream timeout or failure. Per-session and per-call instances need per-instance secret delivery (the Secret Broker delivers S2 and S3 secrets per server alias) and per-instance sandbox resources that release 1.0 does not have; they are deferred to the release that adds the Runtime Profile object. |
+
+#### FR-5.11 — Instance reuse and idle teardown (deferred)
+
+| Field | Value |
+|---|---|
+| ID | FR-5.11 |
+| Parent ID | FR-5 — Server trust and execution |
+| Statement | The Server Runtime Manager (E-15) **SHALL** reuse a live instance of the matching scope and **SHALL** tear down an instance idle for the CP-38 interval. |
+| Allocation | Elements: E-15 Server Runtime Manager; Functions: F-39, F-40 |
+| Verification Method | Test |
+| Verification Statement | Make two calls in one session and then wait past CP-38; confirm one instance is reused and then torn down. |
+| Source | ARCH §4 E-15 |
+| Rationale | Bounds resource use on a single PC. |
+| Deferral | Deferred with per-session and per-call instance scopes (FR-5.10): with one shared instance per revision there is nothing to reuse by scope or to tear down when idle. The instance runs until the Gateway stops, its revision is suspended, or it is replaced after a failure. |
+
+#### FR-5.16 — Era probe (deferred)
+
+| Field | Value |
+|---|---|
+| ID | FR-5.16 |
+| Parent ID | FR-5 — Server trust and execution |
+| Statement | When an instance starts, the Tool Dispatcher (E-10) **SHALL** send `server/discover` with protocol version 2026-07-28 and classify the server as modern on a `DiscoverResult` or recognized modern error, and as legacy on any other error or no response within 5 seconds. |
+| Allocation | Elements: E-10 Tool Dispatcher; Functions: F-23; Internal interfaces: I-13 |
+| Verification Method | Test |
+| Verification Statement | Start modern and legacy fixture servers; confirm each classification. |
+| Source | MCP:basic/transports/stdio §Backward Compatibility |
+| Rationale | Curated servers may implement either era. |
+| Deferral | Release 1.0 speaks the 2025-11-25 era southbound only, through the `initialize` handshake of FR-5.19; the reference packages and the servers `smcpctl package build` probes are 2025-11-25 servers. The `server/discover` probe and modern southbound requests are deferred to the release that adds the modern southbound client. A revision whose manifest era differs from the era its instance negotiates is not used (FR-5.40). |
+
+#### FR-5.17 — Era consistency with manifest (deferred)
+
+| Field | Value |
+|---|---|
+| ID | FR-5.17 |
+| Parent ID | FR-5 — Server trust and execution |
+| Statement | When the probed era differs from the protocol era declared in the manifest, the Tool Dispatcher (E-10) **SHALL** refuse to use the instance and the Local Server Registry (E-14) **SHALL** suspend the server revision. |
+| Allocation | Elements: E-10 Tool Dispatcher, E-14 Local Server Registry; Functions: F-23, F-37 |
+| Verification Method | Test |
+| Verification Statement | Launch a legacy fixture whose manifest declares modern; confirm refusal and suspension. |
+| Source | SEC 3.8; ARCH §6.3 |
+| Rationale | The runtime must match the curated declaration. |
+| Deferral | Deferred with the era probe (FR-5.16). Release 1.0 compares the manifest era with the negotiated era instead (FR-5.40). |
+
+#### FR-5.18 — Modern southbound requests (deferred)
+
+| Field | Value |
+|---|---|
+| ID | FR-5.18 |
+| Parent ID | FR-5 — Server trust and execution |
+| Statement | The Tool Dispatcher (E-10) **SHALL** send each modern southbound request with `_meta.io.modelcontextprotocol/protocolVersion`, an empty `clientCapabilities` object in the baseline profile, Gateway `clientInfo`, and a request ID unique among its in-flight requests to that instance. |
+| Allocation | Elements: E-10 Tool Dispatcher; Functions: F-23; Internal interfaces: I-13 |
+| Verification Method | Test |
+| Verification Statement | Capture southbound requests; confirm the metadata and ID uniqueness. |
+| Source | MCP:basic/index §Per-request protocol fields |
+| Rationale | Modern server requirement. |
+| Deferral | Deferred with the era probe (FR-5.16): release 1.0 sends no modern southbound requests. |
+
+#### FR-5.25 — MRTR Relay Profile (deferred)
+
+| Field | Value |
+|---|---|
+| ID | FR-5.25 |
+| Parent ID | FR-5 — Server trust and execution |
+| Statement | When the MRTR Relay Profile is enabled, the Tool Dispatcher (E-10) **SHALL** relay a backend `InputRequiredResult` northbound with the backend `requestState` wrapped in a Gateway `requestState` that is integrity-protected and bound to session, correlation ID, backend tool revision and the CP-39 expiry. |
+| Allocation | Elements: E-10 Tool Dispatcher, E-02 Protocol Mediator; Functions: F-24, F-22; External interfaces: X-01; Internal interfaces: I-13 |
+| Verification Method | Test |
+| Verification Statement | Enable the profile; complete an elicitation round trip; confirm that tampered, expired and cross-session states are rejected. |
+| Source | MCP:basic/patterns/mrtr §Server Requirements; SEC 5.6 |
+| Rationale | Lets elicitation be qualified later without trusting harness-carried state. |
+| Deferral | Release 1.0 ships without the MRTR Relay Profile. Relaying elicitation, sampling and roots needs a signed request-state protocol and a harness that answers it; none of the Appendix K clients needs it to use the reference packages. A backend InputRequiredResult ends the call with -31010 (FR-5.24) and server-initiated requests get -32601 (FR-5.20). |
+
+#### FR-5.28 — Southbound Streamable HTTP client (deferred)
+
+| Field | Value |
+|---|---|
+| ID | FR-5.28 |
+| Parent ID | FR-5 — Server trust and execution |
+| Statement | For an instance using Streamable HTTP, the Tool Dispatcher (E-10) **SHALL** send each request as a POST carrying `Accept: application/json, text/event-stream`, `MCP-Protocol-Version`, `Mcp-Method` and, where applicable, `Mcp-Name`, and **SHALL** accept both JSON and SSE responses. |
+| Allocation | Elements: E-10 Tool Dispatcher; Functions: F-23, F-24; Internal interfaces: I-13 |
+| Verification Method | Test |
+| Verification Statement | Run the southbound HTTP conformance fixtures; confirm the headers and both response types. |
+| Source | MCP:basic/transports/streamable-http §Sending Messages; §Standard Request Headers |
+| Rationale | Some curated servers use the HTTP binding inside their sandbox. |
+| Deferral | Release 1.0 runs every server instance over stdio, which is the only transport of the reference packages (FR-14.9) and of servers packaged with `smcpctl package build`. A southbound Streamable HTTP client needs its own conformance fixtures and egress handling; it is deferred to the release that admits HTTP instances. |
+
+#### FR-5.29 — Southbound header encoding (deferred)
+
+| Field | Value |
+|---|---|
+| ID | FR-5.29 |
+| Parent ID | FR-5 — Server trust and execution |
+| Statement | The Tool Dispatcher (E-10) **SHALL** mirror `x-mcp-header` parameters into `Mcp-Param-{name}` headers and **SHALL** apply the `=?base64?…?=` encoding rules to `Mcp-Name` and `Mcp-Param-*` values. |
+| Allocation | Elements: E-10 Tool Dispatcher; Functions: F-23; Internal interfaces: I-13 |
+| Verification Method | Test |
+| Verification Statement | Call fixture tools with non-ASCII, padded and sentinel-like values; confirm the encodings. |
+| Source | MCP:basic/transports/streamable-http §Value Encoding |
+| Rationale | Clients must support `x-mcp-header`. |
+| Deferral | Deferred with the southbound Streamable HTTP client (FR-5.28): header mirroring exists only on that transport. |
+
+#### FR-5.30 — Southbound SSE comments (deferred)
+
+| Field | Value |
+|---|---|
+| ID | FR-5.30 |
+| Parent ID | FR-5 — Server trust and execution |
+| Statement | The Tool Dispatcher (E-10) **SHALL** ignore SSE comment lines received from Streamable HTTP instances. |
+| Allocation | Elements: E-10 Tool Dispatcher; Functions: F-24; Internal interfaces: I-13 |
+| Verification Method | Test |
+| Verification Statement | Inject comment lines into a fixture stream; confirm no error. |
+| Source | MCP:basic/transports/streamable-http §Receiving Messages |
+| Rationale | Keep-alive comments are valid. |
+| Deferral | Deferred with the southbound Streamable HTTP client (FR-5.28): SSE exists only on that transport. |
+
+#### FR-5.31 — Southbound list-change watch (deferred)
+
+| Field | Value |
+|---|---|
+| ID | FR-5.31 |
+| Parent ID | FR-5 — Server trust and execution |
+| Statement | For a shared or session-scoped modern instance whose server declares `tools.listChanged`, the Tool Dispatcher (E-10) **SHALL** hold a `subscriptions/listen` stream with `toolsListChanged: true` and **SHALL** trigger a tool-list comparison on each change notification. |
+| Allocation | Elements: E-10 Tool Dispatcher, E-14 Local Server Registry; Functions: F-24, F-37; Internal interfaces: I-13 |
+| Verification Method | Test |
+| Verification Statement | Make a fixture add a tool at runtime; confirm the comparison and the resulting suspension. |
+| Source | MCP:basic/patterns/subscriptions; SEC 3.8 |
+| Rationale | Detects runtime tool drift. |
+| Deferral | Deferred with the southbound Streamable HTTP client and modern-era instances (FR-5.28, FR-5.16). Release 1.0 acts on `notifications/tools/list_changed` from stdio instances by re-reading the tool list and comparing it with the manifest (SR-3.8-1). |
+
+#### FR-7.6 — Alerts (deferred)
+
+| Field | Value |
+|---|---|
+| ID | FR-7.6 |
+| Parent ID | FR-7 — Assurance services |
+| Statement | The Audit & Evidence Service (E-21) **SHALL** raise an alert in the management console for each event matching an alert rule of the effective Audit Profile. |
+| Allocation | Elements: E-21 Audit & Evidence Service; Functions: F-53; Internal interfaces: I-06 |
+| Verification Method | Test |
+| Verification Statement | Configure an alert on `withheld`; trigger it; confirm the console alert. |
+| Source | ARCH §7.2 Audit Profile |
+| Rationale | Operators need notification of significant events. |
+| Deferral | The release 1.0 Audit Profile sets retention and escalation parameters only; it has no alert rules. The console raises alerts for anomaly bands (G-06) and health causes, and the evidence stream with filters (FR-8.23) follows any event class live. Alert rules in the Audit Profile are deferred. |
+
+#### FR-7.15 — Client certificate authority (deferred)
+
+| Field | Value |
+|---|---|
+| ID | FR-7.15 |
+| Parent ID | FR-7 — Assurance services |
+| Statement | The Key & Trust Anchor Manager (E-22) **SHALL** operate a local certificate authority for harness client certificates separate from the server certificate authority. |
+| Allocation | Elements: E-22 Key & Trust Anchor Manager; Functions: F-59, F-60; Data stores: D-08 |
+| Verification Method | Inspection |
+| Verification Statement | Inspect both CA certificates and an issued certificate of each kind; confirm separate roots. |
+| Source | ARCH §4 E-22 |
+| Rationale | Separates client identity from server identity. |
+| Deferral | Deferred with the mTLS Harness Profile (FR-2.14): release 1.0 authenticates harnesses with bearer access tokens and issues no client certificates, so a client CA would have nothing to sign. |
+
+#### FR-7.9 — Key protection at rest (deferred)
+
+| Field | Value |
+|---|---|
+| ID | FR-7.9 |
+| Parent ID | FR-7 — Assurance services |
+| Statement | The Key & Trust Anchor Manager (E-22) **SHALL** seal private keys to the host TPM 2.0 when present, store them in the user's login Keychain on macOS, and otherwise store them in files owned by the key-holding service identity with mode 0600, encrypted under an operator passphrase when the configuration sets `keys.passphrase = true`. |
+| Allocation | Elements: E-22 Key & Trust Anchor Manager; Functions: F-60; External interfaces: X-07; Data stores: D-08 |
+| Verification Method | Test |
+| Verification Statement | Start on a TPM host, on macOS and on a non-TPM Linux host with and without the passphrase option; confirm the protection method in each case and that key files copied to another host are unusable where sealing or encryption applies. |
+| Source | ARCH §15 E-19/E-22; OWNER (platform profiles) |
+| Rationale | Keys must not sit in plaintext on disk where the platform offers protection. An unattended service cannot wait for a passphrase at every start, so the passphrase is an option rather than the default. |
+| Deferral | Release 1.0 stores private keys in files with mode 0600 under the state directory, owned by the key-holding identity in the Enforced profile (SR-6.12-1); the vault master key can be held in the macOS Keychain. TPM sealing, Keychain storage of every private key and passphrase encryption are deferred: they need reference hardware and an unattended-start design that release 1.0 does not have. |
+
+#### FR-9.4 — Write priority classes (deferred)
+
+| Field | Value |
+|---|---|
+| ID | FR-9.4 |
+| Parent ID | FR-9 — Data Server |
+| Statement | The Data Access Service (E-26) **SHALL** order queued writes by the priority classes P0 policy and control, P1 mandatory audit, P2 observation and P3 research. |
+| Allocation | Elements: E-26 Data Access Service; Functions: F-73; Internal interfaces: I-33 |
+| Verification Method | Test |
+| Verification Statement | Saturate the queue with P2 writes and submit a P1 write; confirm the P1 write commits first. |
+| Source | ARCH §4 E-26 |
+| Rationale | Mandatory writes must not wait behind optional data. |
+| Deferral | In release 1.0 the Data Access Service writes only the evidence mirror, from one ordered stream: the journal (P0 and P1 records are committed to the journal before the call proceeds, independent of the graph), and observation data is written to the Observation Store, not through the Data Access Service. With one write class in the queue there is nothing to order; priority classes are deferred until a second writer shares the queue. |
+
+#### FR-9.13 — Storage tiering (deferred)
+
+| Field | Value |
+|---|---|
+| ID | FR-9.13 |
+| Parent ID | FR-9 — Data Server |
+| Statement | The Data Lifecycle & Memory Manager (E-28) **SHALL** keep observation partitions younger than 30 days in the hot tier and **SHALL** move older partitions to compressed warm storage until their retention ends. |
+| Allocation | Elements: E-28 Data Lifecycle & Memory Manager; Functions: F-78; Data stores: D-09, D-13 |
+| Verification Method | Test |
+| Verification Statement | Age fixture partitions; confirm tier moves and query continuity. |
+| Source | ARCH §4 E-28 |
+| Rationale | Bounded fast storage with retained history. |
+| Deferral | Release 1.0 writes observation partitions as compressed columnar files (Parquet through DuckDB) or JSON Lines from the start and deletes them at the end of their retention; there is one tier. A separate hot tier is deferred until measurements on reference hardware show that queries over 30 days need one. |
+
+#### FR-12.5 — Service management (deferred)
+
+| Field | Value |
+|---|---|
+| ID | FR-12.5 |
+| Parent ID | FR-12 — Implementation constraints |
+| Statement | The Gateway **SHALL** install as systemd system services in the Enforced profile, and as a launchd user agent on macOS or a systemd user unit on Linux in the Standalone profile, with declared start ordering Key & Trust Anchor Manager, Gateway core, console, then the optional Data Server. |
+| Allocation | Elements: E-25 Graph Database Engine, E-22 Key & Trust Anchor Manager, E-24 Management Console & Control API; Functions: F-97; External interfaces: X-07 |
+| Verification Method | Test |
+| Verification Statement | Reboot an Enforced host and log in on a Standalone host; confirm the start order from the service manager log and that the Gateway serves harness requests while the Data Server is still starting. |
+| Source | ARCH §15; ARCH §2.2 A-9 |
+| Rationale | Startup gating depends on the keys and the core only; the graph mirror starts last because enforcement does not wait for it. |
+| Deferral | Release 1.0 runs the Key & Trust Anchor Manager, the Gateway core, the console and the graph mirror in one process, smcpd, which `smcpctl install` installs as one systemd system service in the Enforced profile and as one launchd user agent (macOS) or systemd user unit (Linux) in the Standalone profile. There are no separate element services whose start order could be declared: smcpd loads its keys and trust anchors before it opens a listener, serves the console from the same process, and starts the graph mirror without waiting for it, so harness requests are served while the mirror is still connecting (FR-9.17). Separate per-element services with declared start ordering are deferred with a multi-process split of the Gateway. |
+
+#### SR-1-1 — Capability ceiling (deferred)
+
+| Field | Value |
+|---|---|
+| ID | SR-1-1 |
+| Parent ID | SEC-1 — Graph policy and routing authority (MUST, `MCP_Gateway_Security_SRS.md`) |
+| Statement | The Policy Administration Service (E-05) **SHALL** reject publication of any grant whose tools, paths, egress destinations or secret slots exceed the capability ceiling of the referenced server revision's manifest. |
+| Allocation | Elements: E-05 Policy Administration Service, E-14 Local Server Registry; Functions: F-10; Internal interfaces: I-07 |
+| Verification Method | Test |
+| Verification Statement | Publish grants exceeding each ceiling dimension; confirm each is rejected with the exceeded dimension named. |
+| Source | ARCH §7.3; ARCH §7.1 layer 1 |
+| Rationale | The signed manifest bounds all authority. |
+| Deferral | Release 1.0 policy grants name a server alias and tools only; they carry no paths, egress destinations or secret slots, so a grant cannot exceed those dimensions of a manifest. A granted tool that the enabled server revision does not serve has no public name and is never presented or dispatched. Filesystem slots, egress grants and secret slots are bound in the configuration, not in the policy document. Publication-time checks of grants against the manifest ceiling are deferred with grants that carry those dimensions. |
+
+#### SR-1.6-1 — Exact match scope (deferred)
+
+| Field | Value |
+|---|---|
+| ID | SR-1.6-1 |
+| Parent ID | SEC-1.6 — Exact scoped rules (MUST, `MCP_Gateway_Security_SRS.md`) |
+| Statement | The Policy Decision Service (E-06) **SHALL** match permits on principal or Framework Profile, session template, exact server revision ID, exact tool revision ID and MCP method. |
+| Allocation | Elements: E-06 Policy Decision Service; Functions: F-13 |
+| Verification Method | Test |
+| Verification Statement | Change each dimension of a permitted request in turn; confirm each change results in deny. |
+| Source | SEC 1.6 |
+| Rationale | No implicit widening. |
+| Deferral | Release 1.0 permit rules match the Framework Profile, the session template, the server alias, the tool name and the `tools/call` method (no other method reaches the decision). The exact revisions are fixed outside the rule: a server revision that is not enabled is never dispatched to, a relaunch with a different revision suspends the server, and every decision record carries the exact server and tool revision IDs. Rules that name revision IDs, which would need a policy publication for every server upgrade, are deferred. |
+
+#### SR-2.8-2 — Mutual TLS (deferred)
+
+| Field | Value |
+|---|---|
+| ID | SR-2.8-2 |
+| Parent ID | SEC-2.8 — Authenticated transport (MUST, `MCP_Gateway_Security_SRS.md`) |
+| Statement | When the mTLS Harness Profile is enabled, the Harness Interface Endpoint (E-01) **SHALL** require a client certificate chaining to the Gateway client CA on the TLS harness listener. |
+| Allocation | Elements: E-01 Harness Interface Endpoint; Functions: F-01; External interfaces: X-01 |
+| Verification Method | Test |
+| Verification Statement | Enable the profile; connect without a certificate and with a foreign certificate; confirm rejection during the handshake. |
+| Source | SEC 2.8; ARCH §19 OD-2 |
+| Rationale | Optional transport-level framework authentication for harnesses that can present a client certificate. |
+| Deferral | Deferred with the mTLS Harness Profile (FR-2.14); release 1.0 authenticates harness requests with bearer access tokens. |
+
+#### SR-2.11-3 — No open metadata fetch (deferred)
+
+| Field | Value |
+|---|---|
+| ID | SR-2.11-3 |
+| Parent ID | SEC-2.11 — OAuth boundary (MUST, `MCP_Gateway_Security_SRS.md`) |
+| Statement | The Identity & Authentication Service (E-03) **SHALL** fetch a Client ID Metadata Document only from a URL that is pre-registered or matches the CP-52 allowlist, within the CP-52 limits, and **SHALL** refuse every other metadata URL without a network request. |
+| Allocation | Elements: E-03 Identity & Authentication Service; Functions: F-04; External interfaces: X-01 |
+| Verification Method | Test |
+| Verification Statement | Present an allowlisted metadata URL, a non-allowlisted URL pointing at a capture server and an allowlisted URL that redirects to another host; confirm success, refusal with no request reaching the capture server, and refusal of the redirect. |
+| Source | SEC 2.11; REVIEW (I4: CIMD URL allowlist or pre-registration, no open outbound fetch) |
+| Rationale | An open fetch lets an unauthenticated caller make the Gateway send requests to arbitrary hosts. |
+| Deferral | Release 1.0 never fetches Client ID Metadata Documents: a metadata-URL client ID is accepted only when it is pre-registered in the configuration or approved through the Remote Access registration flow, and every other URL is refused without a network request. Fetching documents from an allowlist (CP-52) is deferred; no open fetch exists in the meantime. |
+
+#### SR-2.12-1 — Handle ownership (deferred)
+
+| Field | Value |
+|---|---|
+| ID | SR-2.12-1 |
+| Parent ID | SEC-2.12 — State ownership (MUST, `MCP_Gateway_Security_SRS.md`) |
+| Statement | For a tool with a manifest handle contract, the Access Enforcement Point (E-08) **SHALL** record handles created by results with their owning session and principal, and **SHALL** deny calls presenting a handle owned by another session or principal or past its expiry. |
+| Allocation | Elements: E-08 Access Enforcement Point, E-11 Response Inspection Pipeline; Functions: F-20, F-27 |
+| Verification Method | Test |
+| Verification Statement | Create a handle in session A and use it from session B and after expiry; confirm denial. |
+| Source | SEC 2.12; MCP:server/tools §Stateful Tools |
+| Rationale | Handles are names, not capabilities. |
+| Deferral | The release 1.0 manifest schema (Appendix J) has no handle contract, and none of the reference packages returns handles that a later call presents. Handle tracking is deferred until the manifest schema defines handle contracts. |
+
+#### SR-4.3-1 — Caller allowlist (deferred)
+
+| Field | Value |
+|---|---|
+| ID | SR-4.3-1 |
+| Parent ID | SEC-4.3 — CE access boundary (MUST, `MCP_Gateway_Security_SRS.md`) |
+| Statement | The Data Access Service (E-26) **SHALL** authenticate each calling element by Unix-socket peer credentials and **SHALL** permit only the operations allowlisted for that element. |
+| Allocation | Elements: E-26 Data Access Service; Functions: F-72; Internal interfaces: I-07, I-30, I-33, I-34, I-35, I-06 |
+| Verification Method | Test |
+| Verification Statement | Invoke a policy-write operation from the Observation Collector identity; confirm denial. |
+| Source | SEC 4.3 |
+| Rationale | Application-level separation without Enterprise database roles. |
+| Deferral | In release 1.0 the Data Access Service is a library inside the `smcpd` process, called only by the graph mirror and the console routes of that process; no element reaches it across a process or socket boundary, so there is no peer to authenticate by socket credentials. Its operations are fixed by the reviewed template catalog and the control API role matrix (Appendix C). Peer authentication is deferred to a release that splits elements into separate processes. |
+
+#### SR-5.1-2 — Southbound era by manifest (deferred)
+
+| Field | Value |
+|---|---|
+| ID | SR-5.1-2 |
+| Parent ID | SEC-5.1 — Explicit protocol profiles (MUST, `MCP_Gateway_Security_SRS.md`) |
+| Statement | The Tool Dispatcher (E-10) **SHALL** use legacy 2025-11-25 behavior toward an instance only when the manifest declares that era. |
+| Allocation | Elements: E-10 Tool Dispatcher; Functions: F-23 |
+| Verification Method | Test |
+| Verification Statement | Probe a modern server whose manifest declares legacy; confirm suspension rather than legacy use. |
+| Source | SEC 5.1; FR-5.17 |
+| Rationale | Curated protocol era. |
+| Deferral | Deferred with the era probe (FR-5.16). Release 1.0 uses legacy behavior toward every instance and refuses a revision whose manifest declares another era (FR-5.40), so legacy behavior is never used toward a revision whose manifest declares the modern era. |
+
+#### SR-5.3-2 — No southbound downgrade (deferred)
+
+| Field | Value |
+|---|---|
+| ID | SR-5.3-2 |
+| Parent ID | SEC-5.3 — No unsafe downgrade (MUST, `MCP_Gateway_Security_SRS.md`) |
+| Statement | The Tool Dispatcher (E-10) **SHALL** treat a recognized modern error from an era probe as modern and **SHALL** never fall back to legacy because of it. |
+| Allocation | Elements: E-10 Tool Dispatcher; Functions: F-23 |
+| Verification Method | Test |
+| Verification Statement | Return `-32022` to a probe; confirm modern handling. |
+| Source | SEC 5.3; MCP:basic/transports/stdio §Backward Compatibility |
+| Rationale | Specification fallback rule. |
+| Deferral | Deferred with the era probe (FR-5.16): release 1.0 sends no era probe, so there is no probe error to classify. |
+
+#### SR-6.6-1 — Policy-directed payload capture (deferred)
+
+| Field | Value |
+|---|---|
+| ID | SR-6.6-1 |
+| Parent ID | SEC-6.6 — Policy-directed payload storage (MUST, `MCP_Gateway_Security_SRS.md`) |
+| Statement | The Audit & Evidence Service (E-21) **SHALL** capture optional payloads only as directed by the evaluated Audit Profile, Observation Policy or Research Campaign, into the storage class it names. |
+| Allocation | Elements: E-21 Audit & Evidence Service, E-29 Observation Collector; Functions: F-53, F-82 |
+| Verification Method | Test |
+| Verification Statement | Toggle capture in the profile; confirm payload presence follows it. |
+| Source | SEC 6.6 |
+| Rationale | Policy-directed capture. |
+| Deferral | Release 1.0 captures no payloads: observation records hold derived parameters only, and the S3 parameters (raw arguments and raw responses) are never stored. With no optional payload capture there is nothing for an Audit Profile, Observation Policy or Research Campaign to direct; directed payload capture is deferred with its encrypted storage (SR-6.8-1). |
+
+#### SR-6.8-1 — Payload encryption (deferred)
+
+| Field | Value |
+|---|---|
+| ID | SR-6.8-1 |
+| Parent ID | SEC-6.8 — Payload encryption (MUST, `MCP_Gateway_Security_SRS.md`) |
+| Statement | The Audit & Evidence Service (E-21) **SHALL** store captured payloads as age-encrypted blobs referenced in the graph by ciphertext digest and key reference. |
+| Allocation | Elements: E-21 Audit & Evidence Service, E-22 Key & Trust Anchor Manager; Functions: F-53 |
+| Verification Method | Inspection |
+| Verification Statement | Inspect a payload blob and its graph reference. |
+| Source | SEC 6.8 |
+| Rationale | Encrypted payloads. |
+| Deferral | Deferred with payload capture (SR-6.6-1): release 1.0 stores no payloads, so there are no payload blobs to encrypt or reference from the graph. |
+
+#### SR-6.9-1 — Retention validation (deferred)
+
+| Field | Value |
+|---|---|
+| ID | SR-6.9-1 |
+| Parent ID | SEC-6.9 — Retention conflict (MUST, `MCP_Gateway_Security_SRS.md`) |
+| Statement | The Policy Administration Service (E-05) **SHALL** reject publication of retention settings whose greatest minimum exceeds the smallest maximum, or whose capture requirement contradicts a no-capture classification. |
+| Allocation | Elements: E-05 Policy Administration Service; Functions: F-10 |
+| Verification Method | Test |
+| Verification Statement | Publish conflicting retention and capture settings; confirm rejection. |
+| Source | SEC 6.9 |
+| Rationale | Consistent retention. |
+| Deferral | Release 1.0 has one retention setting per store (the Audit Profile's `retention` and the `[evidence]` and `[observation]` settings) and no no-capture data classifications, because payload capture is deferred (SR-6.6-1). There are no competing minimum and maximum retentions or capture requirements to conflict. Retention validation is deferred with policy-directed capture. |
+

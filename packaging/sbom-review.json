@@ -1,0 +1,29 @@
+{
+  "comment": "Reviewed license exceptions for tools/sbomcheck (SRS FR-12.1). Each entry accepts one identifier for one package; the release workflow refuses any other identifier that is not OSI-approved or public domain. LicenseRef identifiers are syft's SHA-256 of a license-like file it could not match to an SPDX license.",
+  "reviews": [
+    {
+      "package": "github.com/modelcontextprotocol/go-sdk",
+      "identifier": "CC-BY-4.0",
+      "license": "Apache-2.0 AND MIT",
+      "reason": "the module's LICENSE licenses code under Apache-2.0 (MIT for contributions not yet relicensed) and documentation under CC-BY-4.0; the release binaries link only its Go packages, not its documentation"
+    },
+    {
+      "package": "github.com/ethan03805/secure-mcp-gateway",
+      "identifier": "LicenseRef-0382b0057770ca05e9c350a50aa3b1c1fea84da0bc81d723bf00b9aa841be58a",
+      "license": "Apache-2.0",
+      "reason": "hash of mcp-spec/2026-07-28/LICENSE, the license of the vendored MCP specification text kept in the source tree as reference material; no binary contains it. The Gateway itself is Apache-2.0 (LICENSE)"
+    },
+    {
+      "package": "github.com/ethan03805/secure-mcp-gateway",
+      "identifier": "LicenseRef-562a7dc6c159c0521c272f0c7d78e9b071fa0f83c0054cd2b530a2e3fe45f456",
+      "license": "Apache-2.0",
+      "reason": "hash of internal/approval/notice_test.go, a Go test of desktop notifications that syft takes for a NOTICE file by its name; it holds no license text and is not compiled into the release binaries"
+    },
+    {
+      "package": "github.com/apache/arrow-go/v18",
+      "identifier": "LicenseRef-c02e3dc1587f49e4876c8b75ae9e534739a00e834b609395cc2bb2fd24452dfe",
+      "license": "Apache-2.0 AND BSD-3-Clause",
+      "reason": "hash of the module's NOTICE.txt, the attribution notice that Apache-2.0 section 4(d) requires, not a license; the module is Apache-2.0 with BSD-3-Clause parts (LICENSE.txt)"
+    }
+  ]
+}

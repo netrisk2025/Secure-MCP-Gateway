@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "rule_sets": [
+    {
+      "id": "unicode-control",
+      "version": "2026.10.1",
+      "file": "unicode-control.2026.10.1.json",
+      "sha256": "1cd1a6ae9a2ac3aee0d6cb57b9cc3e87af29166b4f6c2b973ad26219b205a6d8",
+      "active": true,
+      "corpus": "unicode-control.jsonl",
+      "targets": {
+        "false_positive_rate": 0.0,
+        "false_negative_rate": 0.0
+      }
+    },
+    {
+      "id": "secret-formats",
+      "version": "2026.10.1",
+      "file": "secret-formats.2026.10.1.json",
+      "sha256": "f4fdc9a9e7f1ab6a5b68c04be51d3575d71aeb00ca4d79f2fdf2e148f9cf5675",
+      "active": true,
+      "corpus": "secret-formats.jsonl",
+      "targets": {
+        "false_positive_rate": 0.05,
+        "false_negative_rate": 0.0
+      }
+    },
+    {
+      "id": "prompt-injection",
+      "version": "2026.10.1",
+      "file": "prompt-injection.2026.10.1.json",
+      "sha256": "513808e2207f16943251f3cb10fc0fa8588c53ab98064f427f60f3f1a2e5cc76",
+      "active": true,
+      "corpus": "prompt-injection.jsonl",
+      "targets": {
+        "false_positive_rate": 0.05,
+        "false_negative_rate": 0.15
+      }
+    },
+    {
+      "id": "pii",
+      "version": "2026.10.1",
+      "file": "pii.2026.10.1.json",
+      "sha256": "d47a6836d33beb308efdf521e37ecb75d28cdfade872a313de7a92f245dbd1c2",
+      "active": true,
+      "corpus": "pii.jsonl",
+      "targets": {
+        "false_positive_rate": 0.1,
+        "false_negative_rate": 0.05
+      }
+    },
+    {
+      "id": "tool-metadata",
+      "version": "2026.10.1",
+      "file": "tool-metadata.2026.10.1.json",
+      "sha256": "6ffa7047bfb6c78d8051bcf591d828058dba39af3021cee15d68113d4ddaa00d",
+      "active": true,
+      "corpus": "tool-metadata.jsonl",
+      "targets": {
+        "false_positive_rate": 0.0,
+        "false_negative_rate": 0.1
+      }
+    }
+  ]
+}

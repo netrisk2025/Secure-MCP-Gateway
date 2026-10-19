@@ -1,0 +1,37 @@
+{
+  "recipe_version": 1,
+  "server": {
+    "id": "mcp-fetch",
+    "alias": "fetch",
+    "publisher": "Model Context Protocol reference servers",
+    "description": "Fetch a URL and return its content as Markdown.",
+    "homepage": "https://github.com/modelcontextprotocol/servers"
+  },
+  "artifact": {
+    "type": "pypi",
+    "reference": "mcp-server-fetch",
+    "version": "2026.8.18",
+    "sha256": "6642df733a1032e7f37d0f13849af8a944d46c02420d2c070cc14e0948f8fcc2"
+  },
+  "dependencies": {
+    "pip_requirements": "requirements.txt"
+  },
+  "launch": {
+    "runtime": "python",
+    "argv": ["python3", "-m", "mcp_server_fetch"]
+  },
+  "risk_class": "moderate",
+  "instance_scope": ["shared", "per-session"],
+  "tools": {
+    "default": { "side_effect": "external", "source_trust": "untrusted" },
+    "expect": ["fetch"]
+  },
+  "capabilities": {
+    "filesystem": [],
+    "egress": [],
+    "spawns_processes": false,
+    "resources": { "memory_mib": 512, "pids": 64 }
+  },
+  "licenses": ["MIT"],
+  "operator_note": "Needs outbound HTTPS to the URLs it is asked to fetch. The manifest declares no egress destinations because they are not known in advance; the Standalone profile does not restrict egress, and under the Enforced profile the Egress Broker (E-18) must grant destinations by policy. Build and run with the same Python minor version (the artifact contains compiled wheels)."
+}

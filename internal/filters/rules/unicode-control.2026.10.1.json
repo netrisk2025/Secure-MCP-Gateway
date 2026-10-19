@@ -1,0 +1,130 @@
+{
+  "id": "unicode-control",
+  "version": "2026.10.1",
+  "description": "Bidirectional overrides and isolates, zero-width characters outside the scripts that use them, Unicode tag characters outside emoji tag sequences, and other invisible format characters (SR-5.14-1).",
+  "rules": [
+    {
+      "id": "bidi-control",
+      "kind": "codepoints",
+      "description": "Bidirectional embedding, override and isolate controls (Trojan Source).",
+      "ranges": [
+        "202A-202E",
+        "2066-2069"
+      ],
+      "request_action": "block",
+      "response_action": "redact"
+    },
+    {
+      "id": "zero-width",
+      "kind": "codepoints",
+      "description": "Zero-width space, joiners and invisible operators, permitted between letters of scripts that use them and inside emoji ZWJ sequences.",
+      "ranges": [
+        "200B-200D",
+        "2060-2064",
+        "180E"
+      ],
+      "request_action": "block",
+      "response_action": "redact",
+      "permitted_scripts": [
+        "Arabic",
+        "Syriac",
+        "Thaana",
+        "Nko",
+        "Mongolian",
+        "Devanagari",
+        "Bengali",
+        "Gurmukhi",
+        "Gujarati",
+        "Oriya",
+        "Tamil",
+        "Telugu",
+        "Kannada",
+        "Malayalam",
+        "Sinhala",
+        "Thai",
+        "Lao",
+        "Tibetan",
+        "Myanmar",
+        "Khmer",
+        "Hebrew",
+        "Inherited"
+      ],
+      "permit_emoji": true
+    },
+    {
+      "id": "byte-order-mark",
+      "kind": "codepoints",
+      "description": "U+FEFF anywhere but the start of a string.",
+      "ranges": [
+        "FEFF"
+      ],
+      "request_action": "block",
+      "response_action": "redact",
+      "permit_at_start": true
+    },
+    {
+      "id": "tag-characters",
+      "kind": "codepoints",
+      "description": "Unicode tag characters (invisible ASCII), permitted only after U+1F3F4 in emoji flag tag sequences.",
+      "ranges": [
+        "E0000-E007F"
+      ],
+      "request_action": "block",
+      "response_action": "redact",
+      "permit_after": [
+        "1F3F4"
+      ]
+    },
+    {
+      "id": "variation-selector-supplement",
+      "kind": "codepoints",
+      "description": "Ideographic variation selectors, permitted only after a Han ideograph.",
+      "ranges": [
+        "E0100-E01EF"
+      ],
+      "request_action": "block",
+      "response_action": "redact",
+      "permit_after": [
+        "3400-4DBF",
+        "4E00-9FFF",
+        "F900-FAFF",
+        "20000-2FA1F"
+      ]
+    },
+    {
+      "id": "interlinear-annotation",
+      "kind": "codepoints",
+      "description": "Interlinear annotation controls.",
+      "ranges": [
+        "FFF9-FFFB"
+      ],
+      "request_action": "block",
+      "response_action": "redact"
+    },
+    {
+      "id": "deprecated-format",
+      "kind": "codepoints",
+      "description": "Deprecated format characters (symmetric swapping, digit shapes).",
+      "ranges": [
+        "206A-206F"
+      ],
+      "request_action": "block",
+      "response_action": "redact"
+    },
+    {
+      "id": "hangul-filler",
+      "kind": "codepoints",
+      "description": "Hangul fillers used as invisible identifiers, permitted between Hangul letters.",
+      "ranges": [
+        "115F-1160",
+        "3164",
+        "FFA0"
+      ],
+      "request_action": "block",
+      "response_action": "redact",
+      "permitted_scripts": [
+        "Hangul"
+      ]
+    }
+  ]
+}

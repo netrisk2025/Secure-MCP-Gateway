@@ -3,3 +3,5 @@ node_modules
 out
 next-env.d.ts
 *.tsbuildinfo
+# status snapshot written by each build (src/lib/status.ts)
+.status

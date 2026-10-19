@@ -10,11 +10,20 @@ R: Developing and testing policy is the owner's primary research purpose.
 
 @FR-3.1 | Policy object types
 P: FR-3
-S: The Policy Administration Service (E-05) SHALL support the policy object types Framework Profile, Session Allow Policy Template, Secret Use Policy, Response Policy, Audit Profile, Observation Policy, Anomaly Response Policy, Research Campaign and Runtime Profile.
-A: E-05; F-10; I-06; I-07; D-01
-V: Test | Create, validate and publish one object of each type; confirm each is stored and evaluable.
+S: The Gateway SHALL support the policy object types Framework Profile and Session Allow Policy Template in the signed policy document of the Policy Administration Service (E-05), Secret Use Policy in the Secret Broker (E-20), Audit Profile, Observation Policy and Anomaly Response Policy as published observation objects of the Management Console & Control API (E-24), and Research Campaign in the Research Dataset Service (E-32), each validated before it takes effect and kept under a revision or object identifier.
+A: E-05; E-20; E-24; E-32; F-10; I-06; I-07; D-01
+V: Test | Create, validate and publish or activate one object of each type; confirm each is stored under its identifier and evaluated by its element.
+SRC: ARCH §7.2; OWNER (release 1.0 object homes)
+R: These objects compose the Allow-policy model. Release 1.0 keeps each object with the element that evaluates it rather than in one document: the policy document holds what the decision path evaluates, and secret-use, observation and research objects are validated and versioned by their own services with their own control API routes and roles (Appendix C). Response Policy and Runtime Profile objects are deferred (FR-3.26).
+
+@FR-3.26 | Response Policy and Runtime Profile objects
+P: FR-3
+S: The Policy Administration Service (E-05) SHALL support Response Policy and Runtime Profile objects as published, versioned policy objects.
+A: E-05; E-11; E-15; F-10; I-06; D-01
+V: Test | Create, validate and publish one Response Policy and one Runtime Profile; confirm each is stored and evaluated by E-11 and E-15.
 SRC: ARCH §7.2
-R: These objects compose the Allow-policy model.
+R: Separately published response and runtime objects let a policy author change response handling and instance limits without editing configuration.
+DEFER: Release 1.0 sets response handling with the `filters` obligations of permit rules and the `[filters]` configuration (where a requirement names the Response Policy, release 1.0 reads that configuration), and runtime limits with the verified manifest and the `[runtime]` configuration. Instance scopes that would need a Runtime Profile are already deferred (FR-5.10). Separate Response Policy and Runtime Profile objects need a publication path, schema and simulation support that release 1.0 does not have.
 
 @FR-3.2 | Policy schema
 P: FR-3
@@ -31,12 +40,13 @@ A: E-05; F-10; I-06
 V: Demonstration | Create a draft, edit it in two sessions of G-02, discard one and publish the other; confirm the active revision changes only on publish.
 SRC: ARCH §4 E-05
 R: Authors iterate on policy without affecting enforcement.
+DEFER: Release 1.0 has no server-side named drafts. A document is validated and simulated through the control API without being stored, and published with a stated parent revision that must still be active (a stale parent is refused, so two editors cannot overwrite each other); the G-02 editor keeps the unpublished text in the browser. Named drafts shared between sessions are deferred.
 
 @FR-3.4 | Revision record
 P: FR-3
-S: The Policy Administration Service (E-05) SHALL record for each published revision its ID, parent revision ID, content digest, policy-schema version, evaluator version, publishing actor, publication time and simulation result reference.
+S: The Policy Administration Service (E-05) SHALL record for each published revision its ID, parent revision ID, content digest, policy-schema version, evaluator version, publishing actor, publication time, simulation result reference and policy-signing key ID.
 A: E-05; F-12; D-01
-V: Inspection | Publish a revision; inspect the stored record for each field.
+V: Inspection | Publish a revision; inspect the record in the Policy Store for each field.
 SRC: A2 §4.1 PolicyRevision; SEC 1.14
 R: Supports reproducible research and audit linkage.
 
@@ -63,6 +73,7 @@ A: E-05; F-66; I-06
 V: Test | Estimate a policy over a replayed 7-day fixture traffic set; confirm estimates are within ±25% of the measured values after one replayed day.
 SRC: ARCH §11 item 6; ARCH §5 F-66
 R: Researchers must know the cost of a capture choice before publishing it.
+DEFER: Release 1.0 reports the measured cost of observation instead of an estimate: GET /api/v1/observations/cost ranks the time spent per stage, policy revision and Observation Policy from recorded spans, and the meta-metrics give records and store growth per interval. A forecast for a draft Observation Policy or Research Campaign from seven days of call rates is deferred until those object types have drafts (FR-3.3).
 
 @FR-3.8 | Policy export and import
 P: FR-3
@@ -84,7 +95,7 @@ R: Rollback keeps history linear and immutable.
 P: FR-3
 S: The Policy Decision Service (E-06) SHALL compile the active revision into an in-memory decision snapshot when the revision is activated, and SHALL evaluate requests against that snapshot.
 A: E-06; F-13; I-07
-V: Test | Activate a revision; confirm decisions continue during a 10-second Data Server read pause, with no store access per decision.
+V: Test | Activate a revision; stop the graph database and the Observation Store; confirm decisions continue unchanged for 60 seconds with no Data Server access per decision.
 SRC: ARCH §15 E-05/E-06; ARCH §14
 R: Decision latency must not depend on a database round-trip.
 
@@ -114,11 +125,11 @@ R: Rate limits are a policy obligation.
 
 @FR-3.14 | Approval request creation
 P: FR-3
-S: When a decision carries an approval obligation and no matching unconsumed approval exists, the Approval Service (E-07) SHALL create a pending approval record and the Protocol Mediator (E-02) SHALL return Gateway error `-31002` with `data.approvalId` and `data.expiresAt`.
+S: When a decision carries an approval obligation and no matching unconsumed approval exists, the Approval Service (E-07) SHALL create a pending approval record bound per SR-1.18-2, notify approvers (FR-3.23) and hold the call (FR-3.19).
 A: E-07; E-02; F-17; I-10; X-01
-V: Test | Call a tool that requires approval; confirm -31002 with both data members and a pending record visible in G-13.
-SRC: ARCH §4 E-07; SEC 1.18
-R: Approval is out-of-band; the harness learns the approval ID and retries.
+V: Test | Call a tool that requires approval; confirm a pending record visible in G-13 and in `smcpctl approvals list`, a desktop notification through the test notifier, and that the call is held rather than answered.
+SRC: ARCH §4 E-07; SEC 1.18; OWNER (approvals: hold mode)
+R: Approval is out-of-band. Holding the call lets an approved call finish in the same turn of the agent; the retry path remains for calls that outlast the hold.
 
 @FR-3.15 | Approval consumption on retry
 P: FR-3
@@ -151,6 +162,62 @@ A: E-07; F-17; X-05
 V: Inspection | Open a pending approval triggered by an anomaly obligation in G-13; confirm each item is displayed.
 SRC: ARCH §4 E-07; ARCH §9.6
 R: Approvers need the evidence to decide.
+
+@FR-3.19 | Approval hold mode
+P: FR-3
+S: While an approval-obligated call is pending, the Approval Service (E-07) SHALL keep the call parked for at most the CP-45 hold bound, and the Protocol Mediator (E-02) SHALL send a keep-alive every CP-45 keep-alive interval: a `notifications/progress` message when the request carries a progress token, and an SSE comment line otherwise.
+A: E-07; E-02; F-17; X-01
+V: Test | Call an approval-obligated tool with and without a progress token and leave it pending; confirm keep-alives at the interval in both forms and no response before the hold bound.
+SRC: OWNER (approvals: hold mode with progress keep-alives); MCP:basic/utilities/progress
+R: Harnesses close idle requests. Keep-alives hold the call open while a person decides.
+
+@FR-3.20 | Approval during hold
+P: FR-3
+S: When a held call's approval is granted before the CP-45 hold bound, the Approval Service (E-07) SHALL consume the approval and continue the same call to launch authorization (F-29), so that the harness receives the tool result as the response to its original request.
+A: E-07; E-12; F-18; F-17; I-10; I-11
+V: Test | Hold a call; approve it from G-13; confirm the original request returns the tool result, the approval is `consumed`, and a second identical call creates a new approval.
+SRC: OWNER (approvals: hold mode)
+R: The agent's turn completes without a retry when the person answers in time.
+
+@FR-3.21 | Denial during hold
+P: FR-3
+S: When a held call's approval is denied, the Approval Service (E-07) SHALL end the call with Gateway error `-31001` and reason code `APPROVAL_DENIED`.
+A: E-07; E-02; F-18; X-01
+V: Test | Hold a call; deny it; confirm `-31001` with `APPROVAL_DENIED` and no dispatch event.
+SRC: OWNER (approvals: approve or deny)
+R: A denial is a policy outcome and is reported as one.
+
+@FR-3.22 | Hold bound fallback
+P: FR-3
+S: When a held call reaches the CP-45 hold bound without a decision, the Protocol Mediator (E-02) SHALL end the call with Gateway error `-31002` carrying `data.approvalId`, `data.expiresAt`, the plain-language `data.message` and `data.approvalUrl` (FR-1.51), and the Approval Service (E-07) SHALL keep the approval pending until its CP-17 expiry so that a retry after approval consumes it (FR-3.15).
+A: E-07; E-02; F-17; X-01
+V: Test | Hold a call past the bound; confirm the `-31002` data members; approve; retry the identical call; confirm dispatch.
+SRC: OWNER (approvals: fallback to -31002 with plain-language retry text and a console deep link)
+R: The hold is bounded so a harness never waits indefinitely; the approval survives the fallback.
+
+@FR-3.23 | Approver notification
+P: FR-3
+S: Within 2 seconds of creating a pending approval, the Approval Service (E-07) SHALL notify approvers in the Approvals view (G-13), in the `smcpctl approvals watch` stream and through an OS desktop notification (X-14) whose text contains only the public tool name, the server alias, the approval ID and the console URL.
+A: E-07; E-24; F-17; X-05; X-14
+V: Test | Create an approval with the test notifier attached; confirm the three notices within 2 seconds and that the desktop notification text contains no argument value; remove the notifier binary and confirm the approval flow is unaffected and a diagnostic log warning is written.
+SRC: OWNER (approvals: console, CLI and OS desktop notification)
+R: A held call is only useful if a person learns about it while the hold lasts. Arguments stay out of OS notifications because notification centers persist and display them outside the Gateway's control.
+
+@FR-3.24 | Approval CLI
+P: FR-3
+S: The `smcpctl approvals` command SHALL provide `list`, `show`, `approve`, `deny` and `watch` subcommands that authenticate to the control API as a person holding the Approver or Administrator role and display the FR-3.18 evidence before an approve or deny takes effect.
+A: E-24; E-07; F-18; X-05
+V: Test | Approve and deny held calls with the CLI as an Approver; confirm the evidence is printed, the decisions are recorded with the approver identity, and an Auditor account is refused.
+SRC: OWNER (approve and deny via smcpctl approvals)
+R: Operators who work in a terminal need an approval path that does not require the browser.
+
+@FR-3.25 | Real-harness approval acceptance
+P: FR-3
+S: The Gateway project SHALL verify the approval flow end to end with Claude Code at its Appendix K pinned version, covering a held call approved from G-13, a held call approved with `smcpctl approvals`, a denied call and a call that reaches the hold bound, and SHALL record the harness-visible text of each outcome.
+A: E-07; E-02; E-24; F-17; F-18; X-01; X-05
+V: Demonstration | Run the four cases with the pinned Claude Code build against a Gateway at the release commit; confirm each outcome and file the recorded transcript in `docs/verification/`.
+SRC: REVIEW (C5)
+R: Hold mode depends on harness timeout and progress behavior that unit tests cannot show.
 
 ### FR-4 Enforcement pipeline
 
@@ -282,6 +349,30 @@ V: Test | Enable synchronous scoring; confirm that an abnormal fixture's obligat
 SRC: ARCH §9.5 (Scoring mode); ARCH §18.3
 R: Anomaly obligations must act at the control points.
 
+@FR-4.16 | Versioned detection rule sets
+P: FR-4
+S: The Request Inspection Pipeline (E-09) and the Response Inspection Pipeline (E-11) SHALL load the rules of the `secret-fingerprint`, `injection-detect`, `injection-marker`, `pii-detect` and `unicode-control` filters and of the metadata scan from versioned rule-set files, each with an ID, version and SHA-256 digest, and SHALL record the rule-set ID and version in every finding.
+A: E-09; E-11; E-14; F-21; F-27; F-34
+V: Test | Load two versions of a rule set; run the same input under each; confirm the findings name the version in effect and that a rule-set file whose digest does not match its index is refused at load.
+SRC: REVIEW (I1); SEC 5.14
+R: Detection quality can only be measured and compared per version (FR-19.5).
+
+@FR-4.17 | Injection findings as tags
+P: FR-4
+S: The `injection-detect` and `injection-marker` filters SHALL record each finding as a provenance tag on the released result and as observation parameters P-043 and P-143, and SHALL leave the release disposition unchanged.
+A: E-09; E-11; F-21; F-27; F-28
+V: Test | Run the injection corpus through both filters; confirm every positive sample yields a tag and parameter value and that each result is released with the same disposition as without the filter.
+SRC: OWNER (injection-marker tags only in v1); REVIEW (I1)
+R: Prompt-injection detection has false positives and false negatives that are not yet measured well enough to block on. Tags give the agent and the researcher the signal without claiming a control.
+
+@FR-4.18 | Untrusted-content delimiting
+P: FR-4
+S: When the Response Policy carries the `delimit-untrusted` obligation, the Response Inspection Pipeline (E-11) SHALL enclose each text content item from a tool whose manifest `source_trust` is `untrusted` between delimiter lines that carry a per-response random nonce of at least 96 bits, and SHALL remove from the enclosed text any line matching the delimiter pattern.
+A: E-11; F-27; F-28
+V: Test | Enable the obligation; return text containing a forged delimiter line from an untrusted-source fixture; confirm the released text is enclosed with a fresh nonce and the forged line is removed.
+SRC: REVIEW (I2)
+R: An optional, deterministic way to mark where untrusted text begins and ends for agents that honor it. It is not a control on its own.
+
 ### FR-5 Server trust, runtime and southbound MCP client
 
 @FR-5 | Server trust and execution
@@ -294,15 +385,15 @@ R: Hosting curated, signed servers locally is the core vision.
 
 @FR-5.1 | Library sources
 P: FR-5
-S: The Library Trust Verifier (E-13) SHALL retrieve packages from a configured local directory library or a configured local OCI registry library.
+S: The Library Trust Verifier (E-13) SHALL retrieve packages from a configured local directory library.
 A: E-13; F-33; X-03
-V: Test | Import one package from each library type; confirm both succeed.
+V: Test | Import a package from the directory library; confirm it succeeds.
 SRC: ARCH §6.1 X-03; ARCH §19 OD-7
-R: The library location is a deployment choice.
+R: The library location is a deployment choice. Release 1.0 packages are signed directory trees, so a directory (local, or a mounted share) is the one library type; the local OCI registry library of ARCH §19 OD-7 is not part of release 1.0. OCI images remain a supported artifact type inside a package (FR-14.1).
 
 @FR-5.2 | Package contents
 P: FR-5
-S: The Library Trust Verifier (E-13) SHALL require each package to contain an artifact, a detached signature or signature bundle, a manifest conforming to the X-03 manifest schema, and the signer certificate chain or key identifier.
+S: The Library Trust Verifier (E-13) SHALL require each package to contain an artifact, a package index listing the artifact, manifest and provenance digests, a minisign signature over that index, a manifest conforming to the Appendix J schema, a provenance statement and the signer key identifier.
 A: E-13; F-33; F-34; X-03
 V: Test | Import packages each missing one component; confirm each is rejected with a reason naming the missing component.
 SRC: ARCH §6.3
@@ -334,7 +425,7 @@ R: The registry is the source of the capability ceiling and the catalog.
 
 @FR-5.6 | Server alias
 P: FR-5
-S: The Local Server Registry (E-14) SHALL assign each server a unique alias of 1 to 32 characters drawn from `a-z 0-9 _ -`, defaulting to the manifest server ID and editable by an administrator.
+S: The Local Server Registry (E-14) SHALL assign each server a unique alias of 1 to 16 characters drawn from `a-z 0-9` (CP-42), defaulting to the manifest `server.alias` and editable by an administrator.
 A: E-14; F-36; I-06
 V: Test | Register two servers whose default aliases collide; confirm enablement of the second is blocked until a unique alias is set.
 SRC: FR-1.26; MCP:server/tools §Tool Names
@@ -344,9 +435,9 @@ R: Aliases form public tool names.
 P: FR-5
 S: The Local Server Registry (E-14) SHALL keep each server revision in one of the states `verified-disabled`, `enabled`, `suspended`, `revoked` or `retired`.
 A: E-14; F-36; D-02
-V: Test | Drive a revision through each transition from G-10; confirm the state and that only `enabled` revisions appear in catalogs.
+V: Test | Drive a revision through each transition (enable, disable and retire through the G-10 control API routes, suspension by drift, revocation by a signed revocation entry applied by a library scan); confirm the state and that only `enabled` revisions appear in catalogs.
 SRC: ARCH §4 E-14; SEC 8.1
-R: Verified does not mean enabled.
+R: Verified does not mean enabled. Suspension and revocation are not operator buttons in release 1.0: the Gateway suspends a revision on drift, tampering or repeated crashes, and a signed revocation entry revokes it, so the test reaches those states the way they occur.
 
 @FR-5.8 | Expiry suspension
 P: FR-5
@@ -371,6 +462,7 @@ A: E-15; F-38; I-12
 V: Test | Configure each scope; confirm instance counts after calls from two sessions.
 SRC: ARCH §4 E-15; ARCH §19 OD-3
 R: Isolation versus cold-start cost is a policy choice.
+DEFER: Release 1.0 runs one shared instance per enabled server revision, started with the Gateway and replaced after an upstream timeout or failure. Per-session and per-call instances need per-instance secret delivery (the Secret Broker delivers S2 and S3 secrets per server alias) and per-instance sandbox resources that release 1.0 does not have; they are deferred to the release that adds the Runtime Profile object.
 
 @FR-5.11 | Instance reuse and idle teardown
 P: FR-5
@@ -379,6 +471,7 @@ A: E-15; F-39; F-40
 V: Test | Make two calls in one session and then wait past CP-38; confirm one instance is reused and then torn down.
 SRC: ARCH §4 E-15
 R: Bounds resource use on a single PC.
+DEFER: Deferred with per-session and per-call instance scopes (FR-5.10): with one shared instance per revision there is nothing to reuse by scope or to tear down when idle. The instance runs until the Gateway stops, its revision is suspended, or it is replaced after a failure.
 
 @FR-5.12 | Crash handling
 P: FR-5
@@ -419,6 +512,7 @@ A: E-10; F-23; I-13
 V: Test | Start modern and legacy fixture servers; confirm each classification.
 SRC: MCP:basic/transports/stdio §Backward Compatibility
 R: Curated servers may implement either era.
+DEFER: Release 1.0 speaks the 2025-11-25 era southbound only, through the `initialize` handshake of FR-5.19; the reference packages and the servers `smcpctl package build` probes are 2025-11-25 servers. The `server/discover` probe and modern southbound requests are deferred to the release that adds the modern southbound client. A revision whose manifest era differs from the era its instance negotiates is not used (FR-5.40).
 
 @FR-5.17 | Era consistency with manifest
 P: FR-5
@@ -427,6 +521,7 @@ A: E-10; E-14; F-23; F-37
 V: Test | Launch a legacy fixture whose manifest declares modern; confirm refusal and suspension.
 SRC: SEC 3.8; ARCH §6.3
 R: The runtime must match the curated declaration.
+DEFER: Deferred with the era probe (FR-5.16). Release 1.0 compares the manifest era with the negotiated era instead (FR-5.40).
 
 @FR-5.18 | Modern southbound requests
 P: FR-5
@@ -435,6 +530,7 @@ A: E-10; F-23; I-13
 V: Test | Capture southbound requests; confirm the metadata and ID uniqueness.
 SRC: MCP:basic/index §Per-request protocol fields
 R: Modern server requirement.
+DEFER: Deferred with the era probe (FR-5.16): release 1.0 sends no modern southbound requests.
 
 @FR-5.19 | Legacy southbound handshake
 P: FR-5
@@ -491,14 +587,15 @@ A: E-10; E-02; F-24; F-22; I-13; X-01
 V: Test | Enable the profile; complete an elicitation round trip; confirm that tampered, expired and cross-session states are rejected.
 SRC: MCP:basic/patterns/mrtr §Server Requirements; SEC 5.6
 R: Lets elicitation be qualified later without trusting harness-carried state.
+DEFER: Release 1.0 ships without the MRTR Relay Profile. Relaying elicitation, sampling and roots needs a signed request-state protocol and a harness that answers it; none of the Appendix K clients needs it to use the reference packages. A backend InputRequiredResult ends the call with -31010 (FR-5.24) and server-initiated requests get -32601 (FR-5.20).
 
 @FR-5.26 | Southbound cancellation
 P: FR-5
-S: The Tool Dispatcher (E-10) SHALL cancel a southbound call by sending `notifications/cancelled` with the request ID on stdio instances and by closing the response stream on Streamable HTTP instances.
+S: The Tool Dispatcher (E-10) SHALL cancel a southbound call to a stdio instance by sending `notifications/cancelled` with the request ID.
 A: E-10; F-25; I-13
-V: Test | Cancel calls on both transports; confirm the transport-specific signal.
+V: Test | Cancel a call to a stdio fixture; confirm the instance receives `notifications/cancelled` naming the request ID.
 SRC: MCP:basic/patterns/cancellation
-R: Transport-specific cancellation rules.
+R: Transport-specific cancellation rules. Release 1.0 runs stdio instances only; cancellation on Streamable HTTP instances returns with the southbound HTTP client (Appendix N, FR-5.28).
 
 @FR-5.27 | Instance shutdown
 P: FR-5
@@ -515,6 +612,7 @@ A: E-10; F-23; F-24; I-13
 V: Test | Run the southbound HTTP conformance fixtures; confirm the headers and both response types.
 SRC: MCP:basic/transports/streamable-http §Sending Messages; §Standard Request Headers
 R: Some curated servers use the HTTP binding inside their sandbox.
+DEFER: Release 1.0 runs every server instance over stdio, which is the only transport of the reference packages (FR-14.9) and of servers packaged with `smcpctl package build`. A southbound Streamable HTTP client needs its own conformance fixtures and egress handling; it is deferred to the release that admits HTTP instances.
 
 @FR-5.29 | Southbound header encoding
 P: FR-5
@@ -523,6 +621,7 @@ A: E-10; F-23; I-13
 V: Test | Call fixture tools with non-ASCII, padded and sentinel-like values; confirm the encodings.
 SRC: MCP:basic/transports/streamable-http §Value Encoding
 R: Clients must support `x-mcp-header`.
+DEFER: Deferred with the southbound Streamable HTTP client (FR-5.28): header mirroring exists only on that transport.
 
 @FR-5.30 | Southbound SSE comments
 P: FR-5
@@ -531,6 +630,7 @@ A: E-10; F-24; I-13
 V: Test | Inject comment lines into a fixture stream; confirm no error.
 SRC: MCP:basic/transports/streamable-http §Receiving Messages
 R: Keep-alive comments are valid.
+DEFER: Deferred with the southbound Streamable HTTP client (FR-5.28): SSE exists only on that transport.
 
 @FR-5.31 | Southbound list-change watch
 P: FR-5
@@ -539,6 +639,7 @@ A: E-10; E-14; F-24; F-37; I-13
 V: Test | Make a fixture add a tool at runtime; confirm the comparison and the resulting suspension.
 SRC: MCP:basic/patterns/subscriptions; SEC 3.8
 R: Detects runtime tool drift.
+DEFER: Deferred with the southbound Streamable HTTP client and modern-era instances (FR-5.28, FR-5.16). Release 1.0 acts on `notifications/tools/list_changed` from stdio instances by re-reading the tool list and comparing it with the manifest (SR-3.8-1).
 
 @FR-5.32 | Southbound progress token
 P: FR-5
@@ -550,11 +651,11 @@ R: Tokens must be unique, and northbound tokens are not forwarded.
 
 @FR-5.33 | Runtime observables
 P: FR-5
-S: The Runtime Monitor (E-17) SHALL collect, per instance, process creations, file opens outside declared mounts, network connection attempts, memory peak, CPU time and OOM or limit events.
+S: The Runtime Monitor (E-17) SHALL collect, per instance, process creations, memory peak, CPU time and OOM or limit events.
 A: E-17; F-42; I-24
 V: Test | Run a fixture performing each behavior; confirm each event is collected.
 SRC: ARCH §4 E-17; ARCH §10.3 P-100–P-108
-R: Run-time controls and characterization need these observables.
+R: Run-time controls and characterization need these observables. Release 1.0 reads them from the instance's cgroup and the Podman event stream, which rootless Podman provides without privileges. File opens outside the declared mounts and network connection attempts are not observed: they need privileged tracing (fanotify or eBPF) that the rootless Enforced profile does not have. They are prevented instead: an instance sees only its granted mounts (SR-4.6-1) and reaches only its Egress Broker endpoints (SR-4.5-1), and the broker records every operation (FR-5.36).
 
 @FR-5.34 | Declared-behavior rules
 P: FR-5
@@ -566,11 +667,11 @@ R: Rule-based run-time detection.
 
 @FR-5.35 | Containment actions
 P: FR-5
-S: When a deviation event matches a containment rule, the Runtime Monitor (E-17) SHALL perform the rule's action (`alert`, `kill-instance`, `suspend-revision` or `suspend-session`) within 1 second.
+S: When a deviation event matches a containment rule, the Runtime Monitor (E-17) SHALL perform the rule's action (`alert` or `kill-instance`) within 1 second.
 A: E-17; F-44; I-19
 V: Test | Trigger each action; confirm effect and latency.
 SRC: ARCH §4 E-17
-R: Bounded response to run-time misbehavior.
+R: Bounded response to run-time misbehavior. The `suspend-revision` and `suspend-session` actions of ARCH §4 E-17 are not part of release 1.0: a killed instance is restarted on next use and a revision whose instance keeps ending is suspended by the Server Runtime Manager (FR-5.12), and an operator suspends a revision or ends a session from the console (G-10, G-08).
 
 @FR-5.36 | Egress endpoints
 P: FR-5
@@ -594,7 +695,7 @@ S: The Egress Broker (E-18) SHALL bound each outbound operation's request size, 
 A: E-18; F-45; X-06
 V: Test | Exceed each bound with a fixture; confirm termination and an event.
 SRC: SEC Appendix F (resource limits)
-R: Bounded egress resource use.
+R: Bounded egress resource use. Release 1.x reads the Runtime Profile from the `[egress]` limits and grant of the configuration (FR-3.26), the manifest limits from the optional `request_bytes`, `response_bytes` and `timeout_ms` of its egress rules (Appendix J), and the decision obligation from the optional `egress_limits` of the permit rule, which travels with the call's egress capabilities.
 
 @FR-5.39 | Artifact cache
 P: FR-5
@@ -603,4 +704,12 @@ A: E-14; F-36; I-21; D-03
 V: Test | Import two revisions sharing an artifact, retire one, then the other; confirm single storage and removal only after both retire.
 SRC: ARCH §13 D-03
 R: Launches use local verified artifacts without re-fetching.
+
+@FR-5.40 | Era agreement with the manifest
+P: FR-5
+S: When the protocol version an instance negotiates in the FR-5.19 handshake differs from the era its verified manifest declares, the Tool Dispatcher (E-10) SHALL refuse to use the instance and the Local Server Registry (E-14) SHALL suspend the server revision.
+A: E-10; E-14; F-23; I-13
+V: Test | Launch a fixture whose manifest declares 2026-07-28 while the instance negotiates 2025-11-25; confirm the instance is not used and the revision is suspended.
+SRC: SEC 5.1; MCP:basic/versioning
+R: Release 1.0 speaks only the 2025-11-25 era southbound (Appendix N lists the deferred modern-era requirements); a revision packaged as modern must not be driven with legacy behavior.
 

@@ -1,0 +1,77 @@
+# Secure MCP Gateway daemon, enforced profile (systemd system unit).
+# Installed by packaging/linux/install-enforced.sh; see docs/sandbox.md.
+#
+# smcpd runs as the unprivileged service identity smcp-core and starts each
+# backend MCP server in a rootless Podman container. Rootless Podman needs a
+# delegated cgroup subtree (Delegate=, DelegateSubgroup=), its own runtime
+# directory (XDG_RUNTIME_DIR) and the setuid helpers newuidmap/newgidmap,
+# which rules out some systemd hardening options; those are listed at the end
+# with the reason.
+
+[Unit]
+Description=Secure MCP Gateway (enforced profile)
+Documentation=https://github.com/ethan03805/Secure-MCP-Gateway/blob/main/docs/sandbox.md
+After=network-online.target smcp-nftables.service
+Wants=network-online.target
+Requires=smcp-nftables.service
+
+[Service]
+Type=simple
+User=smcp-core
+Group=smcp
+ExecStart=/usr/local/bin/smcpd --config /etc/smcp/smcp.toml
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=60s
+KillMode=mixed
+
+# Rootless Podman under a system service: containers get cgroups below the
+# delegated service cgroup (set runtime.cgroup_manager = "cgroupfs" in
+# smcp.toml); smcpd itself lives in the "supervisor" leaf.
+Delegate=yes
+DelegateSubgroup=supervisor
+Environment=XDG_RUNTIME_DIR=/run/smcp
+Environment=HOME=/var/lib/smcp/home/smcp-core
+RuntimeDirectory=smcp
+RuntimeDirectoryMode=0750
+UMask=0077
+
+# Filesystem: everything read-only except the Gateway's own directories.
+# Writable mount grants for servers must be added with a drop-in
+# (ReadWritePaths=) as well as in smcp.toml.
+ProtectSystem=strict
+ReadWritePaths=/var/lib/smcp /run/smcp /var/log/smcp
+ProtectHome=read-only
+PrivateTmp=yes
+
+# Kernel and process hardening that rootless Podman tolerates.
+ProtectKernelModules=yes
+ProtectClock=yes
+LockPersonality=yes
+RestrictRealtime=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+SystemCallArchitectures=native
+
+# Mandatory access control: the AppArmor profile packaging/linux/apparmor/
+# smcpd, loaded by install-enforced.sh. The leading "-" skips it on hosts
+# without AppArmor (SELinux hosts use the unit's default domain).
+AppArmorProfile=-smcpd
+
+# Not set, and why:
+#   NoNewPrivileges=yes     newuidmap/newgidmap are setuid helpers
+#   CapabilityBoundingSet=  crun needs capabilities inside the user namespace
+#   PrivateUsers=yes        Podman creates its own user namespaces
+#   RestrictNamespaces=yes  Podman creates user, mount, PID, IPC, UTS, net namespaces
+#   PrivateDevices=yes      Podman may need /dev/fuse and /dev/net/tun
+#   ProtectKernelTunables=  crun writes /proc/sys inside container namespaces
+#   ProtectKernelLogs=yes   it masks /proc/kmsg; with any mount over /proc the
+#                           kernel refuses a new proc mount in a user namespace
+#                           (crun: "mount proc to proc: Operation not permitted")
+#   ProtectHostname=yes     it makes /proc/sys/kernel/hostname read-only with a
+#                           mount over /proc: the same failure
+#   ProtectControlGroups=   containers' cgroups are created below this unit
+#   RestrictSUIDSGID=yes    image layers may carry set-ID bits
+#   SystemCallFilter=       Podman and crun use mount, unshare, setns, pivot_root
+
+[Install]
+WantedBy=multi-user.target

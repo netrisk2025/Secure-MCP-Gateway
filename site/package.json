@@ -5,9 +5,16 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "npx serve out"
+    "start": "npx serve out",
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --no-warnings --test \"test/**/*.test.ts\"",
+    "check-out": "node scripts/check-out.mjs",
+    "check-diagrams": "node scripts/check-diagrams.mjs",
+    "render-system-map": "node scripts/render-system-map.mjs"
   },
   "dependencies": {
+    "@fontsource-variable/newsreader": "^5.3.0",
+    "@fontsource/ibm-plex-mono": "^5.3.0",
     "github-slugger": "^2.0.0",
     "mermaid": "^12.2.0",
     "next": "^15.5.28",
@@ -25,6 +32,10 @@
     "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "playwright-core": "^1.64.1",
     "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "postcss": "8.5.28"
   }
 }

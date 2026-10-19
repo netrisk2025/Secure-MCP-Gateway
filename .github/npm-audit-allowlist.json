@@ -1,0 +1,4 @@
+{
+  "_comment": "Advisories that `npm audit --audit-level=high` may report without failing CI. Each entry needs a reason and an expiry date (YYYY-MM-DD); after expiry the advisory fails the security job again. Remove entries as soon as the dependency is fixed. Checked by scripts/npm-audit-gate.sh.",
+  "advisories": []
+}

@@ -1,66 +1,999 @@
+# Continuous integration. The job names srs, go, lint, site, security and
+# linux-integration are required status checks on main; renaming one breaks
+# branch protection, so keep them stable.
+#
+# Triggers: pull requests, pushes to main, pushes of release tags (v*) and
+# workflow_dispatch. The dispatch trigger exists because commits pushed with
+# GITHUB_TOKEN (by the regenerate and auto-update workflows) do not start
+# workflows; those workflows dispatch CI on the PR branch so the required
+# checks run on the new head commit.
+#
+# The jobs perf, acceptance-enforced, console-enforced and offline run on
+# every trigger except pull requests: on pushes to main, on release tags and
+# when dispatched. Their results are what the release label of FR-19.3
+# counts; the status job writes the status document of every such run (the
+# artifact status-document) and publishes it to site-data for main only.
 name: CI
 
 on:
-  push:
-    branches: ["**"]
   pull_request:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  GO_VERSION: "1.26.x"
+  NODE_VERSION: "24"
+  GOLANGCI_LINT_VERSION: v2.14.0
+  GOVULNCHECK_VERSION: v1.9.0
 
 jobs:
   srs:
-    name: SRS regeneration check
-    runs-on: ubuntu-latest
+    name: srs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Regenerate the SRS from srs_build and compare with the committed file
         run: |
           python3 -I srs_build/gen.py . "$RUNNER_TEMP/srs.md"
-          diff -u Secure_MCP_Gateway_SRS.md "$RUNNER_TEMP/srs.md"
-
-  site:
-    name: Site build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: site/package-lock.json
-      - run: npm ci
-        working-directory: site
-      - run: npm run build
-        working-directory: site
+          if ! diff -u Secure_MCP_Gateway_SRS.md "$RUNNER_TEMP/srs.md"; then
+            echo "::error file=Secure_MCP_Gateway_SRS.md::The committed SRS differs from srs_build. Run: python3 -I srs_build/gen.py . Secure_MCP_Gateway_SRS.md"
+            exit 1
+          fi
 
   go:
-    name: Go build and tests
-    runs-on: ubuntu-latest
+    name: go
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - id: check
-        run: |
-          if [ -f go.mod ]; then echo "present=true" >> "$GITHUB_OUTPUT"; else echo "present=false" >> "$GITHUB_OUTPUT"; fi
-      - if: steps.check.outputs.present == 'true'
-        uses: actions/setup-go@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          go-version-file: go.mod
-      - if: steps.check.outputs.present == 'true'
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+          cache-dependency-path: |
+            go.sum
+            spikes/*/go.sum
+      - name: Build
         run: go build ./...
-      - if: steps.check.outputs.present == 'true'
+      - name: Vet
         run: go vet ./...
-      - if: steps.check.outputs.present == 'true'
-        name: Test and map results to requirement IDs (FR-12.10)
+      - name: gofmt
+        run: |
+          unformatted=$(git ls-files -z '*.go' | xargs -0 gofmt -l)
+          if [ -n "$unformatted" ]; then
+            echo "::error::gofmt needed on: $unformatted"
+            git ls-files -z '*.go' | xargs -0 gofmt -d
+            exit 1
+          fi
+      - name: go mod tidy
+        run: |
+          if ! go mod tidy -diff; then
+            echo "::error file=go.mod::go.mod or go.sum is not tidy. Run: go mod tidy"
+            exit 1
+          fi
+      - name: Pinned pyarrow, pandas and NetworkX for the export check (FR-10.34)
+        run: |
+          python3 -m venv "$RUNNER_TEMP/pyload"
+          "$RUNNER_TEMP/pyload/bin/pip" install --no-cache-dir -r internal/research/testdata/pyload/requirements.txt
+          echo "SMCP_RESEARCH_PYTHON=$RUNNER_TEMP/pyload/bin/python" >> "$GITHUB_ENV"
+      - name: Test (race, coverage) and map results to requirement IDs (FR-12.10)
+        id: test
         run: |
           mkdir -p build
-          set -o pipefail
-          go test -json ./... | tee build/go-test.json | go run ./tools/reqreport -out build/reqreport
-      - if: steps.check.outputs.present == 'true' && always()
-        uses: actions/upload-artifact@v4
+          rc=0
+          go test -race -json -coverpkg=./... -coverprofile=build/cover.out ./... > build/go-test.json || rc=$?
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          go run ./tools/reqreport -in build/go-test.json -coverprofile build/cover.out
+          cat build/reqreport.md >> "$GITHUB_STEP_SUMMARY"
+          exit "$rc"
+      - name: Output of failed tests
+        if: failure() && steps.test.outcome == 'failure'
+        run: |
+          jq -r -s '
+            map(select(.Test != null)) | group_by(.Package + " " + .Test)
+            | map(select(any(.[]; .Action == "fail")))
+            | .[] | "--- FAIL: \(.[0].Package) \(.[0].Test)", (map(select(.Action == "output") | .Output) | join(""))
+          ' build/go-test.json
+          jq -r 'select(.Test == null and .Action == "output") | .Output' build/go-test.json | grep -v '^ok \|^?\|^PASS$' || true
+      - name: Upload test results and status document
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: requirement-report
+          name: go-results
           path: |
             build/reqreport.json
             build/reqreport.md
+            build/status.json
             build/go-test.json
-      - if: steps.check.outputs.present == 'true'
-        name: Spike modules still build
-        run: for d in spikes/*/; do (cd "$d" && go vet ./... && go test ./...); done
+            build/cover.out
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Spike modules still build
+        run: |
+          for d in spikes/*/; do
+            (cd "$d" && go vet ./... && go test ./...)
+          done
+
+  lint:
+    name: lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+          cache: false
+      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: ${{ env.GOLANGCI_LINT_VERSION }}
+
+  site:
+    name: site
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - name: Next.js build cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: site/.next/cache
+          key: next-${{ runner.os }}-${{ hashFiles('site/package-lock.json') }}-${{ hashFiles('site/src/**', '*.md') }}
+          restore-keys: |
+            next-${{ runner.os }}-${{ hashFiles('site/package-lock.json') }}-
+      - name: Install
+        run: npm ci --no-audit --no-fund
+        working-directory: site
+      - name: Typecheck
+        run: npx --no-install tsc --noEmit
+        working-directory: site
+      - name: Unit tests
+        run: npm test
+        working-directory: site
+      - name: Build
+        run: npm run build
+        working-directory: site
+      - name: Check pages and internal links
+        run: npm run check-out
+        working-directory: site
+      # The runner image's Google Chrome through playwright-core; no browser download.
+      - name: Check that every diagram and chart fits its box (1280 and 390 px)
+        run: npm run check-diagrams
+        working-directory: site
+
+  security:
+    name: security
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+          cache-dependency-path: go.sum
+      - name: govulncheck
+        run: go run "golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}" ./...
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: npm audit (high and critical, with the reviewed allowlist)
+        run: scripts/npm-audit-gate.sh site
+      - name: Secret scan of the new commits (trufflehog)
+        uses: trufflesecurity/trufflehog@e76dff8a7e57d6df0c60ad8cbf5d5cba505a8fc9 # v3.99.2
+        with:
+          extra_args: --results=verified,unknown
+
+  linux-integration:
+    name: linux-integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+          cache-dependency-path: go.sum
+      - name: Install minisign (signs the upgrade test releases)
+        run: command -v minisign >/dev/null 2>&1 || { sudo apt-get update -qq && sudo apt-get install -y -qq minisign; }
+      # The Go tests these scripts run against real rootless Podman and in a
+      # network namespace skip in the go job; their events go to
+      # build/linux-integration-test.json, which the status job merges.
+      - name: Bootstrap, run smcpd, drive an MCP client, verify the journal
+        env:
+          SMCP_ITEST_DIR: ${{ runner.temp }}/itest
+          SMCP_REQUIRE_PREREQS: "1"
+          SMCP_ITEST_RESULTS: ${{ github.workspace }}/build/linux-integration-test.json
+        run: |
+          mkdir -p build
+          scripts/ci-integration.sh
+      - name: Egress broker and remote host rules in network namespaces (direct egress blocked, brokered egress allowed; SR-4.14-1)
+        env:
+          SMCP_ITEST_DIR: ${{ runner.temp }}/egress
+          SMCP_ITEST_RESULTS: ${{ github.workspace }}/build/linux-integration-test.json
+        run: scripts/ci-egress-netns.sh
+      - name: Upload the results of the Go tests
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: linux-integration-results
+          path: build/linux-integration-test.json
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Upload the smcpd log
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: linux-integration-log
+          path: ${{ runner.temp }}/itest/smcpd.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # smcpctl install in the Standalone profile with the runner's own service
+  # manager (FR-13.6, FR-13.4): a systemd user unit on Ubuntu (with Podman
+  # removed: FR-13.6 asks for a Linux runner without it), a launchd user
+  # agent on macOS (arm64); install twice, check the service and health,
+  # then uninstall. The Go test that runs it writes its events to
+  # build/install-standalone-<os>-test.json for the status job. Not a
+  # required check.
+  install-standalone:
+    name: install-standalone (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+          cache-dependency-path: go.sum
+      - name: Remove Podman (FR-13.6, a Linux runner without Podman)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get remove -y -qq podman >/dev/null 2>&1 || true
+          if command -v podman; then echo "::error::podman is still installed"; exit 1; fi
+      - name: smcpctl install, second install, uninstall (TestInstallStandaloneServiceManager)
+        env:
+          SMCP_INSTALL_SERVICE_TEST: "1"
+        run: |
+          set -o pipefail
+          mkdir -p build
+          os=$(echo "$RUNNER_OS" | tr '[:upper:]' '[:lower:]')
+          go test -json -count=1 -run '^TestInstallStandaloneServiceManager$' ./cmd/smcpctl \
+            | tee "build/install-standalone-$os-test.json" | jq -rj 'select(.Action == "output") | .Output'
+      - name: Upload the results of the Go test
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: install-standalone-results-${{ matrix.os }}
+          path: build/install-standalone-*-test.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  # Management console (E-24): typecheck and build console/, check that the
+  # committed console/dist (embedded into smcpd) matches the sources, audit
+  # its npm dependencies and run the Playwright acceptance tests against a
+  # real smcpd on Chromium, Firefox and WebKit (FR-8.30), one fresh Gateway
+  # per browser. The requirement claims of the run (build/console-*-test.json,
+  # FR-8.34) go to the status job.
+  console:
+    name: console
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    # The graph mirror for the G-14 investigation test (console/e2e/
+    # decision.spec.ts, FR-8.22) on a dedicated Gateway.
+    services:
+      neo4j:
+        image: neo4j:2026.05.0-community
+        env:
+          NEO4J_AUTH: neo4j/smcp-ci-graph-password
+          NEO4J_server_http_enabled: "false"
+          NEO4J_dbms_usage__report_enabled: "false"
+          NEO4J_server_memory_heap_max__size: 512m
+          NEO4J_server_memory_pagecache_size: 128m
+        ports:
+          - 7687:7687
+        options: >-
+          --health-cmd "cypher-shell -u neo4j -p smcp-ci-graph-password 'RETURN 1'"
+          --health-interval 5s
+          --health-timeout 10s
+          --health-retries 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+          cache-dependency-path: go.sum
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: console/package-lock.json
+      - name: Install
+        run: npm ci --no-audit --no-fund
+        working-directory: console
+      - name: Typecheck and build
+        run: npm run build
+        working-directory: console
+      - name: Committed console/dist matches the sources
+        run: |
+          if [ -n "$(git status --porcelain -- console/dist)" ]; then
+            git status --porcelain -- console/dist
+            echo "::error file=console/dist/index.html::console/dist is stale. Run: make console, then commit console/dist"
+            exit 1
+          fi
+      - name: npm audit (high and critical, with the reviewed allowlist)
+        run: scripts/npm-audit-gate.sh console
+      - name: Playwright browsers
+        run: npx --no-install playwright install --with-deps chromium firefox webkit
+        working-directory: console
+      - name: Build the Gateway binaries once for the three runs
+        run: |
+          mkdir -p build/e2e-bin
+          go build -o build/e2e-bin/ ./cmd/smcpd ./cmd/smcpctl ./cmd/smcp-refserver ./scripts/itest-client ./scripts/evidence-fixture
+      - name: Acceptance tests against a running smcpd (Chromium, Firefox, WebKit)
+        env:
+          CI: "1"
+          SMCP_E2E_BIN: ${{ github.workspace }}/build/e2e-bin
+          SMCP_NEO4J_URL: bolt://127.0.0.1:7687
+          SMCP_NEO4J_USER: neo4j
+          SMCP_NEO4J_PASSWORD: smcp-ci-graph-password
+        run: npm run test:e2e
+        working-directory: console
+      - name: Upload the requirement claims of the acceptance tests
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: console-results
+          path: build/console-*-test.json
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Upload the Playwright report
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: console-playwright
+          path: |
+            console/playwright-report
+            console/test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # AT-07 in the Enforced profile (FR-19.3): the console's inert-evidence
+  # tests (console/e2e/inert.spec.ts) on Chromium against a Gateway whose
+  # reference server runs in rootless Podman (SMCP_E2E_PROFILE=enforced).
+  # The claims go to build/console-chromium-enforced-test.json (package
+  # console/e2e/chromium/enforced), which the status job merges. Not a
+  # required check; every trigger except pull requests.
+  console-enforced:
+    name: console-enforced
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+          cache-dependency-path: go.sum
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: console/package-lock.json
+      - name: Rootless Podman with delegated cgroup controllers
+        run: |
+          command -v podman >/dev/null
+          if ! podman info --format '{{.Host.CgroupControllers}}' 2>/dev/null | grep -q memory; then
+            sudo -n loginctl enable-linger "$(id -un)" || true
+            for _ in $(seq 1 20); do [ -S "/run/user/$(id -u)/bus" ] && break; sleep 0.5; done
+            echo "XDG_RUNTIME_DIR=/run/user/$(id -u)" >> "$GITHUB_ENV"
+            echo "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus" >> "$GITHUB_ENV"
+            XDG_RUNTIME_DIR="/run/user/$(id -u)" podman system migrate >/dev/null 2>&1 || true
+          fi
+      - name: Install
+        run: npm ci --no-audit --no-fund
+        working-directory: console
+      - name: Playwright browser
+        run: npx --no-install playwright install --with-deps chromium
+        working-directory: console
+      - name: Build the Gateway binaries (the reference server statically linked)
+        run: |
+          mkdir -p build/e2e-bin
+          go build -o build/e2e-bin/ ./cmd/smcpd ./cmd/smcpctl ./scripts/itest-client
+          CGO_ENABLED=0 go build -trimpath -o build/e2e-bin/ ./cmd/smcp-refserver
+      - name: AT-07 inert evidence display in the Enforced profile (Chromium)
+        env:
+          CI: "1"
+          SMCP_E2E_BIN: ${{ github.workspace }}/build/e2e-bin
+          SMCP_E2E_PROFILE: enforced
+          SMCP_E2E_PROJECT: chromium-enforced
+        run: npx --no-install playwright test --project=chromium e2e/inert.spec.ts
+        working-directory: console
+      - name: Upload the requirement claims
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: console-enforced-results
+          path: build/console-chromium-enforced-test.json
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Upload the Playwright report
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: console-enforced-playwright
+          path: |
+            console/playwright-report
+            console/test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # Graph mirror integration tests (E-25, E-26, E-28) against Neo4j
+  # Community Edition in a service container. Not a required check.
+  graph:
+    name: graph
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      neo4j:
+        image: neo4j:2026.05.0-community
+        env:
+          NEO4J_AUTH: neo4j/smcp-ci-graph-password
+          NEO4J_server_http_enabled: "false"
+          NEO4J_dbms_usage__report_enabled: "false"
+          NEO4J_server_memory_heap_max__size: 512m
+          NEO4J_server_memory_pagecache_size: 128m
+        ports:
+          - 7687:7687
+        options: >-
+          --health-cmd "cypher-shell -u neo4j -p smcp-ci-graph-password 'RETURN 1'"
+          --health-interval 5s
+          --health-timeout 10s
+          --health-retries 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+          cache-dependency-path: go.sum
+      - name: Graph tests against Neo4j
+        env:
+          SMCP_NEO4J_URL: bolt://127.0.0.1:7687
+          SMCP_NEO4J_USER: neo4j
+          SMCP_NEO4J_PASSWORD: smcp-ci-graph-password
+        run: |
+          mkdir -p build
+          rc=0
+          go test -race -count=1 -p 1 -json ./internal/graph/... ./internal/e2e/ -run 'Neo4j|Graph' > build/graph-test.json || rc=$?
+          go test -count=1 -json ./cmd/smcpctl/ -run 'Graph' >> build/graph-test.json || rc=$?
+          # AT-11 and AT-12 against the real binaries and Neo4j (Standalone).
+          go test -count=1 -json -timeout 15m ./internal/acceptance/ -run 'TestAT1[12]' >> build/graph-test.json || rc=$?
+          jq -r 'select(.Action == "fail" and .Test != null) | "FAIL \(.Package) \(.Test)"' build/graph-test.json || true
+          exit "$rc"
+      # The status job merges these results, so the requirement claims of
+      # tests that need Neo4j (skipped in the go job) reach the report.
+      - name: Upload the results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: graph-results
+          path: build/graph-test.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  # Hostile backend fixture suite (SRS Appendix L, FR-19.1, FR-19.2): the
+  # real Gateway against each misbehaving fixture, in the Standalone profile
+  # and, where rootless Podman works on the runner, in the Enforced profile.
+  # A row whose defense is missing is reported with pass=false in
+  # build/hostile.json; the job still succeeds. Not a required check.
+  hostile:
+    name: hostile
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+          cache-dependency-path: go.sum
+      - name: Vet the suite
+        run: go vet -tags hostile ./internal/hostile/
+      - name: Standalone profile
+        run: |
+          mkdir -p build
+          if ! go test -tags hostile -count=1 -json -run TestHostileFixtures ./internal/hostile/ > build/hostile-standalone-test.json; then
+            echo "::warning::hostile suite (standalone): a harness check failed; see build/hostile-standalone-test.json"
+          fi
+      - name: Enforced profile (rootless Podman sandbox)
+        env:
+          # Every Enforced row (HF-20, HF-21, HF-23, HF-24) must pass here.
+          SMCP_HOSTILE_REQUIRE_ENFORCED: "1"
+        run: |
+          if ! command -v podman >/dev/null 2>&1; then
+            echo "podman not installed; enforced rows stay not asserted"
+            exit 0
+          fi
+          # Servers with network = "egress" (HF-24) run on slirp4netns.
+          command -v slirp4netns >/dev/null 2>&1 || sudo apt-get install -y -qq slirp4netns >/dev/null
+          # Rootless Podman delegates cgroup controllers through the user's
+          # systemd instance; a runner may have no user session (as in
+          # scripts/ci-integration.sh).
+          if ! podman info --format '{{.Host.CgroupControllers}}' 2>/dev/null | grep -q memory; then
+            sudo -n loginctl enable-linger "$(id -un)" || true
+            for _ in $(seq 1 20); do [ -S "/run/user/$(id -u)/bus" ] && break; sleep 0.5; done
+            export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+            export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
+            podman system migrate >/dev/null 2>&1 || true
+          fi
+          # The results are renamed to the package .../internal/hostile/enforced:
+          # the Standalone run has tests of the same names (AT-08 skips
+          # there), and tools/reqreport keeps the last result of a test name.
+          rc=0
+          CGO_ENABLED=0 SMCP_HOSTILE_PROFILE=enforced go test -tags hostile -count=1 -json -run TestHostileFixtures ./internal/hostile/ > build/hostile-enforced-raw.json || rc=$?
+          jq -c 'if .Package then .Package += "/enforced" else . end' build/hostile-enforced-raw.json > build/hostile-enforced-test.json
+          if [ "$rc" != 0 ]; then
+            echo "::error::hostile suite (enforced): an Enforced row failed or a harness check failed; see build/hostile-enforced-test.json"
+            jq -r 'select(.Action == "output" and (.Output | test("Enforced row|FAIL|harness|gateway start"))) | .Output' build/hostile-enforced-test.json || true
+            exit 1
+          fi
+      - name: Summary
+        if: always()
+        run: |
+          if [ -f build/hostile.md ]; then cat build/hostile.md >> "$GITHUB_STEP_SUMMARY"; else echo "no hostile results" >> "$GITHUB_STEP_SUMMARY"; fi
+          jq -r -s 'map(select(.Action == "output" and (.Output | test("pass=|skip|enforced profile unavailable")))) | .[].Output' build/hostile-*-test.json 2>/dev/null || true
+      - name: Upload the results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: hostile-results
+          path: |
+            build/hostile.json
+            build/hostile.md
+            build/hostile-standalone.json
+            build/hostile-enforced.json
+            build/hostile-standalone-test.json
+            build/hostile-enforced-test.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  # FR-11 measurements with the reference workload (cmd/smcp-workload,
+  # docs/acceptance.md) against real smcpd instances on the runner. The
+  # status job publishes build/perf.json as "performance" and merges
+  # build/perf-test.json (a measurement within its CP-32 budget is a
+  # partial claim, one over budget a failing test). Not a required check;
+  # pushes to main and workflow_dispatch only.
+  perf:
+    name: perf
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+          cache-dependency-path: go.sum
+      - name: Build smcpd, smcpctl, smcp-refserver and smcp-workload
+        run: |
+          mkdir -p build/perf-bin
+          go build -trimpath -o build/perf-bin/ ./cmd/smcpd ./cmd/smcpctl ./cmd/smcp-workload
+          CGO_ENABLED=0 go build -trimpath -o build/perf-bin/ ./cmd/smcp-refserver
+      - name: Measure FR-11.2, FR-11.4, FR-11.5, FR-11.8 and FR-11.9
+        run: |
+          build/perf-bin/smcp-workload run --bin build/perf-bin --out build/perf.json --test-json build/perf-test.json \
+            --calls 2000 --decisions 100000 --queries 100 --idle 10m
+          {
+            echo "## Performance (runner, not reference hardware)"
+            echo
+            echo "| Requirement | Measurement | Value | Budget | Pass |"
+            echo "|---|---|---|---|---|"
+            jq -r '.measurements[] | "| \(.requirement) | \(.name) (\(.metric)) | \(.value * 1000 | round / 1000) \(.unit) | \(.budget) \(.unit) | \(.pass) |"' build/perf.json
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload the results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: perf-results
+          path: |
+            build/perf.json
+            build/perf-test.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  # The acceptance scenarios of internal/acceptance in the Enforced profile
+  # (rootless Podman), so that the release label (FR-19.3) can count them.
+  # AT-11 and AT-12 use the graph mirror on Neo4j Community Edition in a
+  # service container. Results are renamed to the package
+  # .../internal/acceptance/enforced and merged by the status job. Not a
+  # required check; every trigger except pull requests.
+  acceptance-enforced:
+    name: acceptance-enforced
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    services:
+      neo4j:
+        image: neo4j:2026.05.0-community
+        env:
+          NEO4J_AUTH: neo4j/smcp-ci-graph-password
+          NEO4J_server_http_enabled: "false"
+          NEO4J_dbms_usage__report_enabled: "false"
+          NEO4J_server_memory_heap_max__size: 512m
+          NEO4J_server_memory_pagecache_size: 128m
+        ports:
+          - 7687:7687
+        options: >-
+          --health-cmd "cypher-shell -u neo4j -p smcp-ci-graph-password 'RETURN 1'"
+          --health-interval 5s
+          --health-timeout 10s
+          --health-retries 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+          cache-dependency-path: go.sum
+      - name: Rootless Podman with delegated cgroup controllers
+        run: |
+          command -v podman >/dev/null
+          command -v slirp4netns >/dev/null 2>&1 || sudo apt-get install -y -qq slirp4netns >/dev/null
+          if ! podman info --format '{{.Host.CgroupControllers}}' 2>/dev/null | grep -q memory; then
+            sudo -n loginctl enable-linger "$(id -un)" || true
+            for _ in $(seq 1 20); do [ -S "/run/user/$(id -u)/bus" ] && break; sleep 0.5; done
+            echo "XDG_RUNTIME_DIR=/run/user/$(id -u)" >> "$GITHUB_ENV"
+            echo "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus" >> "$GITHUB_ENV"
+            XDG_RUNTIME_DIR="/run/user/$(id -u)" podman system migrate >/dev/null 2>&1 || true
+          fi
+      - name: Acceptance scenarios in the Enforced profile
+        env:
+          SMCP_ACCEPTANCE_PROFILE: enforced
+          SMCP_NEO4J_URL: bolt://127.0.0.1:7687
+          SMCP_NEO4J_USER: neo4j
+          SMCP_NEO4J_PASSWORD: smcp-ci-graph-password
+        run: |
+          # The sandbox refuses mounts at or below /tmp: instance
+          # directories go under the runner's temporary directory.
+          mkdir -p "$RUNNER_TEMP/acceptance"
+          export TMPDIR="$RUNNER_TEMP/acceptance"
+          mkdir -p build
+          rc=0
+          go test -count=1 -json -timeout 35m -run 'TestAT|TestEnforcedSecretDelivery' ./internal/acceptance/ > build/acceptance-raw.json || rc=$?
+          jq -c 'if .Package then .Package += "/enforced" else . end' build/acceptance-raw.json > build/acceptance-enforced-test.json
+          jq -r 'select(.Action == "fail" and .Test != null) | "FAIL \(.Test)"' build/acceptance-enforced-test.json || true
+          if [ "$rc" != 0 ]; then echo "::warning::acceptance scenarios failed in the Enforced profile; see build/acceptance-enforced-test.json"; fi
+      - name: Upload the results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: acceptance-enforced-results
+          path: build/acceptance-enforced-test.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  # FR-12.2 and AT-17: the reference filesystem and git packages are built
+  # with network access, then the acceptance suite runs in a network
+  # namespace with loopback only (scripts/ci-offline.sh), and AT-17 runs
+  # again there in the Enforced profile: every server in rootless Podman,
+  # the node and python packages on node and python images pulled (and
+  # pinned by digest) beforehand. Not a required check; every trigger
+  # except pull requests.
+  offline:
+    name: offline
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+          cache-dependency-path: go.sum
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Build the reference filesystem and git packages (needs the registries)
+        env:
+          SMCP_PYTHON: /usr/bin/python3
+          SMCP_REFPKG_ONLY: filesystem git
+        run: scripts/build-reference-packages.sh "$RUNNER_TEMP/refpkg"
+      - name: Acceptance suite with outbound Internet blocked
+        env:
+          SMCP_REFPKG_DIR: ${{ runner.temp }}/refpkg
+          SMCP_PYTHON: /usr/bin/python3
+        run: |
+          if ! scripts/ci-offline.sh build/offline-test.json; then
+            echo "::warning::acceptance tests failed offline; see build/offline-test.json"
+          fi
+          jq -r 'select(.Action == "fail" and .Test != null) | "FAIL \(.Test)"' build/offline-test.json || true
+      - name: Rootless Podman and the node and python images (pinned by digest)
+        run: |
+          command -v podman >/dev/null
+          if ! podman info --format '{{.Host.CgroupControllers}}' 2>/dev/null | grep -q memory; then
+            sudo -n loginctl enable-linger "$(id -un)" || true
+            for _ in $(seq 1 20); do [ -S "/run/user/$(id -u)/bus" ] && break; sleep 0.5; done
+            echo "XDG_RUNTIME_DIR=/run/user/$(id -u)" >> "$GITHUB_ENV"
+            echo "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus" >> "$GITHUB_ENV"
+            XDG_RUNTIME_DIR="/run/user/$(id -u)"
+            export XDG_RUNTIME_DIR
+            podman system migrate >/dev/null 2>&1 || true
+          fi
+          # The PyPI package was built with /usr/bin/python3 (3.12): its
+          # compiled wheels need Python 3.12. The full Debian image carries
+          # the git binary, which the git server runs.
+          for v in "SMCP_AT17_NODE_IMAGE docker.io/library/node:24-bookworm-slim" "SMCP_AT17_PYTHON_IMAGE docker.io/library/python:3.12-bookworm"; do
+            name=${v%% *} ref=${v#* }
+            podman pull -q "$ref" >/dev/null
+            digest=$(podman image inspect --format '{{.Digest}}' "$ref")
+            echo "$name=${ref%%:*}@$digest" >> "$GITHUB_ENV"
+            echo "$name=${ref%%:*}@$digest"
+          done
+      - name: AT-17 offline in the Enforced profile
+        env:
+          SMCP_REFPKG_DIR: ${{ runner.temp }}/refpkg
+          SMCP_PYTHON: /usr/bin/python3
+          SMCP_ACCEPTANCE_PROFILE: enforced
+          SMCP_OFFLINE_RUN: ^TestAT17
+        run: |
+          # The sandbox refuses mounts at or below /tmp.
+          mkdir -p "$RUNNER_TEMP/offline-enforced"
+          export TMPDIR="$RUNNER_TEMP/offline-enforced"
+          if ! scripts/ci-offline.sh build/offline-enforced-test.json; then
+            echo "::warning::AT-17 failed offline in the Enforced profile; see build/offline-enforced-test.json"
+          fi
+          jq -r 'select(.Action == "output" and .Test != null) | .Output' build/offline-enforced-test.json | tail -n 60 || true
+      - name: Upload the results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: offline-results
+          path: |
+            build/offline-test.json
+            build/offline-enforced-test.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  # Builds the status document of the run (status.json with every job's
+  # results merged) and uploads it as the artifact status-document, with
+  # the FR-19.3 release label in the job summary. For pushes to main it
+  # also publishes status.json and history.json to the orphan branch
+  # site-data and asks Vercel to rebuild the site; for release tags and
+  # dispatched runs it publishes nothing (the release workflow reads the
+  # artifact of the tag's run). The site-data branch never starts a
+  # workflow: CI and the other workflows run on pull requests, pushes to
+  # main and tags only, and GITHUB_TOKEN pushes do not trigger workflows in
+  # any case.
+  status:
+    name: status
+    if: >-
+      always() && github.event_name != 'pull_request' &&
+      (needs.go.result == 'success' || needs.go.result == 'failure')
+    needs: [srs, go, lint, site, security, linux-integration, install-standalone, hostile, console, console-enforced, graph, perf, acceptance-enforced, offline]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    concurrency:
+      group: publish-site-data
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+          cache-dependency-path: go.sum
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: go-results
+          path: build
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          name: hostile-results
+          path: build
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          name: console-results
+          path: build
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          name: graph-results
+          path: build
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          name: perf-results
+          path: build
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          name: acceptance-enforced-results
+          path: build
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          name: offline-results
+          path: build
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          name: linux-integration-results
+          path: build
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          name: console-enforced-results
+          path: build
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          pattern: install-standalone-results-*
+          merge-multiple: true
+          path: build
+      - name: Fetch the results of the separate verification workflows (site-data/workflows.json; FR-13.3 tap, FR-14.9 reference packages)
+        run: |
+          if git fetch --quiet --depth=1 origin refs/heads/site-data 2>/dev/null &&
+             git show FETCH_HEAD:workflows.json > build/workflows.json 2>/dev/null &&
+             jq -e 'type == "array"' build/workflows.json >/dev/null; then
+            echo "fetched $(jq length build/workflows.json) workflow results"
+          else
+            rm -f build/workflows.json
+            echo "no published workflow results yet"
+          fi
+      - name: Merge the hostile fixture, console acceptance and graph results and their requirement claims (FR-19.2, FR-8.34)
+        run: |
+          cp build/go-test.json build/all-test.json
+          merged=0
+          if [ -s build/workflows.json ]; then merged=1; fi
+          if [ -s build/hostile.json ] && jq -e 'type == "array"' build/hostile.json >/dev/null; then
+            cat build/hostile-*-test.json >> build/all-test.json 2>/dev/null || true
+            merged=1
+          else
+            rm -f build/hostile.json
+            echo "no hostile results"
+          fi
+          if ls build/console-*-test.json >/dev/null 2>&1; then
+            cat build/console-*-test.json >> build/all-test.json
+            merged=1
+          else
+            echo "no console results"
+          fi
+          # Neo4j-backed tests skip in the go job; their run in the graph job
+          # comes later in the file, so its result is the one counted.
+          if [ -s build/graph-test.json ]; then
+            cat build/graph-test.json >> build/all-test.json
+            merged=1
+          else
+            echo "no graph results"
+          fi
+          # The perf measurements, the Enforced-profile acceptance run, the
+          # offline acceptance run (FR-11, FR-19.3, FR-12.2) and the Go tests
+          # of linux-integration that need real Podman or a network
+          # namespace (skipped in the go job; their result here is counted).
+          # smcpctl install with the real service managers (FR-13.6 needs
+          # both macOS and Linux): merged only when both runners reported.
+          if [ -s build/install-standalone-macos-test.json ] && [ -s build/install-standalone-linux-test.json ]; then
+            cat build/install-standalone-macos-test.json build/install-standalone-linux-test.json >> build/all-test.json
+            merged=1
+          else
+            echo "install-standalone results missing for one runner; not merged"
+          fi
+          for f in perf-test acceptance-enforced-test offline-test offline-enforced-test linux-integration-test; do
+            if [ -s "build/$f.json" ]; then
+              cat "build/$f.json" >> build/all-test.json
+              merged=1
+            else
+              echo "no $f results"
+            fi
+          done
+          if [ "$merged" = 1 ]; then
+            go run ./tools/reqreport -in build/all-test.json -coverprofile build/cover.out -fail-on-failing=false
+          fi
+      - name: Merge the latest real-agent results (agents workflow, site-data/agents.json)
+        run: |
+          if git fetch --quiet --depth=1 origin refs/heads/site-data 2>/dev/null &&
+             git show FETCH_HEAD:agents.json > build/agents.json 2>/dev/null &&
+             jq -e 'type == "array"' build/agents.json >/dev/null; then
+            jq --slurpfile a build/agents.json '.agents = $a[0]' build/status.json > build/status.tmp
+            mv build/status.tmp build/status.json
+            echo "merged $(jq length build/agents.json) agent results"
+          else
+            echo "no published agent results yet"
+          fi
+      - name: Add the performance measurements (perf job, build/perf.json)
+        run: |
+          if [ -s build/perf.json ] && jq -e '.measurements | type == "array"' build/perf.json >/dev/null; then
+            jq --slurpfile p build/perf.json '.performance = $p[0]' build/status.json > build/status.tmp
+            mv build/status.tmp build/status.json
+            echo "merged $(jq '.measurements | length' build/perf.json) performance measurements"
+          else
+            echo "no performance measurements"
+          fi
+      - name: Record the overall CI conclusion
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          conclusion=$(jq -r 'if all(.[]; .result == "success") then "success" else "failure" end' <<<"$NEEDS")
+          jq --arg c "$conclusion" --arg w "$GITHUB_WORKFLOW" '.ci = {workflow: $w, conclusion: $c}' build/status.json > build/status.tmp
+          mv build/status.tmp build/status.json
+          echo "CI conclusion: $conclusion"
+      - name: Release label of this commit (FR-19.3)
+        run: |
+          go run ./tools/reqreport label -status build/status.json -commit "$GITHUB_SHA" -out build/release-label.md
+          cat build/release-label.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload the status document
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: status-document
+          path: |
+            build/status.json
+            build/release-label.md
+          retention-days: 90
+      - name: Publish to the site-data branch
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: scripts/publish-status.sh build/status.json
+      - name: Trigger a Vercel redeploy
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+        run: scripts/trigger-site-deploy.sh

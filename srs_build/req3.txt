@@ -42,11 +42,11 @@ R: Retired material must not remain recoverable from the vault.
 
 @FR-6.5 | Secret slot binding
 P: FR-6
-S: The Policy Administration Service (E-05) SHALL bind a secret to a server only through a Secret Use Policy naming the manifest secret slot, permitted tools, destination, delivery mode, purpose, rate, time window and approval requirement.
+S: A secret SHALL be bound to a server only through a Secret Use Policy naming a declared secret slot, the permitted tools, destination, delivery mode, purpose, rate, time window and approval requirement, and the Policy Administration Service (E-05) SHALL show each binding in the effective permission report.
 A: E-05; F-10; D-01
 V: Test | Publish a Secret Use Policy for a declared slot; confirm the binding appears in the effective permission report.
 SRC: ARCH §7.2 Secret Use Policy
-R: Secret use is governed by policy.
+R: Secret use is governed by policy. Release 1.0 declares secret slots in the Secret Use Policy document (or as `secret_env` entries of the server configuration); the secret slots of a signed manifest (Appendix J) are recorded with the package but not read by the Secret Broker.
 
 @FR-6.6 | Delivery mode S1
 P: FR-6
@@ -74,11 +74,11 @@ R: Long-lived connections need instance-lifetime secrets.
 
 @FR-6.9 | Delivery mode S4
 P: FR-6
-S: The Secret Broker (E-20) SHALL deliver a secret through a launch environment variable only when the manifest declares no other mode and the Secret Use Policy carries an approved S4 waiver.
+S: The Secret Broker (E-20) SHALL deliver a secret through a launch environment variable only when the secret slot declares no other mode and the Secret Use Policy carries an approved S4 waiver.
 A: E-20; E-05; F-50; F-10
 V: Test | Attempt S4 with and without a waiver and with another supported mode; confirm only the waiver-without-alternative case is accepted.
 SRC: ARCH §8.2 S4
-R: Environment delivery is the most exposing mode.
+R: Environment delivery is the most exposing mode. Release 1.0 declares secret slots in the Secret Use Policy document (or as `secret_env` entries of the server configuration); the secret slots of a signed manifest (Appendix J) are recorded with the package but not read by the Secret Broker.
 
 @FR-6.10 | Leak fingerprints
 P: FR-6
@@ -161,30 +161,41 @@ A: E-21; F-53; I-06
 V: Test | Configure an alert on `withheld`; trigger it; confirm the console alert.
 SRC: ARCH §7.2 Audit Profile
 R: Operators need notification of significant events.
+DEFER: The release 1.0 Audit Profile sets retention and escalation parameters only; it has no alert rules. The console raises alerts for anomaly bands (G-06) and health causes, and the evidence stream with filters (FR-8.23) follows any event class live. Alert rules in the Audit Profile are deferred.
 
 @FR-7.7 | Local certificate authorities
 P: FR-7
-S: The Key & Trust Anchor Manager (E-22) SHALL operate separate local certificate authorities for harness client certificates and for Gateway TLS server certificates.
+S: The Key & Trust Anchor Manager (E-22) SHALL operate a local certificate authority for Gateway TLS server certificates whose key is used for no other purpose, and SHALL issue from it only certificates limited to TLS server authentication.
 A: E-22; F-59; F-60; D-08
-V: Inspection | Inspect the CA certificates and an issued certificate of each kind; confirm separate roots.
+V: Inspection | Inspect the CA certificate, an issued server certificate and the key inventory; confirm the CA key has one purpose and the issued certificate allows server authentication only.
+SRC: ARCH §4 E-22; OWNER (mTLS Harness Profile deferred)
+R: Separates client identity from server identity. Release 1.0 issues no client certificates (the mTLS Harness Profile, FR-2.14, is deferred), so the separate client CA is deferred with it (FR-7.15).
+
+@FR-7.15 | Client certificate authority
+P: FR-7
+S: The Key & Trust Anchor Manager (E-22) SHALL operate a local certificate authority for harness client certificates separate from the server certificate authority.
+A: E-22; F-59; F-60; D-08
+V: Inspection | Inspect both CA certificates and an issued certificate of each kind; confirm separate roots.
 SRC: ARCH §4 E-22
 R: Separates client identity from server identity.
+DEFER: Deferred with the mTLS Harness Profile (FR-2.14): release 1.0 authenticates harnesses with bearer access tokens and issues no client certificates, so a client CA would have nothing to sign.
 
 @FR-7.8 | Key purposes
 P: FR-7
-S: The Key & Trust Anchor Manager (E-22) SHALL hold separate keys for the purposes client CA, server TLS, vault master, payload encryption, evidence signing, MRTR state protection, cursor protection, research pseudonymization and Data Server credentials.
+S: The Gateway SHALL use a separate key for each of the purposes server CA, server TLS, policy signing, vault master, backup encryption, evidence signing, cursor protection, leak-fingerprint keying, research pseudonymization and Data Server credentials, and SHALL use no key for more than one purpose.
 A: E-22; F-60; D-08
 V: Inspection | Inspect the key inventory; confirm one key per purpose and no reuse.
 SRC: ARCH §4 E-22
-R: Compromise of one purpose must not affect others.
+R: Compromise of one purpose must not affect others. Release 1.0 has no client CA (the mTLS Harness Profile, FR-2.14, is deferred), no MRTR state protection key (the MRTR Relay Profile, FR-5.25, is deferred) and no payload encryption (no payload is stored encrypted outside the vault and backups, which have their own keys). Backup encryption uses the operator's passphrase or age recipients, never a Gateway key. Leak-fingerprint keying (FR-6.10) is listed because it is a key purpose of its own.
 
 @FR-7.9 | Key protection at rest
 P: FR-7
-S: The Key & Trust Anchor Manager (E-22) SHALL seal private keys to the host TPM 2.0 when present and otherwise SHALL store them encrypted under an operator passphrase entered at service start.
+S: The Key & Trust Anchor Manager (E-22) SHALL seal private keys to the host TPM 2.0 when present, store them in the user's login Keychain on macOS, and otherwise store them in files owned by the key-holding service identity with mode 0600, encrypted under an operator passphrase when the configuration sets `keys.passphrase = true`.
 A: E-22; F-60; X-07; D-08
-V: Test | Start on a TPM host and on a non-TPM host; confirm the sealing method and that copied key files are unusable.
-SRC: ARCH §15 E-19/E-22
-R: Keys must not sit in plaintext on disk.
+V: Test | Start on a TPM host, on macOS and on a non-TPM Linux host with and without the passphrase option; confirm the protection method in each case and that key files copied to another host are unusable where sealing or encryption applies.
+SRC: ARCH §15 E-19/E-22; OWNER (platform profiles)
+R: Keys must not sit in plaintext on disk where the platform offers protection. An unattended service cannot wait for a passphrase at every start, so the passphrase is an option rather than the default.
+DEFER: Release 1.0 stores private keys in files with mode 0600 under the state directory, owned by the key-holding identity in the Enforced profile (SR-6.12-1); the vault master key can be held in the macOS Keychain. TPM sealing, Keychain storage of every private key and passphrase encryption are deferred: they need reference hardware and an unattended-start design that release 1.0 does not have.
 
 @FR-7.10 | Trust anchor enrollment
 P: FR-7
@@ -196,11 +207,11 @@ R: The trust root is set by a deliberate operator ceremony.
 
 @FR-7.11 | Health checks
 P: FR-7
-S: The Health & Safety Monitor (E-23) SHALL evaluate Data Server reachability, decision-snapshot currency, audit export lag, mandatory-audit capacity, vault availability, clock sanity, trust-anchor validity and memory degradation stage once per second.
+S: The Health & Safety Monitor (E-23) SHALL evaluate once per second, as critical causes, decision-snapshot currency, Evidence Journal writability and signing lag, mandatory-audit capacity, vault availability, clock sanity and trust-anchor validity, and, as non-critical causes, graph mirror reachability, Observation Store reachability, memory degradation stage and, in the Standalone profile, `unconfined`.
 A: E-23; F-61; I-32
-V: Test | Fault each dependency in turn; confirm detection within 2 seconds.
-SRC: ARCH §4 E-23
-R: Enforcement depends on these conditions.
+V: Test | Fault each dependency in turn; confirm detection within 2 seconds, `fail-closed` for each critical cause and `degraded` for each non-critical cause.
+SRC: ARCH §4 E-23; ARCH §2.2 A-8, A-9; OWNER (authority decoupling)
+R: Enforcement depends on the policy snapshot and the journal, not on the graph or the Observation Store, whose loss degrades analytics only.
 
 @FR-7.12 | Health states
 P: FR-7
@@ -246,7 +257,7 @@ R: The GUI and scripts share one contract.
 
 @FR-8.2 | Application roles
 P: FR-8
-S: The Management Console & Control API (E-24) SHALL implement the roles Administrator, Operator, Policy Author, Approver, Auditor and Researcher with the permissions of Appendix C.
+S: The Management Console & Control API (E-24) SHALL implement the roles Administrator, Operator, Policy Author, Approver, Session Approver, Auditor and Researcher with the permissions of Appendix C.
 A: E-24; F-64; X-04
 V: Test | Exercise every API operation as each role; confirm results match the Appendix C matrix.
 SRC: SEC 8.10; ARCH §4 E-24
@@ -262,11 +273,11 @@ R: The operator's primary control surface.
 
 @FR-8.4 | G-02 Policy Studio
 P: FR-8
-S: The Policy Studio view (G-02) SHALL provide structured editors for every policy object type, draft diff against the active revision, simulation results and publish and rollback actions.
+S: The Policy Studio view (G-02) SHALL provide structured editors for the policy object types Framework Profile, Session Allow Policy Template and Secret Use Policy, draft diff against the active revision, simulation results and publish and rollback actions; the other object types of FR-3.1 are edited in their own views (Audit Profile in G-03, Observation Policy in G-04, Anomaly Response Policy in G-06, Research Campaign in G-09).
 A: E-24; F-65; F-10; F-11; F-12; X-04
 V: Demonstration | Author, simulate and publish a Session Allow Policy template entirely in G-02.
 SRC: ARCH §4 G-02; SEC 8.2
-R: Policy development is the owner's primary purpose.
+R: Policy development is the owner's primary purpose. ARCH §4 assigns G-02 the Framework Profiles, Session Allow templates, Response and Secret Use Policies; the Response Policy is deferred (FR-3.26).
 
 @FR-8.5 | G-03 Audit Profile Tuning
 P: FR-8
@@ -318,19 +329,19 @@ R: These are the research tuning parameters.
 
 @FR-8.11 | Cost preview display
 P: FR-8
-S: The Observation & Parameter Workbench view (G-04) SHALL display the F-66 cost estimate for the draft before the publish action is enabled.
+S: The Observation & Parameter Workbench view (G-04) SHALL display a cost preview of the draft (the selected parameters, bytes per captured record, content scans and payload copies, the sampling rate in force and the store growth at the recorded call volume), refreshed with each edit, and SHALL keep the publish action disabled while the draft has no cost preview.
 A: E-24; F-67; F-66; X-04
-V: Demonstration | Edit a draft; confirm the estimate refreshes and publish remains disabled until the estimate is shown.
+V: Demonstration | Edit a draft; confirm the preview refreshes with each edit and publish remains disabled while the draft has no preview.
 SRC: ARCH §11 item 6
-R: Cost awareness before capture.
+R: Cost awareness before capture. The F-66 forecast of records, storage and added latency per day from seven days of call rates is deferred with FR-3.7; release 1.0 previews the cost from the catalog's data types and cost classes and the recorded call volume.
 
 @FR-8.12 | Live record preview
 P: FR-8
-S: The Observation & Parameter Workbench view (G-04) SHALL display up to 20 sensitivity-masked sample records that the draft would have produced from the most recent traffic.
+S: The Observation & Parameter Workbench view (G-04) SHALL display up to 20 sensitivity-masked sample records that the draft would have produced from the most recent stored records: the records within the draft's scope, with a value for each of the draft's parameters that the Observation Policy in force captured.
 A: E-24; F-67; X-04
 V: Demonstration | Preview a draft; confirm masked sample records appear.
 SRC: ARCH §11 item 7
-R: Researchers verify the capture before publishing.
+R: Researchers verify the capture before publishing. Release 1.0 stores no payloads (SR-6.6-1), so a parameter the policy in force did not capture cannot be derived again for the preview; the preview marks it.
 
 @FR-8.13 | G-05 Behavior Analytics
 P: FR-8
@@ -452,15 +463,79 @@ V: Demonstration | Test a redaction profile on synthetic text in G-02; confirm m
 SRC: SEC 8.6
 R: Filter development is part of policy research.
 
+@FR-8.28 | Navigation and deep links
+P: FR-8
+S: The Management Console & Control API (E-24) SHALL present a persistent navigation listing every view G-01 to G-14 that the signed-in role may open, and SHALL give each view and each approval, session, server revision, decision and policy revision its own URL that opens it directly after sign-in.
+A: E-24; F-65; X-04
+V: Test | Sign in as each role; confirm the navigation lists exactly the permitted views; open the URL of an approval, session, server revision, decision and policy revision in a new browser session; confirm each opens after sign-in.
+SRC: REVIEW (I5); OWNER (console deep link from approval fallback)
+R: The approval fallback text and the notifications link to a specific record; the console must open it.
+
+@FR-8.29 | Empty, error and loading states
+P: FR-8
+S: Each view G-01 to G-14 SHALL show a loading state within 200 ms of navigation, an empty state that names the action that would populate it, and an error state that shows the control API error message and reason code with a retry action.
+A: E-24; F-65; X-04
+V: Test | For each view, run the Playwright suite against an empty installation, a delayed API and a failing API; confirm the three states.
+SRC: REVIEW (I5)
+R: A blank or frozen view gives the operator no way to tell an empty system from a broken one.
+
+@FR-8.30 | Supported browsers
+P: FR-8
+S: The console SHALL support the two most recent major versions, at release time, of Chromium-based browsers, Firefox and Safari on macOS.
+A: E-24; F-65; X-04
+V: Test | Run the per-view Playwright suite on Chromium, Firefox and WebKit at the release commit; confirm all pass.
+SRC: REVIEW (I5)
+R: States what the release is tested against.
+
+@FR-8.31 | First-run checklist
+P: FR-8
+S: The Gateway Control view (G-01) SHALL show a first-run checklist with the items administrator created, Session Approver created, first server packaged and enabled, first policy revision published, first harness connected, approval tested and backup configured, each marked done from Gateway state and linked to the view that completes it.
+A: E-24; F-65; X-04
+V: Test | Start from a fresh installation; complete each item; confirm each is marked done from Gateway state and not from a manual tick.
+SRC: REVIEW (I5)
+R: A new operator needs the order of first steps; deriving completion from state keeps the list truthful.
+
+@FR-8.32 | Accessibility conformance
+P: FR-8
+S: Each console view SHALL conform to WCAG 2.2 Level AA.
+A: E-24; F-65; X-04
+V: Test | Run `axe-core` with the WCAG 2.2 AA rule set on every view and state of the Playwright suite; confirm zero violations; record a manual check of focus order, target size and contrast in `docs/verification/`.
+SRC: OWNER (WCAG 2.2 AA)
+R: Owner decision; the console is the primary control surface for every role.
+
+@FR-8.33 | Keyboard operation
+P: FR-8
+S: Each console action SHALL be operable with the keyboard alone, with a visible focus indicator and no keyboard trap.
+A: E-24; F-65; X-04
+V: Test | For each view, drive every action in the Playwright suite with keyboard events only; confirm completion and a visible focus indicator at each step.
+SRC: OWNER (keyboard operable)
+R: Owner decision; operators who live in terminals expect keyboard control.
+
+@FR-8.34 | Per-view acceptance tests
+P: FR-8
+S: The Gateway source SHALL include a Playwright acceptance test for each view G-01 to G-14 that exercises the view's primary actions against a running Gateway and claims the view's requirements through the requirement report.
+A: E-24; F-65; X-04
+V: Inspection | Inspect the Playwright suite and the requirement report; confirm one passing test per view that claims that view's FR-8 requirement.
+SRC: REVIEW (I5); SEC 10.6
+R: Each view's requirements need test evidence, not a screenshot.
+
+@FR-8.35 | Visual rules
+P: FR-8
+S: The console SHALL present lists as tables with sortable column headers, SHALL use a single typeface family with a fixed type scale, and SHALL use no gradients, emoji, decorative icon grids or card grids.
+A: E-24; F-65; X-04
+V: Inspection | Inspect every view against the visual rule checklist in `docs/console-style.md`; confirm each rule.
+SRC: OWNER (dense, stark, typographic, tables over cards, no gradients, emoji or icon grids)
+R: Owner decision; dense tables suit audit and operations work.
+
 ### FR-9 Data Server
 
 @FR-9 | Data Server
 P: —
-S: The Gateway SHALL persist policy, registry, session, audit, behavior-model and observation data in a Data Server consisting of a graph database, a columnar Observation Store, a Data Access Service and a Data Lifecycle & Memory Manager.
+S: The Gateway SHALL hold the behavior model and observation data, and mirrors of policy, registry, session and audit data, in a Data Server consisting of a graph database, a columnar Observation Store, a Data Access Service and a Data Lifecycle & Memory Manager, with no enforcement decision depending on the Data Server's availability.
 A: E-25; E-26; E-27; E-28
-V: Analysis | Review the verification results of every FR-9 child requirement; confirm each has passed.
-SRC: ARCH §4 SS-9; OWNER (graph database hosting policy)
-R: The owner requires a fast graph database hosting policy and characterization.
+V: Analysis | Review the verification results of every FR-9 child requirement and of FR-9.17; confirm each has passed.
+SRC: ARCH §4 SS-9; ARCH §2.2 A-9; OWNER (graph database; authority decoupling)
+R: The owner requires a graph database for graph views and characterization, and decided that its unavailability degrades analytics but never opens or blocks enforcement.
 
 @FR-9.1 | Graph data model
 P: FR-9
@@ -493,6 +568,7 @@ A: E-26; F-73; I-33
 V: Test | Saturate the queue with P2 writes and submit a P1 write; confirm the P1 write commits first.
 SRC: ARCH §4 E-26
 R: Mandatory writes must not wait behind optional data.
+DEFER: In release 1.0 the Data Access Service writes only the evidence mirror, from one ordered stream: the journal (P0 and P1 records are committed to the journal before the call proceeds, independent of the graph), and observation data is written to the Observation Store, not through the Data Access Service. With one write class in the queue there is nothing to order; priority classes are deferred until a second writer shares the queue.
 
 @FR-9.5 | Observation batching
 P: FR-9
@@ -565,6 +641,7 @@ A: E-28; F-78; D-09; D-13
 V: Test | Age fixture partitions; confirm tier moves and query continuity.
 SRC: ARCH §4 E-28
 R: Bounded fast storage with retained history.
+DEFER: Release 1.0 writes observation partitions as compressed columnar files (Parquet through DuckDB) or JSON Lines from the start and deletes them at the end of their retention; there is one tier. A separate hot tier is deferred until measurements on reference hardware show that queries over 30 days need one.
 
 @FR-9.14 | Retention execution
 P: FR-9
@@ -584,19 +661,19 @@ R: Capacity awareness.
 
 @FR-9.16 | Backup scheduling
 P: FR-9
-S: The Data Lifecycle & Memory Manager (E-28) SHALL perform scheduled and on-demand backups of the graph database, the Observation Store, configuration, encrypted vault and evidence checkpoints, and SHALL record each backup's result and checksum.
-A: E-28; F-79; D-01; D-04; D-06; D-09
-V: Test | Run an on-demand backup; confirm every component and the recorded checksum.
+S: The Data Lifecycle & Memory Manager (E-28) SHALL perform scheduled and on-demand backups containing the Policy Store, the Server Registry, the configuration, the encrypted vault, the Evidence Journal, key material and trust anchors, and optionally the Observation Store and a graph dump, as one encrypted archive (D-15), and SHALL record each backup's result and checksum.
+A: E-28; F-79; D-01; D-02; D-04; D-06; D-08; D-15
+V: Test | Run an on-demand backup with and without the optional parts; confirm every component is present after decryption and the recorded checksum matches.
 SRC: ARCH §4 E-28; SEC 7.7
 R: Recoverability of all stores.
 
 @FR-9.17 | Startup gating
 P: FR-9
-S: The Harness Interface Endpoint (E-01) SHALL refuse harness MCP requests with Gateway error `-31004` until the Data Server is reachable and a validated decision snapshot is loaded.
-A: E-01; E-26; F-01; F-62
-V: Test | Start the Gateway with the graph database stopped; confirm -31004 until the database starts and the snapshot loads.
-SRC: ARCH §4 E-23; SEC 1.2
-R: No service without policy.
+S: The Harness Interface Endpoint (E-01) SHALL refuse harness MCP requests with Gateway error `-31004` until a decision snapshot compiled from a signature-verified Policy Store revision is loaded and the Evidence Journal is open for writing, and SHALL serve requests without waiting for the graph mirror or the Observation Store.
+A: E-01; E-05; E-21; F-01; F-62
+V: Test | Start the Gateway with an unsigned policy revision, then with a read-only journal directory, then correctly with the graph database stopped; confirm -31004 in the first two cases and normal service in the third with health `degraded`.
+SRC: ARCH §4 E-23; ARCH §2.2 A-9; SEC 1.2
+R: No service without verified policy and a writable evidence record; the graph is a mirror (OWNER, authority decoupling).
 
 @FR-9.18 | Decision and event indexes
 P: FR-9

@@ -1,0 +1,129 @@
+# Homebrew tap check (SRS FR-13.3): install smcp from ethan03805/homebrew-tap
+# on macOS and Linux and confirm that the installed binaries' SHA-256 digests
+# equal those in the release archive for the platform. The archive is
+# fetched and verified (minisign signature of the checksum file, SHA-256 of
+# the archive) by install.sh from the same tag.
+#
+# A release created by the release workflow does not start this workflow
+# through the "release: published" event (GoReleaser publishes with
+# GITHUB_TOKEN, whose events start no workflows), so the release workflow
+# dispatches it after GoReleaser has pushed the formula. "release:
+# published" covers a release published by hand. A pre-release is checked
+# only when it was dispatched, because GoReleaser leaves the formula alone
+# for a pre-release unless SMCP_TAP_PRERELEASE is "true".
+name: tap
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "release tag whose formula the tap must hold, e.g. v1.0.0"
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tap-${{ github.event.inputs.tag || github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  tap:
+    name: tap (${{ matrix.os }})
+    if: github.event_name == 'workflow_dispatch' || !github.event.release.prerelease
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    env:
+      TAG: ${{ github.event.inputs.tag || github.event.release.tag_name }}
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+      HOMEBREW_NO_ANALYTICS: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Homebrew on PATH
+        run: |
+          if ! command -v brew >/dev/null 2>&1; then
+            [ -x /home/linuxbrew/.linuxbrew/bin/brew ] || { echo "::error::Homebrew is not installed on this runner"; exit 1; }
+            echo /home/linuxbrew/.linuxbrew/bin >> "$GITHUB_PATH"
+            echo /home/linuxbrew/.linuxbrew/sbin >> "$GITHUB_PATH"
+          fi
+      - name: Wait for the tap to hold the formula for the tag
+        run: |
+          case "$TAG" in v[0-9]*) ;; *) echo "::error::tag '$TAG' is not a release tag"; exit 1 ;; esac
+          want=${TAG#v}
+          brew tap ethan03805/tap
+          for i in $(seq 1 20); do
+            got=$(brew info --json=v2 ethan03805/tap/smcp | jq -r '.formulae[0].versions.stable')
+            [ "$got" = "$want" ] && { echo "formula smcp $got"; exit 0; }
+            echo "the tap holds smcp $got, waiting for $want ($i/20)"
+            sleep 15
+            git -C "$(brew --repository ethan03805/tap)" pull -q --ff-only
+          done
+          echo "::error::the tap does not hold smcp $want"
+          exit 1
+      - name: Install from the tap
+        run: |
+          brew install ethan03805/tap/smcp
+          brew test ethan03805/tap/smcp
+          smcpd --version
+          smcpctl version
+      - name: Fetch and verify the release archive with install.sh
+        run: |
+          if [ "$(uname -s)" = Darwin ]; then brew install minisign; fi
+          # Linux runners verify with OpenSSL 3; macOS with minisign.
+          sh install.sh --version "$TAG" --dir "$RUNNER_TEMP/release-bin" --no-cosign
+      - name: Compare the installed binaries with the release archive
+        run: |
+          prefix=$(brew --prefix ethan03805/tap/smcp)
+          status=0
+          for b in smcpd smcpctl smcp-refserver smcp-session smcp-stdio smcp-connect; do
+            want=$(shasum -a 256 "$RUNNER_TEMP/release-bin/$b" | cut -d' ' -f1)
+            got=$(shasum -a 256 "$prefix/bin/$b" | cut -d' ' -f1)
+            if [ "$want" = "$got" ]; then
+              echo "$b: $got (equal)"
+            else
+              echo "::error::$b: Homebrew installed $got, the release archive has $want"
+              status=1
+            fi
+          done
+          {
+            echo "### Homebrew tap on ${{ matrix.os }}: $TAG"
+            echo
+            echo "brew install ethan03805/tap/smcp installed binaries whose SHA-256 digests"
+            if [ "$status" = 0 ]; then echo "equal those in the release archive."; else echo "differ from the release archive."; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+  # Publishes the result to site-data/workflows.json, where the CI status job
+  # reads it into the requirement report (tools/reqreport -workflows).
+  publish:
+    name: publish
+    needs: [tap]
+    if: >-
+      always() && (needs.tap.result == 'success' || needs.tap.result == 'failure')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    concurrency:
+      group: publish-site-data
+      cancel-in-progress: false
+    env:
+      TAG: ${{ github.event.inputs.tag || github.event.release.tag_name }}
+      RESULT: ${{ needs.tap.result }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Publish the tap result to the site-data branch
+        run: |
+          commit=$(git rev-list -n 1 "refs/tags/$TAG")
+          scripts/publish-workflow-result.sh tap "$RESULT" "$TAG" "$commit" FR-13.3

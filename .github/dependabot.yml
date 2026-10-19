@@ -1,0 +1,45 @@
+# Weekly dependency updates, one grouped PR per ecosystem.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Chicago
+    open-pull-requests-limit: 5
+    labels: [dependencies]
+    groups:
+      go-modules:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /site
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Chicago
+    open-pull-requests-limit: 5
+    labels: [dependencies]
+    groups:
+      site-npm:
+        patterns: ["*"]
+        update-types: [minor, patch]
+      site-npm-major:
+        patterns: ["*"]
+        update-types: [major]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Chicago
+    open-pull-requests-limit: 5
+    labels: [dependencies]
+    groups:
+      github-actions:
+        patterns: ["*"]

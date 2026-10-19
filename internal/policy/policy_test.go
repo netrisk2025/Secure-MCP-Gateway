@@ -20,7 +20,10 @@ const doc = `{
 }`
 
 func TestCompileAndDecide(t *testing.T) {
-	reqtest.Verifies(t, "FR-3.2", "FR-3.10", "FR-3.11", "SR-1.3-1")
+	// FR-3.11 is verified by TestDecisionRecordFields and FR-3.2 by
+	// internal/policyadmin TestSchemaRejectsWithFieldMessages.
+	reqtest.Verifies(t, "SR-1.3-1")
+	reqtest.Partial(t, "FR-3.2", "FR-3.11")
 	s, err := Compile([]byte(doc))
 	if err != nil {
 		t.Fatal(err)
@@ -48,7 +51,8 @@ func TestCompileAndDecide(t *testing.T) {
 }
 
 func TestNoSnapshotDenies(t *testing.T) {
-	reqtest.Verifies(t, "SR-1.2-1")
+	// The Gateway half (-31004) is verified in the edge tests.
+	reqtest.Partial(t, "SR-1.2-1")
 	d := NewDecider(nil, 60)
 	dec := d.Decide(Request{Template: "ro", Server: "fs", Tool: "read_file"})
 	if dec.Outcome != Deny || dec.ReasonCode != ReasonNoSnapshot {
@@ -78,7 +82,7 @@ func TestRateLimit(t *testing.T) {
 }
 
 func TestPublicationInvariants(t *testing.T) {
-	reqtest.Verifies(t, "FR-3.2")
+	reqtest.Partial(t, "FR-3.2")
 	cases := map[string]string{
 		"overlap":        strings.Replace(doc, `"tools": ["read_file", "list_directory"]}`, `"tools": ["read_file"]}, {"id": "dup", "server": "fs", "tools": ["read_file"]}`, 1),
 		"unknown tmpl":   strings.Replace(doc, `"templates": ["ro", "rw"]`, `"templates": ["ro", "zz"]`, 1),

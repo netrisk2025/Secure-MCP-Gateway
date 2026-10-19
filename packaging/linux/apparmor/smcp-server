@@ -1,0 +1,70 @@
+# AppArmor profile for backend MCP server processes of the Secure MCP
+# Gateway (Execution Sandbox, E-16; enforced profile). Installed as
+# /etc/apparmor.d/smcp-server and loaded by
+# packaging/linux/install-enforced.sh when AppArmor is enabled.
+#
+# Rootless Podman cannot apply an AppArmor profile to a container (it
+# refuses --security-opt apparmor= without root), so this profile attaches
+# by path instead: the Gateway mounts the executable of every server that
+# runs without an image at /smcp/bin/<name>, and an unconfined process
+# (crun) that executes a file at that path inside a container enters this
+# profile. Paths are resolved inside the container's mount namespace; no
+# host program lives in /smcp/bin. Servers that run from an image execute
+# other paths and are not covered (docs/sandbox.md, "AppArmor").
+#
+# The profile adds to the container profile (no capabilities, seccomp,
+# read-only root, user namespace, no network or a confined one): it denies
+# reading any process environment, which holds S4 secret values of the
+# server, so that a helper process the server starts cannot read them; it
+# denies writes below /smcp (executables and secret files) and to /proc
+# and /sys settings, mounts, ptrace of other processes and every
+# capability, following Podman's containers-default profile.
+
+abi <abi/3.0>,
+
+include <tunables/global>
+
+profile smcp-server /smcp/bin/** flags=(attach_disconnected,mediate_deleted) {
+  include <abstractions/base>
+
+  # The network namespace confines the network (none, or nftables to the
+  # Egress Broker only).
+  network,
+  file,
+  umount,
+  deny mount,
+  deny pivot_root,
+  deny capability,
+
+  # The runtime (crun, under its own profile on Ubuntu) delivers the
+  # shutdown signals; the Runtime Monitor reads process state.
+  signal (receive),
+  signal (send) peer=smcp-server,
+  ptrace (readby),
+  ptrace (read) peer=smcp-server,
+  deny ptrace (trace),
+
+  # Process environments (S4 secret values).
+  deny @{PROC}/[0-9]*/environ rwklx,
+  deny @{PROC}/[0-9]*/task/[0-9]*/environ rwklx,
+
+  # Executables and secret files are read-only.
+  deny /smcp/** wl,
+
+  # As Podman's containers-default profile.
+  deny @{PROC}/* w,
+  deny @{PROC}/{[^1-9],[^1-9][^0-9],[^1-9s][^0-9y][^0-9s],[^1-9][^0-9][^0-9][^0-9]*}/** w,
+  deny @{PROC}/sys/[^k]** w,
+  deny @{PROC}/sys/kernel/{?,??,[^s][^h][^m]**} w,
+  deny @{PROC}/sysrq-trigger rwklx,
+  deny @{PROC}/kcore rwklx,
+  deny /sys/[^f]*/** wklx,
+  deny /sys/f[^s]*/** wklx,
+  deny /sys/fs/[^c]*/** wklx,
+  deny /sys/fs/c[^g]*/** wklx,
+  deny /sys/fs/cg[^r]*/** wklx,
+  deny /sys/firmware/** rwklx,
+  deny /sys/kernel/security/** rwklx,
+
+  include if exists <local/smcp-server>
+}

@@ -1,0 +1,44 @@
+{
+  "recipe_version": 1,
+  "server": {
+    "id": "mcp-filesystem",
+    "alias": "fs",
+    "publisher": "Model Context Protocol reference servers",
+    "description": "Read, write and search files under one directory bound to the root slot.",
+    "homepage": "https://github.com/modelcontextprotocol/servers"
+  },
+  "artifact": {
+    "type": "npm",
+    "reference": "@modelcontextprotocol/server-filesystem",
+    "version": "2026.8.31",
+    "integrity": "sha512-kKaFkyAh6oipvc9+EAbJ552JafnMnOq5nzmzWkp1jJdBhTAAGpmIpWihUG1+rfNhmEFM98gUZDdCHCDD4v6a7Q=="
+  },
+  "dependencies": {
+    "npm_package_json": "package.json",
+    "npm_lockfile": "package-lock.json"
+  },
+  "launch": {
+    "runtime": "node",
+    "argv": ["node", "node_modules/@modelcontextprotocol/server-filesystem/dist/index.js", "{root}"]
+  },
+  "risk_class": "moderate",
+  "instance_scope": ["shared", "per-session"],
+  "tools": {
+    "default": { "side_effect": "read", "source_trust": "untrusted" },
+    "overrides": {
+      "create_directory": { "side_effect": "write" },
+      "edit_file": { "side_effect": "write" },
+      "move_file": { "side_effect": "write" },
+      "write_file": { "side_effect": "write" }
+    },
+    "expect": ["list_directory", "read_text_file", "write_file"]
+  },
+  "capabilities": {
+    "filesystem": [{ "slot": "root", "mode": "rw", "argv_placeholder": "{root}" }],
+    "egress": [],
+    "spawns_processes": false,
+    "resources": { "memory_mib": 256, "pids": 64 }
+  },
+  "licenses": ["Apache-2.0", "MIT"],
+  "operator_note": "The npm tarball has no license file; its package.json says SEE LICENSE IN LICENSE, and the LICENSE of github.com/modelcontextprotocol/servers states a transition from MIT to Apache-2.0 with code under both, so both identifiers are listed."
+}

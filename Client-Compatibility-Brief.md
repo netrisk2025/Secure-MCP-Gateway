@@ -1,6 +1,6 @@
 # Secure MCP Gateway — Client Compatibility Brief
 
-**Date:** 2026-10-15 (America/New_York)
+**Date:** 2026-10-15 (America/New_York); Section 7 added 2026-10-16 (America/Chicago)
 **Question:** What do the agentic frameworks that will sit in front of the Gateway expect today, and does the implementation SRS (V1.0 draft) meet them?
 **Method:** Primary documentation and release notes fetched on 2026-10-15 for Claude Code, Codex CLI, Hermes Agent, and the official MCP SDKs, read against `Secure_MCP_Gateway_SRS.md` FR-1, FR-2 and FR-5 and `ArchitectureV2.md` X-01. Third-party trackers are cited only where no primary source exists and are marked as such.
 
@@ -115,7 +115,32 @@ The owner approved the recommendations in Section 4. They are applied in SRS V1.
 | Client-facing hints (§4.5) | FR-1.50 (approval hint); FR-5.22 (property-name drift rule). Root-level combinators are not normalized because Claude Code flattens them itself |
 | Go SDK dual-era check (§4.3, open item 4) | Done 2026-10-16 in `spikes/go-sdk-dual-era/`: one handler serves both eras in stateless mode. SRS §3.3 risk 1 retired; FR-1.46 reworded so that no `Mcp-Session-Id` is required |
 
-No items from this brief remain open.
+No items from the original brief (Sections 1 to 5) remain open.
+
+## 7. Expanded client matrix and lockdown mechanisms (2026-10-16)
+
+The owner extended the supported clients to Claude Code, Codex CLI, Hermes, OpenCode, Gemini CLI, Goose and Grok Build on the user's computer, and Grok Bot (xAI), ChatGPT agent "dots" (OpenAI) and Meta Muse, which run on the vendor's computer. SRS V1.2 Appendix K and `docs/clients/matrix.json` record the matrix; this section records the evidence for the lockdown mechanisms the lockdown profiles use (SRS FR-15.1). Each mechanism is to be confirmed against the pinned client version by the matrix job (FR-15.8) before a client is labelled `exclusive-gateway` (SR-4.13-1).
+
+### 7.1 Local clients
+
+| Client | Mechanism that restricts MCP servers | Evidence and caveats |
+|---|---|---|
+| Claude Code | Managed settings: `allowedMcpServers` (an empty list blocks all; undefined means no restriction) and `deniedMcpServers` (overrides the allowlist, applies to every scope). `allowManagedMcpServersOnly` keeps only the managed allowlist. `permissions.deny` rules can deny the `Read` and `Edit` tools on paths. | Claude Code managed MCP documentation. The `allowManagedMcpServersOnly` behavior was confirmed only in translated pages of that documentation during this review; confirm at pinning. |
+| Codex CLI | An administrator `requirements.toml` can list allowed MCP servers, matched by name and transport so that renaming a server in user configuration does not bypass the list. | Seen through a mirror of the Codex pull request that added it (#9101) and third-party guides; the PR notes that the executable behind an allowed name can still be replaced. Confirm the key names at pinning. |
+| Gemini CLI | Settings `allowMCPServers` and `excludeMCPServers`; system-level `mcpServers` that users cannot override; separate enterprise admin controls. | Gemini CLI configuration and enterprise documentation. The vendor states that name-based allowlisting is not an airtight security mechanism, so Gemini CLI stays `gateway-available` unless bypass tests show otherwise. |
+| Goose | `GOOSE_ALLOWLIST` names a YAML allowlist; extension installation is refused when the command is not listed. | One guide, on a domain not confirmed as Block's own; confirm against official documentation at pinning. |
+| Hermes, OpenCode, Grok Build | No administrator MCP allowlist found in this review. | `smcpctl doctor` reports other configured servers and readable paths; the clients are labelled `gateway-available`. |
+
+### 7.2 Cloud agents
+
+No primary documentation for the cloud agents' MCP, registration or administrator controls was reviewed for this revision. The SRS therefore requires a dated manual connection record per agent (FR-15.9), requires the quick start to name the vendor allowlist setting or state that none is offered (FR-16.10), and supports both Dynamic Client Registration with operator approval and pre-registered clients (FR-16.5), plus `smcp-connect` for agents that accept only a command (FR-16.9). Running the Gateway inside the vendor's machine is not offered as a control, because the agent controls that machine.
+
+### 7.3 Sources for Section 7
+
+- [Claude Code: managed MCP](https://code.claude.com/docs/en/managed-mcp), [Claude Code settings](https://docs.claude.com/en/docs/claude-code/settings)
+- [Gemini CLI configuration](https://geminicli.com/docs/cli/configuration), [Gemini CLI enterprise admin controls](https://geminicli.com/docs/admin/enterprise-controls/)
+- [goose allowlist guide](https://goose-docs.ai/docs/guides/allowlist) (domain not confirmed as official)
+- Codex pull request #9101, "Restrict MCP servers from requirements.toml", seen through a mirror: [forge.lthn.ai commit 2651980](https://forge.lthn.ai/core/core-agent-ide/commit/2651980bdf803ec3dd7d7540648de286e4de2ec2); [Codex CLI enterprise deployment guide](https://codex.danielvaughan.com/2026/03/26/codex-cli-enterprise-deployment/) (third party)
 
 ## Sources
 

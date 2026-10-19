@@ -1,0 +1,52 @@
+{
+  "id": "pii",
+  "version": "2026.10.1",
+  "description": "Personal data formats for the optional pii-detect response filter: e-mail addresses, US social security numbers, payment card numbers (Luhn-checked), North American phone numbers and IBANs.",
+  "rules": [
+    {
+      "id": "email-address",
+      "kind": "regex",
+      "description": "E-mail address.",
+      "pattern": "\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)*\\.[A-Za-z]{2,}\\b",
+      "request_action": "tag",
+      "response_action": "redact",
+      "case_sensitive": true
+    },
+    {
+      "id": "us-ssn",
+      "kind": "regex",
+      "description": "US social security number in AAA-GG-SSSS form.",
+      "pattern": "\\b(?:00[1-9]|0[1-9]\\d|[1-578]\\d\\d|6[0-57-9]\\d|66[0-57-9])-(?:0[1-9]|[1-9]\\d)-(?:000[1-9]|00[1-9]\\d|0[1-9]\\d\\d|[1-9]\\d{3})\\b",
+      "request_action": "tag",
+      "response_action": "redact",
+      "case_sensitive": true
+    },
+    {
+      "id": "payment-card",
+      "kind": "luhn",
+      "description": "13 to 19 digit number passing the Luhn check.",
+      "pattern": "\\b(?:\\d[ -]?){12,18}\\d\\b",
+      "request_action": "tag",
+      "response_action": "redact",
+      "case_sensitive": true
+    },
+    {
+      "id": "na-phone",
+      "kind": "regex",
+      "description": "North American phone number with separators.",
+      "pattern": "(?:\\+1[ .-]?)?(?:\\([2-9]\\d{2}\\)|\\b[2-9]\\d{2})[ .-]\\d{3}[ .-]\\d{4}\\b",
+      "request_action": "tag",
+      "response_action": "redact",
+      "case_sensitive": true
+    },
+    {
+      "id": "iban",
+      "kind": "regex",
+      "description": "International bank account number.",
+      "pattern": "\\b[A-Z]{2}\\d{2}(?: ?[A-Z0-9]{4}){3,7}(?: ?[A-Z0-9]{1,3})?\\b",
+      "request_action": "tag",
+      "response_action": "redact",
+      "case_sensitive": true
+    }
+  ]
+}

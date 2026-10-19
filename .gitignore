@@ -18,7 +18,15 @@ work/
 
 # Go build output and requirement reports
 build/
+# binaries from `go build ./cmd/<name>` at the repository root
+/smcpd
+/smcpctl
+/smcp-*
 # Local Gateway instances created with smcpctl bootstrap
 smcp.toml
 /policy.json
-sandbox/
+/sandbox/
+
+# Personal Claude Code settings and agent worktrees
+.claude/settings.local.json
+.claude/worktrees/

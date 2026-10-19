@@ -1,0 +1,19 @@
+# Loads the Secure MCP Gateway nftables table `inet smcp` at boot.
+# Installed by packaging/linux/install-enforced.sh; see docs/sandbox.md.
+
+[Unit]
+Description=Secure MCP Gateway nftables table
+Documentation=https://github.com/ethan03805/Secure-MCP-Gateway/blob/main/docs/sandbox.md
+DefaultDependencies=no
+Before=network-pre.target
+Wants=network-pre.target
+After=local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/smcp/smcp.nft
+ExecStop=/usr/sbin/nft delete table inet smcp
+
+[Install]
+WantedBy=multi-user.target

@@ -118,19 +118,19 @@ R: Results are per session, so they must not be shared by intermediaries.
 
 @FR-1.14 | resultType on results
 P: FR-1
-S: The Protocol Mediator (E-02) SHALL set `resultType` to `"complete"` in every result the Gateway originates.
+S: The Protocol Mediator (E-02) SHALL set `resultType` to `"complete"` in every result the Gateway originates for a 2026-07-28 request.
 A: E-02; F-22; X-01
 V: Test | Collect results from all baseline methods; confirm each carries `resultType: "complete"`.
 SRC: MCP:basic/index §ResultType
-R: `resultType` is mandatory on 2026-07-28 results.
+R: `resultType` is mandatory on 2026-07-28 results. The 2025-11-25 schema does not define it, so legacy-era results (FR-1.46) do not carry it.
 
 @FR-1.15 | Result serverInfo
 P: FR-1
-S: The Protocol Mediator (E-02) SHALL include `_meta.io.modelcontextprotocol/serverInfo` identifying the Gateway in every result the Gateway returns.
+S: The Protocol Mediator (E-02) SHALL include `_meta.io.modelcontextprotocol/serverInfo` identifying the Gateway in every result the Gateway returns for a 2026-07-28 request.
 A: E-02; F-22; X-01
 V: Inspection | Inspect results from each baseline method; confirm the field is present and names the Gateway.
 SRC: MCP:basic/index §Per-response protocol fields
-R: Lets harness adapters identify the Gateway without connection state.
+R: Lets harness adapters identify the Gateway without connection state. In the 2025-11-25 era the Gateway is identified once, by `serverInfo` in the `initialize` result (FR-1.46), and the per-response field does not exist.
 
 @FR-1.16 | Legacy session headers ignored
 P: FR-1
@@ -224,9 +224,9 @@ R: Claude Code drops a tool whose prefixed name exceeds 128 characters and Herme
 P: FR-1
 S: The Access Enforcement Point (E-08) SHALL build each presented tool definition (`title`, `description`, `inputSchema`, `outputSchema`, `annotations`) from the verified manifest of the enabled server revision.
 A: E-08; E-14; F-19; X-01; I-07
-V: Test | Change a backend's live tool description without changing the manifest; confirm the presented description still matches the manifest.
+V: Test | Compare a packaged server's presented tool definitions with its verified manifest; then change the backend's live tool description without changing the manifest; confirm the changed description is never presented (the drift check of SR-3.8-1 suspends the revision and withdraws its tools).
 SRC: ARCH §6.3; SEC 3.7
-R: Presented definitions must be the curated, signed definitions.
+R: Presented definitions must be the curated, signed definitions. A changed live description is drift, so the revision is suspended (SR-3.8-1) rather than presented with the manifest's description; either way the live text never reaches the harness.
 
 @FR-1.28 | x-mcp-header removal
 P: FR-1
@@ -412,6 +412,22 @@ V: Test | Publish a template that requires approval for one of two tools; list t
 SRC: Client-Compatibility-Brief §4.5; ARCH §4 E-08; MCP:server/tools §Tool
 R: Claude Code prompts the person before each call of a tool carrying this hint, so the person sees the approval in the harness as well as in the Approvals view. The hint is presentation only and never substitutes for the decision.
 
+@FR-1.51 | Plain-language error message
+P: FR-1
+S: The Protocol Mediator (E-02) SHALL include in every Gateway-specific error a `data.message` string taken from the Appendix B reason-code table that states in one or two plain sentences what happened and what the person can do next, and, for `-31002`, the console URL of the pending approval in `data.approvalUrl`.
+A: E-02; F-22; X-01
+V: Test | Trigger every Appendix B code and every listed reason code that a request can produce (Table B.3 lists the codes no request reaches); confirm each error carries the table's message text, and that `-31002` carries an `approvalUrl` that opens the approval in G-13. For the Table B.3 codes, confirm the error builder produces the table's message text.
+SRC: REVIEW (C5); OWNER (approvals: plain-language retry text and a console deep link)
+R: The harness shows error text to a person who may not know the Gateway exists. A code alone does not tell them to approve and retry.
+
+@FR-1.52 | Tool metadata presentation scan
+P: FR-1
+S: Before presenting a tool in a session catalog, the Access Enforcement Point (E-08) SHALL re-apply the active metadata rule set (SR-5.9-2) to the tool's name, title, description and every schema property description, and SHALL omit from the catalog any tool with a blocking finding.
+A: E-08; F-19; F-34; X-01
+V: Test | Import a fixture server, then activate a rule set version that blocks one of its descriptions; list tools; confirm that tool is absent, the others are present, and a `metadata_blocked` event names the rule.
+SRC: REVIEW (I2); SEC 5.9; ARCH §4 E-14
+R: Rule sets change after import. Scanning again at presentation applies the current rules to every tool an agent can see.
+
 ### FR-2 Identity and sessions
 
 @FR-2 | Identity and sessions
@@ -456,11 +472,11 @@ R: The harness needs the token and the policy context for diagnostics.
 
 @FR-2.5 | Session token presentation
 P: FR-2
-S: The Identity & Authentication Service (E-03) SHALL read the session token from the `Authorization: Bearer` request header on the TLS listener, never from a query parameter, and from `_meta["local.smcpgw/session"]` on the UDS listener.
+S: The Identity & Authentication Service (E-03) SHALL read the session token from the `Authorization: Bearer` request header on the TLS listener, never from a query parameter, and on the UDS listener SHALL bind the session to the connection that authenticated under FR-2.15, reading no token from the messages it carries.
 A: E-03; F-05; X-01; I-02
-V: Test | Send MCP requests with the token in each documented location and as a query parameter; confirm acceptance of the header and `_meta` forms, and rejection with -31006 when the token is absent or sent only as a query parameter.
+V: Test | Send MCP requests with the token in the header, as a query parameter and without a token; confirm acceptance of the header form and rejection with -31006 otherwise; on the UDS listener confirm that messages on an authenticated connection are served without a token.
 SRC: Appendix A CP-23; RFC 6750; Client-Compatibility-Brief §3
-R: Every shipping client sends bearer tokens in the Authorization header. None can send a custom session header without a helper.
+R: Every shipping client sends bearer tokens in the Authorization header. None can send a custom session header without a helper. On the UDS socket the kernel peer credentials and the key authenticate the connection once (FR-2.15); a per-message token would add no assurance and would stop relays such as smcp-stdio from forwarding messages unchanged (FR-12.13).
 
 @FR-2.6 | Template selection
 P: FR-2
@@ -472,11 +488,11 @@ R: Implements Allow-policy layers 2 and 3.
 
 @FR-2.7 | Claim narrowing
 P: FR-2
-S: The Session Manager (E-04) SHALL apply the project-root, purpose and end-user claims as narrowing parameters of the selected template.
+S: The Session Manager (E-04) SHALL apply the project-root claim as a narrowing parameter of the selected template, so that path arguments are confined to the project root within the granted roots, and SHALL record the purpose and end-user claims with the session and its creation evidence.
 A: E-04; F-07; I-05
 V: Test | Create a session with project root `/p/a` under a template allowing `/p`; confirm paths outside `/p/a` are denied.
 SRC: ARCH §7.1 layer 4
-R: Session context tailors the Allow policy.
+R: Session context tailors the Allow policy. The project root narrows what the template grants (the path roots of `path-canonicalize`); a project root outside every granted root leaves no path granted. Release 1.0 policy rules have no purpose or end-user predicates, so those claims do not narrow a template; they are recorded with the session, in its creation event and in the observation context key (FR-2.13), where policy authors and analytics can use them.
 
 @FR-2.8 | Session state model
 P: FR-2
@@ -504,11 +520,11 @@ R: Bounds per-principal resource use.
 
 @FR-2.11 | Session termination effects
 P: FR-2
-S: When a session terminates, expires or is revoked, the Session Manager (E-04) SHALL close its listen streams, cancel its in-flight calls, release its session-scoped server instances and request withdrawal of its secret grants.
+S: When a session terminates, expires or is revoked, the Session Manager (E-04) SHALL close its listen streams and cancel its in-flight calls.
 A: E-04; F-09; I-20
-V: Test | Terminate a session with an open stream, an in-flight call, a session-scoped instance and a grant; confirm each is released.
+V: Test | Terminate, expire and revoke sessions that each have an open listen stream and an in-flight call; confirm each stream is closed and each call is cancelled.
 SRC: ARCH §4 E-04; ARCH §18.7
-R: Prevents orphaned authority after session end.
+R: Prevents orphaned authority after session end. In release 1.0 server instances are shared per server revision, not owned by a session, and secret deliveries are bound to server instances and withdrawn at instance teardown (FR-6.8), so a session holds no instance or secret grant of its own to release.
 
 @FR-2.12 | Revision change handling
 P: FR-2
@@ -533,6 +549,7 @@ A: E-22; F-59; I-06
 V: Test | Enable the profile; submit a CSR through G-11; confirm the issued certificate chains to the client CA and names the principal ID.
 SRC: ARCH §4 E-22; ARCH §19 OD-2; Client-Compatibility-Brief §4.2
 R: Only Hermes can present a per-server client certificate. mTLS is a hardening option, not the baseline credential.
+DEFER: Release 1.0 ships without the mTLS Harness Profile. Harness requests are authenticated by bearer access tokens over TLS on a loopback listener, and per-instance credentials are OAuth clients managed in G-11. Client-certificate issuance and the client CA are deferred with the profile.
 
 @FR-2.15 | UDS peer mapping
 P: FR-2
@@ -544,11 +561,12 @@ R: Same-host harnesses use kernel peer credentials plus a key.
 
 @FR-2.16 | Restart invalidation
 P: FR-2
-S: When the Gateway restarts, the Session Manager (E-04) SHALL mark every session existing before the restart as `terminated`.
-A: E-04; F-09; D-07
-V: Test | Restart the Gateway with active sessions; confirm the old tokens receive -31006.
-SRC: ARCH §13 D-07
-R: Session recovery has not been qualified.
+S: When the Gateway restarts, the Session Manager (E-04) SHALL reject every access token issued before the restart and SHALL keep each unexpired session resumable only through its current refresh token (FR-2.22), until the session's CP-18 maximum lifetime.
+A: E-04; F-08; F-09; D-07
+V: Test | Restart the Gateway with active sessions; confirm the old access tokens receive -31006, a refresh with the current refresh token resumes the same session ID, and a refresh after the maximum lifetime fails.
+SRC: ARCH §13 D-07; OWNER (sessions may survive restart via refresh tokens)
+R: Requiring a new browser sign-in after every restart or upgrade makes the product unusable; a rotated refresh token keeps the resume bound to the one client that holds it.
+DEFER: Release 1.0 ends every session when the Gateway restarts: sessions, their session-taint marks and their quota counters are held in memory, and resuming a session with a refresh token issued before the restart would reset its taint and quota. Every access and refresh token issued before a restart is refused, and the harness signs in again. Resumable sessions with persisted taint and quota state are deferred.
 
 @FR-2.17 | Authorization metadata
 P: FR-2
@@ -560,17 +578,17 @@ R: Clients discover the Gateway's authorization server from these documents with
 
 @FR-2.18 | Client registration
 P: FR-2
-S: The Identity & Authentication Service (E-03) SHALL accept a framework instance as an OAuth client either by a Client ID Metadata Document URL or by a client ID and secret issued through G-11, and SHALL bind each client ID to exactly one principal record.
+S: The Identity & Authentication Service (E-03) SHALL accept a framework instance as an OAuth client by one of: a Client ID Metadata Document URL that is pre-registered in the configuration or matches the CP-52 allowlist; a client ID and secret issued through G-11 or `smcpctl clients add`; or, under the Remote Access Profile only, an operator-approved Dynamic Client Registration (FR-16.5); and SHALL bind each client ID to exactly one principal record.
 A: E-03; E-22; F-04; F-59; X-01; I-06; D-01
-V: Test | Register one instance by metadata URL and one by issued secret; confirm each maps to its principal and that a second principal cannot claim the same client ID.
+V: Test | Register one instance by an allowlisted metadata URL, one by issued secret and, with the Remote Access Profile enabled, one by approved registration; confirm each maps to its principal, that a second principal cannot claim the same client ID, and that a metadata URL outside the allowlist is refused without any outbound fetch.
 SRC: MCP:basic/authorization/client-registration; ARCH §19 OD-2; Client-Compatibility-Brief §4.2
 R: The client registration is the framework credential that every shipping client can present.
 
 @FR-2.19 | Authorization endpoint
 P: FR-2
-S: The Session Manager (E-04) SHALL implement the authorization-code grant at the authorization endpoint with PKCE `S256` required, a `resource` parameter equal to the CP-41 resource URI required, the `iss` parameter in every authorization response, and an administrative sign-in (F-63) that records the approving person on the resulting session.
+S: The Session Manager (E-04) SHALL implement the authorization-code grant at the authorization endpoint with PKCE `S256` required, a `resource` parameter equal to the CP-41 resource URI required, the `iss` parameter in every authorization response, and a sign-in by a person holding a Session Approver account (F-63), refusing the Administrator account, that records the approving person on the resulting session.
 A: E-04; E-24; F-06; F-63; X-01; X-04
-V: Test | Run the flow without PKCE, with a wrong `resource`, and correctly; confirm the first two are refused, `iss` is present, and the approver is recorded on the session.
+V: Test | Run the flow without PKCE, with a wrong `resource`, and correctly as a Session Approver; confirm the first two are refused, `iss` is present, the approver is recorded on the session, and the Administrator, Auditor or Researcher account cannot complete the sign-in.
 SRC: MCP:basic/authorization; RFC 9207; RFC 8707; SEC 2.11; CP-41
 R: Claude Code's v2 runtime validates `iss`. PKCE and resource binding are what the MCP authorization specification requires.
 
@@ -592,8 +610,16 @@ R: Scopes carry the session context claims and, like the claims, can only narrow
 
 @FR-2.22 | Token refresh
 P: FR-2
-S: When a valid refresh token is presented, the Session Manager (E-04) SHALL issue a new access token for the same session, extend the idle deadline, and leave the CP-18 maximum lifetime unchanged.
+S: When a valid refresh token is presented, the Session Manager (E-04) SHALL issue a new access token and a new refresh token for the same session, invalidate the presented refresh token, extend the idle deadline, and leave the CP-18 maximum lifetime unchanged.
 A: E-04; F-08; X-01
-V: Test | Refresh repeatedly past the idle timeout; confirm the session stays active and still expires at the maximum lifetime.
-SRC: CP-18; CP-41
-R: Refresh keeps long interactive sessions alive within the owner's bounds.
+V: Test | Refresh repeatedly past the idle timeout; confirm the session stays active, each refresh returns a new refresh token, the previous one no longer works, and the session still expires at the maximum lifetime.
+SRC: CP-18; CP-41; OWNER (rotate refresh tokens)
+R: Refresh keeps long interactive sessions alive within the owner's bounds. Rotation limits a stolen refresh token to one use before the theft is detected (SR-2.11-4).
+
+@FR-2.23 | Session Approver sign-in account
+P: FR-2
+S: The Management Console & Control API (E-24) SHALL let an Administrator create Session Approver accounts whose password is distinct from the Administrator password, and the sign-in page of FR-2.19 SHALL identify the client, principal, requested template and scopes before the person approves.
+A: E-24; E-03; F-63; F-64; X-01; X-04
+V: Test | Create a Session Approver; sign in a harness with it; confirm the page lists client, principal, template and scopes, the session records the Session Approver, and the Session Approver cannot reach any other control API operation.
+SRC: OWNER (harness sign-in uses a lower-privilege Session Approver role); REVIEW (I4)
+R: Signing in a harness is a daily action. Doing it with the Administrator password exposes the most powerful credential on every sign-in.

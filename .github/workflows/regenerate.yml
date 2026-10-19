@@ -1,0 +1,96 @@
+# Keeps generated files in step with their sources on pull requests:
+#   - Secure_MCP_Gateway_SRS.md from srs_build/ (python3 -I srs_build/gen.py)
+#   - go.mod and go.sum (go mod tidy)
+#   - site/data/openapi.json from the control API routes (go run ./tools/openapi)
+# When either differs, the job commits the regenerated files to the PR
+# branch. Same-repository PRs only; fork PRs get the normal CI failure.
+#
+# A push made with GITHUB_TOKEN does not start workflows, so after pushing
+# the job dispatches CI on the branch to run the required checks on the new
+# head commit.
+name: regenerate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "srs_build/**"
+      - "Secure_MCP_Gateway_SRS.md"
+      - "ArchitectureV2.md"
+      - "MCP_Gateway_Security_SRS.md"
+      - "go.mod"
+      - "go.sum"
+      - "**.go"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: regenerate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  regenerate:
+    name: regenerate
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: write
+    env:
+      HEAD_REF: ${{ github.event.pull_request.head.ref }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.26.x"
+          check-latest: true
+          cache-dependency-path: go.sum
+      - name: Check that the branch has not moved
+        id: head
+        run: |
+          if [ "$(git rev-parse HEAD)" != "$HEAD_SHA" ]; then
+            echo "Branch moved past $HEAD_SHA; a newer run will handle it."
+            echo "stale=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Regenerate the SRS
+        if: steps.head.outputs.stale != 'true'
+        run: python3 -I srs_build/gen.py . Secure_MCP_Gateway_SRS.md
+      - name: go mod tidy
+        if: steps.head.outputs.stale != 'true'
+        run: go mod tidy
+      - name: Regenerate the control API document
+        if: steps.head.outputs.stale != 'true'
+        run: go run ./tools/openapi
+      - name: Commit and push regenerated files
+        id: push
+        if: steps.head.outputs.stale != 'true'
+        run: |
+          changed=$(git status --porcelain -- Secure_MCP_Gateway_SRS.md go.mod go.sum site/data/openapi.json)
+          other=$(git status --porcelain | grep -v -e ' Secure_MCP_Gateway_SRS.md$' -e ' go.mod$' -e ' go.sum$' -e ' site/data/openapi.json$' || true)
+          if [ -n "$other" ]; then
+            echo "::error::Regeneration touched unexpected files:"
+            echo "$other"
+            exit 1
+          fi
+          if [ -z "$changed" ]; then
+            echo "Generated files are up to date."
+            exit 0
+          fi
+          git add Secure_MCP_Gateway_SRS.md go.mod go.sum site/data/openapi.json
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -m "Regenerate generated files" -m "Secure_MCP_Gateway_SRS.md from srs_build/, go.mod/go.sum from go mod tidy and site/data/openapi.json from tools/openapi, by the regenerate workflow."
+          if git push origin "HEAD:refs/heads/$HEAD_REF"; then
+            echo "pushed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Push rejected; the branch moved. A newer run will handle it."
+          fi
+      - name: Run CI on the new head commit
+        if: steps.push.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run ci.yml -R "$GITHUB_REPOSITORY" --ref "$HEAD_REF"

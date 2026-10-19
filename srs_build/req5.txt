@@ -11,6 +11,7 @@ A: E-05; E-14; F-10; I-07
 V: Test | Publish grants exceeding each ceiling dimension; confirm each is rejected with the exceeded dimension named.
 SRC: ARCH §7.3; ARCH §7.1 layer 1
 R: The signed manifest bounds all authority.
+DEFER: Release 1.0 policy grants name a server alias and tools only; they carry no paths, egress destinations or secret slots, so a grant cannot exceed those dimensions of a manifest. A granted tool that the enabled server revision does not serve has no public name and is never presented or dispatched. Filesystem slots, egress grants and secret slots are bound in the configuration, not in the policy document. Publication-time checks of grants against the manifest ceiling are deferred with grants that carry those dimensions.
 
 @SR-1-2 | Layer intersection
 P: SEC-1
@@ -30,11 +31,19 @@ R: Templates cannot widen profile authority.
 
 @SR-1.1-1 | Single policy source
 P: SEC-1.1
-S: The Policy Decision Service (E-06) SHALL derive permit, deny, route, filter, audit and observation rules only from the active policy revision stored in the Graph Database Engine (E-25).
-A: E-06; E-25; F-13; I-07; D-01
-V: Inspection | Inspect the evaluator's inputs and configuration loading; confirm no file, environment or API path supplies rules.
-SRC: SEC 1.1; ARCH §4 E-06
-R: One authoritative source.
+S: The Policy Decision Service (E-06) SHALL derive permit, deny and route rules and the optional filters a rule requires only from the active policy revision held by the Policy Administration Service (E-05) in the Policy Store (D-01), compiled into the in-memory decision snapshot.
+A: E-06; E-05; F-13; D-01
+V: Inspection | Inspect the evaluator's inputs and configuration loading; confirm that no other file, environment variable, API or the graph mirror supplies rules, and that editing the graph mirror changes no decision.
+SRC: SEC 1.1; ARCH §4 E-06; ARCH §2.2 A-9; OWNER (policy authority is the signed revision held by E-05)
+R: One authoritative source. SEC 1.1 names the graph; the owner moved the authority to the signed revision so that enforcement does not depend on a database service (CHANGELOG V1.2). Release 1.0 keeps the audit and observation settings in the published Audit Profile and Observation Policy objects and the mandatory filters in the `[filters]` configuration (FR-3.1, FR-3.26); the decision carries the audit and observation objects in force as obligations (FR-3.12) and evaluates no rule from them.
+
+@SR-1.1-2 | Signed policy revisions
+P: SEC-1.1
+S: The Policy Administration Service (E-05) SHALL sign each published revision with the policy-signing key held by the Key & Trust Anchor Manager (E-22), and the Policy Decision Service (E-06) SHALL compile only a revision whose signature verifies and whose content validates against the policy schema.
+A: E-05; E-06; E-22; F-12; F-13; D-01; D-08
+V: Test | Publish a revision; alter one byte of the stored file; restart; confirm the altered revision is refused and the Gateway is `fail-closed` with cause `policy_signature`; restore the file and confirm normal start.
+SRC: SEC 1.1; SEC 1.14; OWNER (signed, schema-validated policy revision)
+R: Files on disk can be edited by anyone with access to the state directory; the signature makes an unauthorized edit detectable before it takes effect.
 
 @SR-1.2-1 | Snapshot unavailability denial
 P: SEC-1.2
@@ -46,11 +55,11 @@ R: Fail closed.
 
 @SR-1.2-2 | Data Server outage
 P: SEC-1.2
-S: When the Data Server cannot commit decision intent, the Enforcement Coordinator (E-12) SHALL refuse launch authorization.
-A: E-12; E-26; F-29; I-30
-V: Test | Stop the graph engine during traffic; confirm no dispatch occurs and -31004 is returned.
-SRC: SEC 1.2; SEC 6.2
-R: Dispatch requires durable intent.
+S: When the Audit & Evidence Service (E-21) cannot append and flush the decision intent to the Evidence Journal, the Enforcement Coordinator (E-12) SHALL refuse launch authorization with reason code `JOURNAL_UNAVAILABLE`.
+A: E-12; E-21; F-29; F-55; D-06
+V: Test | Make the journal directory unwritable and, separately, inject a flush failure during traffic; confirm no dispatch occurs and `-31004` with `JOURNAL_UNAVAILABLE` is returned; stop the graph database during traffic and confirm dispatch continues.
+SRC: SEC 1.2; SEC 6.2; OWNER (evidence authority is the journal)
+R: Dispatch requires durable intent; the journal, not the graph, is where intent becomes durable.
 
 @SR-1.3-1 | Default deny
 P: SEC-1.3
@@ -83,6 +92,7 @@ A: E-06; F-13
 V: Test | Change each dimension of a permitted request in turn; confirm each change results in deny.
 SRC: SEC 1.6
 R: No implicit widening.
+DEFER: Release 1.0 permit rules match the Framework Profile, the session template, the server alias, the tool name and the `tools/call` method (no other method reaches the decision). The exact revisions are fixed outside the rule: a server revision that is not enabled is never dispatched to, a relaunch with a different revision suspends the server, and every decision record carries the exact server and tool revision IDs. Rules that name revision IDs, which would need a policy publication for every server upgrade, are deferred.
 
 @SR-1.7-1 | Predicate operator set
 P: SEC-1.7
@@ -102,7 +112,7 @@ R: Missing data cannot grant.
 
 @SR-1.8-1 | Argument schema validation
 P: SEC-1.8
-S: The Request Inspection Pipeline (E-09) SHALL validate tool arguments against the manifest `inputSchema` and SHALL block the call with reason `SCHEMA` on failure.
+S: The Request Inspection Pipeline (E-09) SHALL validate tool arguments against the manifest `inputSchema` and SHALL block the call with reason `SCHEMA_INVALID` (Appendix B) on failure.
 A: E-09; F-21
 V: Test | Send arguments violating type, required and additionalProperties constraints; confirm each is blocked.
 SRC: SEC 1.8; MCP:server/tools §Security Considerations
@@ -150,11 +160,11 @@ R: Unambiguous grants.
 
 @SR-1.10-1 | Obligation precedence
 P: SEC-1.10
-S: The Policy Decision Service (E-06) SHALL combine applicable obligations as the union of required filters, the smallest size, rate, time and resource bounds, the most restrictive approval, and the Appendix F retention and capture rules.
+S: The Policy Decision Service (E-06) SHALL combine the obligations that apply to a permitted call (from the permit rule, its template and Framework Profile, the CP-11 limits, the approval floor and session taint) as the union of required filters, the smallest rate, burst and session-quota bounds, and the most restrictive approval.
 A: E-06; F-14
-V: Test | Evaluate a request matched by rules with differing obligations; confirm the combined result.
+V: Test | Evaluate requests whose permit rule, template, profile and configured limits carry differing obligations, with and without the approval floor and session taint; confirm the combined result.
 SRC: SEC 1.10; SEC Appendix F
-R: Conservative combination.
+R: Conservative combination. Release 1.0 refuses overlapping permit rules at publication (SR-1.9-1), so a call has one permit rule and the layers above it; the size, time and resource bounds (CP-08, CP-13, CP-24) and the retention and capture settings (the Audit Profile and Observation Policy in force) have one source each and are carried into the decision unchanged (FR-3.12), so there is nothing to combine for them. The anomaly approval of FR-4.15 is added by the Anomaly Scorer after the decision and can only add the obligation.
 
 @SR-1.11-1 | Single route
 P: SEC-1.11
@@ -206,16 +216,16 @@ R: Templates are reviewed code.
 
 @SR-1.14-1 | Immutable revisions
 P: SEC-1.14
-S: The Policy Administration Service (E-05) SHALL reject every modification of a published revision, rule or route record.
-A: E-05; E-26; F-12; I-07
+S: The Policy Administration Service (E-05) SHALL reject every modification of a published revision, rule or route record, and SHALL store each published revision as a read-only file named by its content digest.
+A: E-05; F-12; D-01
 V: Test | Attempt updates to published records through every API; confirm rejection.
 SRC: SEC 1.14
 R: Historical decisions remain explainable.
 
 @SR-1.15-1 | Atomic activation
 P: SEC-1.15
-S: The Policy Administration Service (E-05) SHALL activate a revision by updating the policy-control record in one database transaction, and the Policy Decision Service (E-06) SHALL swap to the new snapshot only after that transaction commits.
-A: E-05; E-06; E-25; F-12; F-13
+S: The Policy Administration Service (E-05) SHALL activate a revision by writing the new policy-control record to a temporary file, flushing it, and atomically renaming it over the active record, and the Policy Decision Service (E-06) SHALL swap to the new snapshot only after the rename and the directory flush complete.
+A: E-05; E-06; F-12; F-13; D-01
 V: Test | Crash the service at each step of activation; confirm the active revision is either the old or the new one, never mixed.
 SRC: SEC 1.15
 R: No partial policy.
@@ -224,17 +234,17 @@ R: No partial policy.
 P: SEC-1.16
 S: The Enforcement Coordinator (E-12) SHALL serialize policy activation, revocation, emergency stop, launch authorization and release authorization through one gate.
 A: E-12; F-29; F-30; F-31; F-32
-V: Test | Race publication against launches with fault injection; confirm every launch is ordered entirely before or after the activation.
+V: Test | Race publication, emergency stop and revocation against launches held inside launch authorization; confirm every launch is ordered entirely before or after each of them.
 SRC: SEC 1.16; SEC Appendix F (coordinator ordering)
-R: Closes policy races.
+R: Closes policy races. A revocation in release 1.0 is a credential revocation, a principal suspension or a server revision suspension or revocation; each changes its records under the gate.
 
 @SR-1.17-1 | Pre-launch recheck
 P: SEC-1.17
-S: Under the gate, the Enforcement Coordinator (E-12) SHALL recheck the policy revision, session state, credential state, server revision state and revocation epochs before issuing a launch capability.
+S: Under the gate, the Enforcement Coordinator (E-12) SHALL recheck the policy revision, session state, principal state, credential state and server revision state before issuing a launch capability.
 A: E-12; F-29
-V: Test | Revoke the credential between decision and launch; confirm launch refusal.
+V: Test | Between decision and launch, activate a new policy revision, suspend the session, revoke the credential, suspend the principal and suspend the server revision, one per call; confirm each launch is refused.
 SRC: SEC 1.17
-R: Decisions can become stale before launch.
+R: Decisions can become stale before launch. Release 1.0 keeps no revocation epochs: each revocation is a state record (a revoked credential, a suspended principal, an ended or suspended session, a suspended or revoked server revision) changed under the gate (SR-1.16-1) and read by this recheck, which gives the same ordering.
 
 @SR-1.17-2 | Pre-release recheck
 P: SEC-1.17
@@ -336,11 +346,11 @@ R: Containment of credential compromise.
 
 @SR-2.3-1 | Bearer key generation
 P: SEC-2.3
-S: The Key & Trust Anchor Manager (E-22) SHALL generate UDS bearer keys, session tokens, access tokens, refresh tokens, authorization codes and client secrets from at least 256 bits of CSPRNG output and SHALL store only their SHA-256 verifiers.
+S: The Key & Trust Anchor Manager (E-22) SHALL generate UDS bearer keys, session tokens, access tokens, refresh tokens, authorization codes and client secrets from at least 256 bits of CSPRNG output and SHALL store only their verifiers: SHA-256 for session, access and refresh tokens and authorization codes, and Argon2id (CP-28) for client secrets and UDS bearer keys.
 A: E-22; E-04; F-59; F-06
 V: Inspection | Inspect the generation code and stored records; confirm entropy and verifier-only storage.
 SRC: SEC 2.3
-R: Stored verifiers cannot be replayed.
+R: Stored verifiers cannot be replayed. Client secrets and UDS bearer keys are long-lived and checked rarely, so they get the slower Argon2id verifier used for passwords; short-lived tokens are checked on every request and use SHA-256.
 
 @SR-2.3-2 | Adapter credential storage
 P: SEC-2.3
@@ -397,6 +407,7 @@ A: E-01; F-01; X-01
 V: Test | Enable the profile; connect without a certificate and with a foreign certificate; confirm rejection during the handshake.
 SRC: SEC 2.8; ARCH §19 OD-2
 R: Optional transport-level framework authentication for harnesses that can present a client certificate.
+DEFER: Deferred with the mTLS Harness Profile (FR-2.14); release 1.0 authenticates harness requests with bearer access tokens.
 
 @SR-2.8-3 | UDS permissions
 P: SEC-2.8
@@ -408,9 +419,9 @@ R: Local transport access control.
 
 @SR-2.9-1 | Origin validation
 P: SEC-2.9
-S: When a request carries an `Origin` header that is not in the configured allowlist, which is empty by default, the Harness Interface Endpoint (E-01) SHALL respond with HTTP 403.
+S: When a request carries an `Origin` header that is not in the configured allowlist, which is empty by default, and is not the Gateway's own origin on a request to the authorization endpoint, the Harness Interface Endpoint (E-01) SHALL respond with HTTP 403.
 A: E-01; F-01; X-01
-V: Test | Send requests with a foreign Origin; confirm 403.
+V: Test | Send MCP requests with a foreign Origin and with the Gateway's own origin, and submit the sign-in form from the Gateway's own page; confirm 403 for both MCP requests and acceptance of the sign-in form submission.
 SRC: SEC 2.9; MCP:basic/transports/streamable-http §Security
 R: DNS-rebinding defense.
 
@@ -424,11 +435,19 @@ R: DNS-rebinding defense.
 
 @SR-2.9-3 | Loopback binding
 P: SEC-2.9
-S: The Harness Interface Endpoint (E-01) and the Management Console & Control API (E-24) SHALL bind only to loopback addresses unless the Overlay Profile is enabled.
+S: The Harness Interface Endpoint (E-01), including the Remote Access listener, and the Management Console & Control API (E-24) SHALL bind only to loopback addresses.
 A: E-01; E-24; F-01
 V: Inspection | Inspect bound addresses in the default configuration.
-SRC: MCP:basic/transports/streamable-http §Security; SEC 4.14
-R: Local-only exposure by default.
+SRC: MCP:basic/transports/streamable-http §Security; SEC 4.14; OWNER (Remote Access through a tunnel)
+R: Local-only exposure. Remote access arrives through a tunnel connector on the same host, so no listener needs a non-loopback address.
+
+@SR-2.8-4 | Local CA constraints
+P: SEC-2.8
+S: The Key & Trust Anchor Manager (E-22) SHALL issue the local server CA with the CP-53 name constraints, path length and validity, and SHALL issue listener certificates only for names inside those constraints with the CP-53 validity.
+A: E-22; F-60; D-08
+V: Test | Inspect the CA and a listener certificate; request a certificate for a name outside the constraints; confirm the constraints, validities and refusal; confirm that a TLS client rejects a certificate for an outside name even if it was signed by the CA.
+SRC: SEC 2.8; REVIEW (minor: local CA NameConstraints and shorter validity)
+R: Users add this CA to their clients' trust; name constraints keep a stolen CA key from impersonating other sites.
 
 @SR-2.10-1 | Credential separation
 P: SEC-2.10
@@ -446,6 +465,39 @@ V: Test | Run the authorization conformance fixtures, including wrong-audience, 
 SRC: SEC 2.11; MCP:basic/authorization; CP-41
 R: Standards-based authorization is the baseline harness authentication.
 
+@SR-2.11-2 | Dynamic registration approval
+P: SEC-2.11
+S: The Identity & Authentication Service (E-03) SHALL refuse authorization and token requests from a dynamically registered client until a Session Approver or Administrator has approved its registration, and SHALL refuse Dynamic Client Registration requests outside the Remote Access Profile.
+A: E-03; F-59; X-13
+V: Test | Register through the remote listener and request authorization before and after approval; send a registration request to the local listener; confirm refusal before approval, success after, and refusal on the local listener.
+SRC: SEC 2.11; RFC 7591; OWNER (DCR only for Remote Access with operator approval of each registration)
+R: Open registration on an Internet-reachable endpoint would let anyone obtain a client ID.
+
+@SR-2.11-3 | No open metadata fetch
+P: SEC-2.11
+S: The Identity & Authentication Service (E-03) SHALL fetch a Client ID Metadata Document only from a URL that is pre-registered or matches the CP-52 allowlist, within the CP-52 limits, and SHALL refuse every other metadata URL without a network request.
+A: E-03; F-04; X-01
+V: Test | Present an allowlisted metadata URL, a non-allowlisted URL pointing at a capture server and an allowlisted URL that redirects to another host; confirm success, refusal with no request reaching the capture server, and refusal of the redirect.
+SRC: SEC 2.11; REVIEW (I4: CIMD URL allowlist or pre-registration, no open outbound fetch)
+R: An open fetch lets an unauthenticated caller make the Gateway send requests to arbitrary hosts.
+DEFER: Release 1.0 never fetches Client ID Metadata Documents: a metadata-URL client ID is accepted only when it is pre-registered in the configuration or approved through the Remote Access registration flow, and every other URL is refused without a network request. Fetching documents from an allowlist (CP-52) is deferred; no open fetch exists in the meantime.
+
+@SR-2.11-4 | Refresh token reuse
+P: SEC-2.11
+S: When a refresh token that has already been rotated is presented, the Session Manager (E-04) SHALL terminate the session it belonged to and record a `refresh_token_reuse` event.
+A: E-04; F-09; X-01
+V: Test | Refresh once; present the first refresh token again; confirm the session is terminated, the current access token receives `-31006` and the event is recorded.
+SRC: SEC 2.11; OWNER (rotate refresh tokens)
+R: Reuse of a rotated token means two parties hold it; ending the session limits the damage.
+
+@SR-2.11-5 | Truthful authorization metadata
+P: SEC-2.11
+S: The Identity & Authentication Service (E-03) SHALL advertise `client_id_metadata_document_supported` and `registration_endpoint` in its authorization-server metadata only when the corresponding mechanism is enabled.
+A: E-03; F-04; X-01
+V: Test | Fetch the metadata with the Remote Access Profile off and on; confirm `registration_endpoint` appears only when it is on, and that `client_id_metadata_document_supported` never appears while metadata documents are not fetched (SR-2.11-3, Appendix N).
+SRC: SEC 2.11; REVIEW (minor: refuse misadvertised client_id_metadata_document_supported)
+R: Clients choose a registration path from the metadata; advertising a path that fails causes confusing sign-in errors.
+
 @SR-2.12-1 | Handle ownership
 P: SEC-2.12
 S: For a tool with a manifest handle contract, the Access Enforcement Point (E-08) SHALL record handles created by results with their owning session and principal, and SHALL deny calls presenting a handle owned by another session or principal or past its expiry.
@@ -453,22 +505,23 @@ A: E-08; E-11; F-20; F-27
 V: Test | Create a handle in session A and use it from session B and after expiry; confirm denial.
 SRC: SEC 2.12; MCP:server/tools §Stateful Tools
 R: Handles are names, not capabilities.
+DEFER: The release 1.0 manifest schema (Appendix J) has no handle contract, and none of the reference packages returns handles that a later call presents. Handle tracking is deferred until the manifest schema defines handle contracts.
 
 @SR-2.13-1 | Vault encryption
 P: SEC-2.13
-S: The Secret Vault (E-19) SHALL encrypt each secret value with age to the vault master key held by the Key & Trust Anchor Manager (E-22).
+S: The Secret Vault (E-19) SHALL encrypt each secret value with age to the vault master key, an age X25519 identity that is never stored in plaintext: it is kept in the macOS Keychain or age-encrypted under an scrypt passphrase.
 A: E-19; E-22; F-47; F-60
 V: Inspection | Inspect the vault store; confirm age ciphertext and no plaintext.
 SRC: SEC 2.13
-R: Encrypted at rest.
+R: Encrypted at rest. Release 1.0 keeps the vault master key with the vault's own key sources (Keychain or passphrase-wrapped file) rather than in the files of the Key & Trust Anchor Manager, so the key that decrypts the vault is never readable beside the TLS and evidence keys and needs its own unlock.
 
 @SR-2.13-2 | Plaintext lifetime
 P: SEC-2.13
-S: The Secret Broker (E-20) SHALL hold decrypted secret values only in memory for the duration of a delivery and SHALL overwrite the buffers after use.
+S: The Secret Broker (E-20) SHALL hold decrypted secret values only in memory, SHALL overwrite every byte buffer it allocates for a decrypted value or for an encoding of one (the decrypted vault value after each delivery, the encoded forms built for leak fingerprints, the S1 header value when its grant ends), and SHALL make no copy of a value that cannot be overwritten other than the S4 environment string it hands to the launcher.
 A: E-20; F-50
-V: Inspection | Review the delivery code path and a memory snapshot after delivery.
-SRC: SEC 2.13
-R: Minimizes plaintext exposure.
+V: Inspection | Review the delivery code path for byte buffers holding a decrypted value or its encodings that are not overwritten after use, and for immutable copies other than the S4 environment string.
+SRC: SEC 2.13; OWNER (release 1.0 narrowed to what the Go runtime allows)
+R: Minimizes plaintext exposure. Narrowed in release 1.0 to what Go can guarantee: Go strings are immutable, so the S4 environment entry (`exec.Cmd.Env` takes strings, and the runtime copies it again when it starts the process), the header the Egress Broker (E-18) sets on each outbound S1 request (`net/http` header values are strings) and the age library's internal decryption buffers cannot be overwritten, and a memory snapshot cannot show that no stale copy exists because the garbage collector does not clear freed memory. The broker's own byte buffers are overwritten; Security Limitations lists the remaining copies.
 
 @SR-2.13-3 | Vault isolation
 P: SEC-2.13
@@ -476,7 +529,7 @@ S: The Secret Vault (E-19) SHALL be readable only by the Secret Broker (E-20) se
 A: E-19; E-20; I-27
 V: Test | Attempt vault reads as every other service identity; confirm denial.
 SRC: SEC 2.13; ARCH §4 E-19
-R: Data Server compromise does not expose secrets.
+R: Data Server compromise does not expose secrets. In release 1.x the Secret Broker runs inside smcpd, so its service identity is the one smcpd runs as (`smcp-core` in the Enforced profile); the vault directory and its key source are readable by that identity only, and every other CP-46 identity, `smcp-vault` and `smcp-srv` included, is denied.
 
 @SR-2.14-1 | Backend environment allowlist
 P: SEC-2.14
@@ -490,7 +543,7 @@ R: Minimal environment.
 
 @SR-3-1 | Signature verification
 P: SEC-3
-S: The Library Trust Verifier (E-13) SHALL accept a package only when its signature verifies under an enrolled, unexpired trust anchor whose scope includes the manifest risk class.
+S: The Library Trust Verifier (E-13) SHALL accept a package only when the minisign signature over its package index verifies under an enrolled, unexpired trust anchor whose scope includes the manifest risk class.
 A: E-13; E-22; F-33; I-17
 V: Test | Import packages signed by an unknown key, an expired anchor and an out-of-scope anchor; confirm rejection.
 SRC: ARCH §4 E-13; ARCH §2.1 item 1
@@ -554,11 +607,19 @@ R: Evidence is untrusted content.
 
 @SR-3.4-1 | Dependency visibility
 P: SEC-3.4
-S: The Servers & Library view (G-10) SHALL display each revision's SBOM, launcher argument vector, mounts, egress destinations, secret slots and sandbox profile.
+S: The Servers & Library view (G-10) SHALL display each revision's bill of materials as recorded in its signed provenance statement (artifact and source with their digests, licenses and the pinned dependency lock), launcher argument vector, mounts, egress destinations, secret slots and sandbox profile.
 A: E-24; E-14; F-65
 V: Demonstration | Open a revision in G-10; confirm each item.
 SRC: SEC 3.4
-R: Privileges are visible beside the server.
+R: Privileges are visible beside the server. A release 1.0 package carries no separate SPDX document: its bill of materials is the signed provenance statement (FR-14.5), which binds the artifact and source digests, the licenses and the digest of the dependency lock file that pinned the transitive dependencies (FR-14.1). The Gateway's own release archives carry an SPDX SBOM (FR-13.1).
+
+@SR-3.5-1 | Packaging probe isolation
+P: SEC-3.5
+S: The `smcpctl package build` command SHALL run the candidate server for its tool-list probe with no secrets, no mounts other than an empty throwaway directory and, in the Enforced profile, no network access.
+A: E-13; F-96; X-17
+V: Test | Package a fixture server that tries to read the user's home directory, read environment secrets and open a network connection during startup; confirm each attempt fails in the Enforced profile and that the probe environment holds only the allowlisted variables.
+SRC: SEC 3.5; OWNER (operator self-curation)
+R: The packaging run is the quarantine probe of SEC 3.5; a candidate must not see production data before it is reviewed.
 
 @SR-3.6-1 | No runtime bootstrap
 P: SEC-3.6
@@ -636,11 +697,19 @@ R: Handle ownership must be enforceable.
 
 @SR-4.1-1 | Service identities
 P: SEC-4.1
-S: The Gateway SHALL run the core enforcement, Data Server, vault and secret broker, evidence exporter, and console as distinct operating-system service identities.
+S: In the Enforced profile, the Gateway SHALL run its enforcement core process `smcpd` (which in release 1.x also hosts the Data Access Service, the vault and secret broker, the evidence exporter, the key manager and the console) as the CP-46 service identity `smcp-core`, and every MCP server process under the CP-46 server identity `smcp-srv` (as `smcp-srv` or a UID of its subordinate range); neither identity SHALL be root or the operator's account.
 A: E-12; E-25; E-19; E-21; E-24; X-07
-V: Inspection | Inspect running processes and their UIDs.
-SRC: SEC 4.1
-R: Separation of authority.
+V: Inspection | On an Enforced host, inspect the running `smcpd` process and the processes of a running MCP server and their UIDs.
+SRC: SEC 4.1; OWNER (release 1.x narrowed to the core and server identities)
+R: Separation of authority. Release 1.x narrows the statement to the boundary it enforces, between the Gateway and the servers it runs: the components that SEC 4.1 places under `smcp-evidence`, `smcp-keys`, `smcp-vault`, `smcp-data` and `smcp-console` are packages of the one `smcpd` process, so they share `smcp-core`. `smcpctl install` still creates those identities (CP-46). Running each component as its own process under its own identity needs an inter-process interface between components that release 1.x does not have; it is left to a later release, together with the directory owners of CP-46 that depend on it.
+
+@SR-4-1 | Standalone profile restrictions
+P: SEC-4
+S: In the Standalone profile, the Local Server Registry (E-14) SHALL refuse to enable a server revision whose manifest risk class, or any tool's risk class, is `high`.
+A: E-14; E-23; F-36; F-61
+V: Test | In a Standalone installation, import and attempt to enable a `high` package and a `moderate` package; confirm refusal of the first with reason `PROFILE_UNCONFINED` and enablement of the second.
+SRC: SEC 4; SEC 3.13; OWNER (Standalone profile: high-risk server classes refused)
+R: Without a sandbox, a high-risk server's capabilities are the user's capabilities.
 
 @SR-4.1-2 | Instance identities
 P: SEC-4.1
@@ -673,10 +742,35 @@ A: E-26; F-72; I-07; I-30; I-33; I-34; I-35; I-06
 V: Test | Invoke a policy-write operation from the Observation Collector identity; confirm denial.
 SRC: SEC 4.3
 R: Application-level separation without Enterprise database roles.
+DEFER: In release 1.0 the Data Access Service is a library inside the `smcpd` process, called only by the graph mirror and the console routes of that process; no element reaches it across a process or socket boundary, so there is no peer to authenticate by socket credentials. Its operations are fixed by the reviewed template catalog and the control API role matrix (Appendix C). Peer authentication is deferred to a release that splits elements into separate processes.
+
+@SR-4.9-1 | Single MCP endpoint per locked-down client
+P: SEC-4.9
+S: Each lockdown profile of FR-15.1 SHALL leave the Gateway as the only MCP server the client loads, and `smcpctl doctor` SHALL report any additional MCP server the client would load.
+A: E-33; F-98; X-12
+V: Test | For each local client with a lockdown mechanism, apply the profile, add a second server in user and project scope, start the client and list its MCP servers; confirm only the Gateway loads and doctor reports the added servers.
+SRC: SEC 4.9; OWNER (lockdown profiles per client)
+R: SEC 4.9 was written for Hermes; the same single-endpoint rule now applies to every local client.
+
+@SR-4.11-1 | Protected client configuration
+P: SEC-4.11
+S: Each lockdown profile of FR-15.1 SHALL deny the client's own file-editing tools write access to the client's MCP and permission settings files where the client provides such a rule, and `smcpctl doctor` SHALL report each client whose settings files are writable by its own tools.
+A: E-33; F-98; X-12
+V: Test | For each local client, apply the profile and ask the agent to edit its own MCP settings file; confirm the edit is refused where Appendix K lists a mechanism and that doctor reports the remaining clients.
+SRC: SEC 4.11; OWNER (lockdown profiles)
+R: An agent that can edit its own configuration can remove the lockdown.
+
+@SR-4.13-1 | Exclusive-gateway label
+P: SEC-4.13
+S: The client matrix (FR-15.10) SHALL mark a client `exclusive-gateway` only when its latest matrix run at the pinned version passed the FR-15.1 and SR-4.9-1 bypass tests, and SHALL mark every other client `gateway-available`.
+A: E-33; F-98; X-12
+V: Inspection | Inspect `docs/clients/matrix.json` and the latest matrix results; confirm that each `exclusive-gateway` client has passing bypass results for its pinned version.
+SRC: SEC 4.13; SEC 9.7
+R: Users should not read "supported" as "cannot bypass".
 
 @SR-4.5-1 | Sandbox network isolation
 P: SEC-4.5
-S: The Execution Sandbox (E-16) SHALL place each instance in a network namespace whose only reachable endpoints are its Egress Broker endpoints.
+S: In the Enforced profile, the Execution Sandbox (E-16) SHALL place each instance in a network namespace whose only reachable endpoints are its Egress Broker endpoints.
 A: E-16; E-18; F-41; I-25
 V: Test | From a fixture instance, attempt connections to the Internet, LAN, loopback services and the database; confirm all fail except broker endpoints.
 SRC: SEC 4.5
@@ -692,7 +786,7 @@ R: Policy-bound egress.
 
 @SR-4.6-1 | Mount restriction
 P: SEC-4.6
-S: The Execution Sandbox (E-16) SHALL mount only paths in the intersection of manifest-declared and policy-granted roots, read-only unless a write grant applies.
+S: In the Enforced profile, the Execution Sandbox (E-16) SHALL mount only paths in the intersection of manifest-declared and policy-granted roots, read-only unless a write grant applies.
 A: E-16; F-41
 V: Test | Attempt reads and writes outside and inside the granted roots from a fixture; confirm the results.
 SRC: SEC 4.6
@@ -700,7 +794,7 @@ R: File authority by operating-system enforcement.
 
 @SR-4.7-1 | Host exclusion
 P: SEC-4.7
-S: The Execution Sandbox (E-16) SHALL run instances with all capabilities dropped, `no-new-privileges`, the default seccomp profile, a read-only root filesystem, and without host PID, network or IPC namespaces, devices or host management sockets.
+S: In the Enforced profile, the Execution Sandbox (E-16) SHALL run instances with all capabilities dropped, `no-new-privileges`, the default seccomp profile, a read-only root filesystem, and without host PID, network or IPC namespaces, devices or host management sockets.
 A: E-16; F-41
 V: Inspection | Inspect the effective container configuration of an instance.
 SRC: SEC 4.7
@@ -708,7 +802,7 @@ R: No host-management reachability.
 
 @SR-4.7-2 | Resource limits
 P: SEC-4.7
-S: The Execution Sandbox (E-16) SHALL enforce cgroup memory, CPU and PID limits, with CP-24 as the default.
+S: In the Enforced profile, the Execution Sandbox (E-16) SHALL enforce cgroup memory, CPU and PID limits, with CP-24 as the default.
 A: E-16; F-41
 V: Test | Exceed each limit from a fixture; confirm enforcement.
 SRC: SEC Appendix A (worker budget)
@@ -722,13 +816,21 @@ V: Inspection | Inspect launch code; confirm exec-style invocation only.
 SRC: SEC 4.8
 R: No command injection.
 
-@SR-4.14-1 | Overlay Profile
+@SR-4.14-1 | Remote Access host rules
 P: SEC-4.14
-S: When the Overlay Profile is enabled, the Gateway SHALL apply deny-by-default nftables rules permitting only configured device-to-port pairs to reach non-loopback listeners.
-A: E-01; E-24; X-07
-V: Test | Enable the profile; confirm unlisted devices and ports are refused.
-SRC: SEC 4.14
-R: Conditional remote access.
+S: When the Remote Access Profile is enabled, the `smcpctl remote enable` command SHALL add no inbound firewall exception, and in the Enforced profile SHALL install nftables rules that drop every non-loopback connection to the CP-02, CP-03, CP-48 and CP-51 ports.
+A: E-01; E-24; F-97; X-07; X-13
+V: Test | Enable the profile on an Enforced host; attempt connections to each port from another host on the network; confirm all are dropped and that the tunnel connector on the host reaches the CP-48 listener.
+SRC: SEC 4.14; OWNER (Remote Access through an authenticated tunnel)
+R: Remote access arrives only through the tunnel connector; no port is opened to the network.
+
+@SR-4.14-2 | Remote authentication
+P: SEC-4.14
+S: When the Remote Access Profile is enabled, the Harness Interface Endpoint (E-01) SHALL require on the remote listener an access token issued to an approved client for every request except OAuth metadata, authorization, token, registration, device authorization and device verification requests.
+A: E-01; E-03; F-01; F-04; X-13
+V: Test | Send MCP requests through the tunnel without a token, with a token from a pending client and with a valid token; confirm `-31006` for the first two and success for the third.
+SRC: SEC 4.14; OWNER (OAuth 2.1 with per-client registration)
+R: Application authentication on every request in addition to the tunnel.
 
 ### SEC-5 Protocol and content boundary
 
@@ -747,6 +849,7 @@ A: E-10; F-23
 V: Test | Probe a modern server whose manifest declares legacy; confirm suspension rather than legacy use.
 SRC: SEC 5.1; FR-5.17
 R: Curated protocol era.
+DEFER: Deferred with the era probe (FR-5.16). Release 1.0 uses legacy behavior toward every instance and refuses a revision whose manifest declares another era (FR-5.40), so legacy behavior is never used toward a revision whose manifest declares the modern era.
 
 @SR-5.2-1 | Header/body agreement
 P: SEC-5.2
@@ -779,6 +882,7 @@ A: E-10; F-23
 V: Test | Return `-32022` to a probe; confirm modern handling.
 SRC: SEC 5.3; MCP:basic/transports/stdio §Backward Compatibility
 R: Specification fallback rule.
+DEFER: Deferred with the era probe (FR-5.16): release 1.0 sends no era probe, so there is no probe error to classify.
 
 @SR-5.4-1 | Authorized discovery
 P: SEC-5.4
@@ -860,6 +964,14 @@ V: Test | Place a filter trigger in each surface; confirm detection.
 SRC: SEC 5.9
 R: Every surface reaching the agent is filtered.
 
+@SR-5.9-2 | Tool metadata scanning
+P: SEC-5.9
+S: When importing a server revision, the Library Trust Verifier (E-13) SHALL apply the active metadata rule set to every tool name, title, description and schema property description at any nesting depth, and the Local Server Registry (E-14) SHALL register each tool with a blocking finding as suspended and record a `metadata_blocked` event naming the rule and rule-set version.
+A: E-13; E-14; F-34; F-36; I-21; I-18
+V: Test | Import the Appendix L poisoned-description and poisoned-property-description fixtures; confirm each affected tool is suspended with the event, and that a clean tool of the same server is presented.
+SRC: SEC 5.9; REVIEW (I2: metadata scanning of all presented tool metadata at import and presentation)
+R: Tool descriptions reach the model's context like tool results do; they are an injection surface.
+
 @SR-5.10-1 | Filter failure
 P: SEC-5.10
 S: When a required filter errors or exceeds CP-14, the Request Inspection Pipeline (E-09) or Response Inspection Pipeline (E-11) SHALL block the request or withhold the result.
@@ -892,6 +1004,14 @@ V: Inspection | Inspect released results.
 SRC: SEC 5.13
 R: Downstream consumers retain untrusted status.
 
+@SR-5.13-2 | Session taint
+P: SEC-5.13
+S: When a result from a tool whose manifest `source_trust` is `untrusted` is released to a session, the Session Manager (E-04) SHALL mark the session tainted until it ends, and while it is tainted the Policy Decision Service (E-06) SHALL add an approval obligation, or deny when the template's `taint_action` is `deny`, to every call of a tool whose side-effect class is `external` or `write`.
+A: E-04; E-06; F-99; F-14
+V: Test | In a session, call a `read` tool with untrusted source, then a `write` tool and an `external` tool; repeat with `taint_action = deny`; confirm approval obligations (`TAINT_APPROVAL`) and then denials (`TAINT_DENIED`), and that a fresh session is untainted.
+SRC: SEC 5.13; SEC 1.12; REVIEW (I3: deterministic restrict-only session taint)
+R: An agent that has read attacker-controlled text should not be able to act on the outside world without a person's approval. The rule is deterministic and can only restrict.
+
 @SR-5.14-1 | Unicode corpus
 P: SEC-5.14
 S: The `unicode-control` filter SHALL flag bidirectional overrides, zero-width joiners outside permitted scripts and Unicode tag characters, and SHALL pass the versioned corpus of legitimate multilingual and source-code samples.
@@ -922,19 +1042,19 @@ S: The Egress Broker (E-18) SHALL require on each operation a one-use capability
 A: E-18; E-12; F-45; I-25
 V: Test | Replay a used capability and present one for another destination; confirm refusal and header removal.
 SRC: SEC 5.16
-R: Each outbound operation is individually authorized.
+R: Each outbound operation is individually authorized. The capabilities of a call are minted when the call is dispatched to the instance and delivered in its `_meta` (CP-23); unused ones are revoked when the call returns. An operator may turn the check off (`[egress] require_capability = false`) for a server whose HTTP client cannot attach the header; the broker then authorizes each operation by instance and grant (SR-4.5-2) and reports the setting in its status.
 
 @SR-5.17-1 | No ambient cookies
 P: SEC-5.17
-S: The Egress Broker (E-18) SHALL strip `Cookie` and `Set-Cookie` headers and SHALL retain no cookie state between operations.
+S: The Egress Broker (E-18) SHALL strip `Cookie` and `Set-Cookie` headers from every operation it relays in clear (plain-HTTP proxy requests and endpoint requests, whose TLS the broker originates) and SHALL retain no cookie state between operations.
 A: E-18; F-45
 V: Test | Have a destination set a cookie; confirm it is not forwarded or replayed.
 SRC: SEC 5.17
-R: No ambient credential state.
+R: No ambient credential state. An HTTPS request through `CONNECT` is a TLS tunnel that the broker relays without interception (it checks the server name, SR-4.5-2), so it cannot see the headers inside; the broker keeps no cookies of its own for any operation.
 
 @SR-5.18-1 | Binary content gate
 P: SEC-5.18
-S: The `content-type-gate` filter SHALL remove image, audio and binary embedded-resource content unless the Response Policy allowlists the MIME type, the magic bytes match and the size is within the policy bound.
+S: The `content-type-gate` filter SHALL remove image, audio and binary embedded-resource content unless the content-type allowlist of the configuration (`[filters.content_types]`) allows the MIME type, the magic bytes match and the size is within its bound.
 A: E-11; F-27
 V: Test | Return allowlisted, mismatched and oversize images; confirm the dispositions.
 SRC: SEC 5.18
@@ -1008,18 +1128,18 @@ R: Non-disableable security evidence.
 
 @SR-6.2-1 | Atomic intent commit
 P: SEC-6.2
-S: The Enforcement Coordinator (E-12) SHALL commit the decision, invocation intent, exact rule, server, tool, filter, audit and observation profile links, and the export outbox record in one database transaction before issuing a launch capability.
-A: E-12; E-21; E-26; F-29; I-30
-V: Test | Kill the process at each point around commit; confirm no launch without the complete committed set.
-SRC: SEC 6.2
-R: Dispatch always has evidence.
+S: The Enforcement Coordinator (E-12) SHALL append one journal record holding the decision, the invocation intent and the IDs of the exact rule, server revision, tool revision, filters, audit profile and observation profile to the Evidence Journal, and SHALL receive the completion of that record's flush to stable storage before issuing a launch capability.
+A: E-12; E-21; F-29; F-55; D-06
+V: Test | Kill the process at points before, during and after the append and the flush, using a fault-injecting file layer; confirm that no launch occurs whose intent record is absent from the journal after restart, and that `smcpctl journal verify` passes.
+SRC: SEC 6.2; OWNER (decision intent written and fsynced before the one-use launch capability is issued)
+R: Dispatch always has evidence. SEC 6.2 names a graph transaction; one flushed journal record gives the same atomicity on the evidence authority (A-9).
 
 @SR-6.3-1 | Outcome before release
 P: SEC-6.3
-S: The Enforcement Coordinator (E-12) SHALL commit the outcome and release disposition before issuing a release authorization.
-A: E-12; E-21; F-30; I-30
-V: Test | Fail the commit; confirm the result is withheld.
-SRC: SEC 6.3
+S: The Enforcement Coordinator (E-12) SHALL append the outcome and release disposition to the Evidence Journal and receive the completion of its flush before issuing a release authorization.
+A: E-12; E-21; F-30; F-55; D-06
+V: Test | Inject a flush failure after the backend responds; confirm the result is withheld with `-31003` and that no released content reaches the harness.
+SRC: SEC 6.3; OWNER (evidence authority is the journal)
 R: Release always has evidence.
 
 @SR-6.4-1 | Exact links
@@ -1045,6 +1165,7 @@ A: E-21; E-29; F-53; F-82
 V: Test | Toggle capture in the profile; confirm payload presence follows it.
 SRC: SEC 6.6
 R: Policy-directed capture.
+DEFER: Release 1.0 captures no payloads: observation records hold derived parameters only, and the S3 parameters (raw arguments and raw responses) are never stored. With no optional payload capture there is nothing for an Audit Profile, Observation Policy or Research Campaign to direct; directed payload capture is deferred with its encrypted storage (SR-6.8-1).
 
 @SR-6.7-1 | Secret scrubbing
 P: SEC-6.7
@@ -1061,6 +1182,7 @@ A: E-21; E-22; F-53
 V: Inspection | Inspect a payload blob and its graph reference.
 SRC: SEC 6.8
 R: Encrypted payloads.
+DEFER: Deferred with payload capture (SR-6.6-1): release 1.0 stores no payloads, so there are no payload blobs to encrypt or reference from the graph.
 
 @SR-6.9-1 | Retention validation
 P: SEC-6.9
@@ -1069,18 +1191,19 @@ A: E-05; F-10
 V: Test | Publish conflicting retention and capture settings; confirm rejection.
 SRC: SEC 6.9
 R: Consistent retention.
+DEFER: Release 1.0 has one retention setting per store (the Audit Profile's `retention` and the `[evidence]` and `[observation]` settings) and no no-capture data classifications, because payload capture is deferred (SR-6.6-1). There are no competing minimum and maximum retentions or capture requirements to conflict. Retention validation is deferred with policy-directed capture.
 
 @SR-6.10-1 | Idempotent export
 P: SEC-6.10
-S: The Audit & Evidence Service (E-21) SHALL export outbox events to the evidence journal exactly once per event ID, including after restart.
-A: E-21; F-55
-V: Test | Crash the exporter mid-segment; confirm no duplicates and no gaps after restart.
-SRC: SEC 6.10
-R: Reliable evidence.
+S: The Audit & Evidence Service (E-21) SHALL feed journal events to the audit graph mirror (D-05) and to evidence export (X-09) exactly once per event ID, including after restart.
+A: E-21; E-26; F-54; F-55; I-30; D-05
+V: Test | Crash the mirror feed and the exporter mid-batch; restart; confirm the mirror and the export each hold every journal event once, with no duplicates and no gaps.
+SRC: SEC 6.10; ARCH §2.2 A-9
+R: Reliable evidence downstream of the journal.
 
 @SR-6.11-1 | Export lag stop
 P: SEC-6.11
-S: When journal export lag exceeds the CP-27 stop thresholds, the Enforcement Coordinator (E-12) SHALL refuse new launch authorizations.
+S: When the oldest journal event not yet in a signed segment is older than, or the count of such events exceeds, the CP-27 stop thresholds, the Enforcement Coordinator (E-12) SHALL refuse new launch authorizations.
 A: E-12; E-21; E-23; F-29; F-61
 V: Test | Stall the exporter; confirm dispatch stops at the thresholds.
 SRC: SEC 6.11
@@ -1096,11 +1219,11 @@ R: Tamper evidence independent of the Data Server.
 
 @SR-6.13-1 | Failure spool
 P: SEC-6.13
-S: When the Data Server is unavailable, the Audit & Evidence Service (E-21) SHALL write denial and failure events to a 64 MiB protected local spool and SHALL import them on recovery with their original policy status.
-A: E-21; F-53
-V: Test | Stop the database, generate denials, restart; confirm the spooled events with `policy_status=unavailable`.
-SRC: SEC 6.13
-R: Evidence during outage.
+S: When the graph mirror is unavailable, the Audit & Evidence Service (E-21) SHALL continue to record every event, including denials and failures, in the Evidence Journal, and SHALL backfill the mirror from the journal on recovery with each event's original policy status.
+A: E-21; F-53; F-54; D-06; D-05
+V: Test | Stop the graph database, generate permits, denials and failures, restart it; confirm every event is in the journal during the outage and in the mirror after recovery with its original `policy_status`.
+SRC: SEC 6.13; ARCH §2.2 A-9
+R: The journal is the protected local record that SEC 6.13 asks for; the mirror catches up from it.
 
 @SR-6.14-1 | Referenced version retention
 P: SEC-6.14
@@ -1186,11 +1309,11 @@ R: No automatic replay of possibly executed mutations.
 
 @SR-7.3-1 | Integrity validation
 P: SEC-7.3
-S: The Data Access Service (E-26) SHALL validate required fields, types, enumerations and relationship cardinalities of the active policy at publication and at startup, and the Health & Safety Monitor (E-23) SHALL enter `fail-closed` on failure.
-A: E-26; E-23; F-72; F-62
-V: Test | Corrupt a stored rule; restart; confirm `fail-closed`.
-SRC: SEC 7.3
-R: Application-level integrity checks replace missing Community Edition constraints.
+S: The Policy Administration Service (E-05) SHALL validate the signature, schema, required fields, types, enumerations and cross-references of the active policy revision at publication and at startup, and the Health & Safety Monitor (E-23) SHALL enter `fail-closed` on failure.
+A: E-05; E-23; F-10; F-62; D-01
+V: Test | Corrupt a stored rule, break a cross-reference and remove the signature, restarting after each; confirm `fail-closed` with the matching cause.
+SRC: SEC 7.3; ARCH §2.2 A-9
+R: The policy authority is a file set; it is validated as a whole before it is trusted.
 
 @SR-7.4-1 | Graph engine hardening
 P: SEC-7.4
@@ -1207,6 +1330,14 @@ A: E-24; F-63
 V: Test | Attempt creation without, with an expired and with a used credential; confirm only valid first use succeeds.
 SRC: SEC 7.5
 R: Protected initial administration.
+
+@SR-7.5-2 | No secrets on the command line
+P: SEC-7.5
+S: The `smcpctl bootstrap`, `smcpctl install` and `smcpctl hash-password` commands SHALL read a password or bootstrap secret only from an interactive prompt or from a file with mode 0600 or stricter, and SHALL refuse one supplied as a command-line argument.
+A: E-24; F-63; F-97
+V: Test | Run each command with a password argument, with a mode 0644 file, with a mode 0600 file and with the prompt; confirm refusal for the first two and success for the others.
+SRC: SEC 7.5; REVIEW (minor: bootstrap secret must not be passed on the command line)
+R: Command-line arguments are visible to other local processes and kept in shell history.
 
 @SR-7.6-1 | Emergency stop serialization
 P: SEC-7.6
@@ -1226,15 +1357,15 @@ R: Stop limits ongoing activity.
 
 @SR-7.7-1 | Offline backup procedure
 P: SEC-7.7
-S: The `smcpctl backup` command SHALL stop dispatch, drain in-flight calls, stop the graph engine, dump it, copy the Observation Store, configuration, encrypted vault and checkpoints, and keep dispatch stopped until the backup completes.
-A: E-28; E-12; F-79
-V: Test | Run a backup under load; confirm the sequence and that dispatch remains stopped throughout.
-SRC: SEC 7.7
-R: Community Edition supports offline backup only.
+S: The `smcpctl backup` command SHALL stop dispatch, drain in-flight calls, seal the open journal segment, copy the Policy Store, Server Registry, configuration, encrypted vault, Evidence Journal, key material and trust anchors into the encrypted archive of FR-17.6, optionally add an Observation Store copy and a graph dump, and keep dispatch stopped until the archive is written and checksummed.
+A: E-28; E-12; E-21; F-79; D-15
+V: Test | Run a backup under load; confirm the sequence from the journal, that dispatch remains stopped throughout and resumes after, and that the archive contains each listed component.
+SRC: SEC 7.7; ARCH §2.2 A-9
+R: The authorities are files and are copied consistently while dispatch is stopped; the graph is optional because it can be rebuilt.
 
 @SR-7.8-1 | Restore verification
 P: SEC-7.8
-S: The `smcpctl restore` command SHALL restore into an isolated instance and verify relationship counts, checksums and the presence of every revocation recorded in the evidence journal before enabling service.
+S: The `smcpctl restore` command SHALL restore into an isolated directory, verify the archive checksum, the journal chain and signatures and the policy revision signatures, re-apply every revocation recorded in the restored journal and in the current journal when present, and rebuild the graph mirror from the restored journal before enabling service.
 A: E-28; F-79
 V: Test | Restore a backup taken before a revocation; confirm the revocation is re-applied from the journal before service starts.
 SRC: SEC 7.8
@@ -1242,7 +1373,7 @@ R: Restores must not resurrect revoked authority.
 
 @SR-7.9-1 | Rollback preserves revocations
 P: SEC-7.9
-S: The Policy Administration Service (E-05) SHALL carry forward current revocation epochs and server suspensions when rolling back policy or application versions.
+S: The Policy Administration Service (E-05) SHALL carry forward current credential revocations, principal suspensions and server suspensions when rolling back policy or application versions.
 A: E-05; E-12; F-12; F-32
 V: Test | Revoke, then roll back policy; confirm the revocation remains effective.
 SRC: SEC 7.9
@@ -1282,17 +1413,15 @@ V: Test | Submit mutations without a token, with a wrong token and with a stale 
 SRC: SEC 8.9
 R: Browser mutation protection.
 
-@DISP SEC-3.5 | Moved to the MCP Curation System (ARCH §2.2 A-1). Quarantine probing happens before signing; the Gateway relies on SR-3-1, SR-3.2-1 and SR-3.1-1 to verify the resulting evidence.
-@DISP SEC-4.4 | Agent-sandbox network policy belongs to the harness deployment outside the SoI. The X-01 ICD (FR-1.48) documents the required agent allowlist.
-@DISP SEC-4.9 | Harness-specific endpoint configuration belongs to the Hermes Harness Adapter outside the SoI. Verified through the adapter qualification in the X-01 ICD.
-@DISP SEC-4.10 | Client-side runtime tool guard belongs to the qualified harness outside the SoI. The Gateway supports it with deterministic, manifest-derived catalogs (FR-1.25, FR-1.27).
-@DISP SEC-4.11 | Agent configuration protection belongs to the harness deployment outside the SoI.
-@DISP SEC-4.12 | Local inference routing belongs to the harness deployment outside the SoI.
-@DISP SEC-4.13 | Client qualification labeling belongs to the harness-adapter qualification process outside the SoI.
-@DISP SEC-9.4 | The engineering server catalog is now curation-system content delivered through the Trusted MCP Server Library (ARCH §16 root 9); it is not a Gateway requirement.
-@DISP SEC-9.5 | Initial engineering functions are curation-system catalog content; the Gateway hosts whatever verified servers the library supplies.
-@DISP SEC-9.7 | Client-profile labeling belongs to harness-adapter documentation outside the SoI.
+
+@DISP SEC-4.4 | Agent-sandbox network policy belongs to the harness deployment outside the SoI. The Security Limitations document (FR-18.2) states that an agent's native network and shell tools bypass the Gateway; the lockdown profiles (FR-15.1) cover MCP configuration only.
+@DISP SEC-4.10 | Client-side runtime tool guard belongs to the harness. The Gateway supports it with deterministic, manifest-derived catalogs (FR-1.25, FR-1.27) and the Claude Code lockdown profile limits MCP servers to the Gateway (FR-15.2).
+@DISP SEC-4.12 | Local inference routing belongs to the harness deployment outside the SoI; cloud-hosted models are expected for the supported clients and are stated in the Security Limitations document (FR-18.2).
+@DISP SEC-8.1 | The draft, quarantine and test states are realized before import by the packaging command: `smcpctl package build` is the quarantine probe (SR-3.5-1) and its manifest is the reviewed draft (FR-14.3). Approve is the import with signature verification (SR-3-1), and enable, suspend and retire are the registry states shown and changed in G-10 (FR-5.7, FR-8.18).
+@DISP SEC-9.4 | The V1 engineering server catalog is replaced by the four reference packages (FR-14.9) and the packaging guide (FR-18.6); further servers are operator-packaged.
+@DISP SEC-9.5 | Scoped file reading and local repository inspection are provided by the reference filesystem and git packages (FR-14.9). Local document search and tabular analysis are left to operator-packaged servers in v1.
+@DISP SEC-9.7 | Realized by the client matrix labels (SR-4.13-1) and the cloud agent records (FR-15.9).
 @DISP SEC-10.1 | Satisfied by the V1 security SRS baseline itself; this SRS carries its own baseline identity in its header.
 @DISP SEC-10.2 | Satisfied by the existing Git tag `mcp-gateway-srs-v1`; this SRS will be tagged on approval.
 @DISP SEC-10.4 | Satisfied by Section 1.4 of this SRS (document authority).
-@DISP SEC-10.8 | Source review and vulnerability findings for servers are curation-system outputs (ARCH §2.2 A-1); Gateway release scanning is covered by FR-12.8.
+@DISP SEC-10.8 | Source review of packaged servers is the operator's decision at packaging (FR-14.3, FR-14.5); Gateway release scanning is covered by FR-12.8.

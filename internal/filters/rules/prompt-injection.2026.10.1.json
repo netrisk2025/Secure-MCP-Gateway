@@ -1,0 +1,107 @@
+{
+  "id": "prompt-injection",
+  "version": "2026.10.1",
+  "normalize": true,
+  "description": "Phrases that address the model rather than the user: instruction overrides, role changes, prompt disclosure, concealment and exfiltration requests. Tag only in v1 (FR-4.17).",
+  "rules": [
+    {
+      "id": "instruction-override",
+      "kind": "regex",
+      "description": "Asks the model to ignore earlier instructions.",
+      "pattern": "\\b(?:ignore|disregard|forget|skip|override|bypass)\\b(?: [\\w']+){0,3} (?:previous|prior|above|earlier|preceding|all|any|your|the system|these|those)\\b(?: [\\w']+){0,2} (?:instructions?|prompts?|directions?|rules|guidelines|directives|context)\\b",
+      "request_action": "tag",
+      "response_action": "tag",
+      "score": 0.9
+    },
+    {
+      "id": "new-instructions",
+      "kind": "regex",
+      "description": "Introduces replacement instructions.",
+      "pattern": "\\b(?:new|updated|revised|real|actual|true|hidden|secret) (?:system )?instructions? ?:|\\bfrom now on,? you (?:will|must|are|should)\\b",
+      "request_action": "tag",
+      "response_action": "tag",
+      "score": 0.7
+    },
+    {
+      "id": "role-override",
+      "kind": "regex",
+      "description": "Tries to change the model's role or safety mode.",
+      "pattern": "\\byou are now (?:a |an |in )?(?:dan\\b|jailbroken|unrestricted|unfiltered|developer mode|evil|free of|no longer bound)|\\b(?:act|behave|pretend) as (?:if you (?:are|were) )?(?:an? )?(?:unrestricted|jailbroken|unfiltered|dan\\b)|\\bdeveloper mode (?:enabled|activated|on)\\b",
+      "request_action": "tag",
+      "response_action": "tag",
+      "score": 0.9
+    },
+    {
+      "id": "prompt-disclosure",
+      "kind": "regex",
+      "description": "Asks the model to disclose its instructions.",
+      "pattern": "\\b(?:reveal|print|show|output|repeat|leak|display|disclose|dump)\\b(?: [\\w']+){0,3} (?:system prompt|initial instructions|hidden instructions|original instructions|developer message|your instructions)",
+      "request_action": "tag",
+      "response_action": "tag",
+      "score": 0.8
+    },
+    {
+      "id": "fake-role-marker",
+      "kind": "regex",
+      "description": "Chat-template or role markers inside content.",
+      "pattern": "<\\|im_start\\|>|<\\|im_end\\|>|<\\|(?:system|assistant)\\|>|\\[/?inst\\]|<</?sys>>|</?system>|### (?:system|instructions?)\\b|\\bsystem override\\b",
+      "request_action": "tag",
+      "response_action": "tag",
+      "score": 0.8
+    },
+    {
+      "id": "concealment",
+      "kind": "regex",
+      "description": "Asks the model to hide an action from the user.",
+      "pattern": "\\b(?:do not|don't|never|without) (?:tell|telling|inform|informing|mention|mentioning|reveal|revealing|alert|alerting|notify|notifying)(?: [\\w']+){0,2} (?:the )?(?:user|human|operator)\\b",
+      "request_action": "tag",
+      "response_action": "tag",
+      "score": 0.8
+    },
+    {
+      "id": "exfiltration",
+      "kind": "regex",
+      "description": "Asks for data to be sent to an outside destination.",
+      "pattern": "\\b(?:send|post|upload|forward|transmit|exfiltrate|leak|email)\\b[^.]{0,80}\\b(?:passwords?|credentials?|api keys?|secrets?|tokens?|ssh keys?|private keys?|\\.env|cookies?|conversation history|chat history)\\b[^.]{0,80}\\b(?:to|at) (?:https?://|[a-z0-9._%+-]+@|this url|the following url|my server)",
+      "request_action": "tag",
+      "response_action": "tag",
+      "score": 0.9
+    },
+    {
+      "id": "directive-tag",
+      "kind": "regex",
+      "description": "Pseudo-markup that wraps directives to the model.",
+      "pattern": "<\\s*(?:important|instructions?|admin|secret|hidden|system_?prompt)\\s*>",
+      "request_action": "tag",
+      "response_action": "tag",
+      "score": 0.7
+    },
+    {
+      "id": "model-directive",
+      "kind": "regex",
+      "description": "Addresses the model with an imperative.",
+      "pattern": "\\b(?:the |any )?(?:ai|assistant|model|llm|chatbot|claude|chatgpt)s? (?:must|should|needs to|is required to|has to|will) (?:now |immediately |first |also |secretly )?(?:ignore|disregard|forget|reveal|send|delete|execute|call|invoke|run|stop|email|transfer)\\b",
+      "request_action": "tag",
+      "response_action": "tag",
+      "score": 0.8
+    },
+    {
+      "id": "stop-following",
+      "kind": "regex",
+      "description": "Asks the model to stop following its instructions.",
+      "pattern": "\\b(?:stop|cease|quit) (?:following|obeying|listening to) (?:your|the|all|any) (?:instructions|rules|guidelines|system prompt)\\b",
+      "request_action": "tag",
+      "response_action": "tag",
+      "score": 0.8
+    },
+    {
+      "id": "sensitive-file-request",
+      "kind": "regex",
+      "description": "Asks for a credential file in the home directory.",
+      "pattern": "\\b(?:read|cat|open|send|upload|include|attach|print|output|paste)\\b[^.]{0,30}(?:~|\\$home|%userprofile%)/\\.(?:ssh|aws|gnupg|kube|netrc|docker)\\b",
+      "request_action": "tag",
+      "response_action": "tag",
+      "score": 0.7
+    }
+  ]
+}

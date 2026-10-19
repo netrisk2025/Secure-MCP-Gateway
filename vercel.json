@@ -5,5 +5,10 @@
   "buildCommand": "cd site && npm run build",
   "outputDirectory": "site/out",
   "cleanUrls": true,
-  "trailingSlash": true
+  "trailingSlash": true,
+  "git": {
+    "deploymentEnabled": {
+      "site-data": false
+    }
+  }
 }

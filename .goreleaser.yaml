@@ -1,0 +1,226 @@
+# GoReleaser configuration for Secure MCP Gateway release archives.
+#
+# Local snapshot (no publishing):  make release-snapshot
+# Release: push a tag v* and .github/workflows/release.yml runs GoReleaser.
+# docs/release-checklist.md is the release procedure.
+#
+# Signing (SRS FR-13.1): the checksum file is signed with the project's
+# minisign key from MINISIGN_KEY_FILE (password in MINISIGN_PASSWORD).
+# `make release-snapshot` passes --skip=sign unless MINISIGN_KEY_FILE is
+# set. The release workflow adds a cosign keyless Sigstore bundle of the
+# same file after GoReleaser (security review RR-01).
+#
+# smcp-refserver is built only when cmd/smcp-refserver exists; the Makefile
+# and the release workflow set SMCP_BUILD_REFSERVER=1 in that case.
+version: 2
+
+project_name: smcp
+
+# Inside build/, which .gitignore already excludes.
+dist: build/dist
+
+before:
+  hooks:
+    - go mod download
+    # build/sbom/sbom.spdx.json, placed in every archive (FR-13.1).
+    - bash scripts/release-sbom.sh {{ .Version }}
+    # build/provenance/PROVENANCE.md and THIRD_PARTY_NOTICES.txt (FR-12.8).
+    # The release workflow (SMCP_SBOM=1) installs the console's npm
+    # packages so that their license files are copied, not just named.
+    - go run ./tools/provenance -version {{ .Version }} -out build/provenance -require-npm={{ if isEnvSet "SMCP_SBOM" }}true{{ else }}false{{ end }}
+
+builds:
+  - id: smcpd
+    main: ./cmd/smcpd
+    binary: smcpd
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w -X github.com/ethan03805/secure-mcp-gateway/internal/backend.Version={{ .Version }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+  - id: smcpctl
+    main: ./cmd/smcpctl
+    binary: smcpctl
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w -X github.com/ethan03805/secure-mcp-gateway/internal/backend.Version={{ .Version }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+  - id: smcp-refserver
+    main: ./cmd/smcp-refserver
+    binary: smcp-refserver
+    skip: '{{ ne (envOrDefault "SMCP_BUILD_REFSERVER" "0") "1" }}'
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      # smcp-refserver does not link internal/backend; its own variable.
+      - -s -w -X main.Version={{ .Version }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+  - id: smcp-session
+    main: ./cmd/smcp-session
+    binary: smcp-session
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w -X github.com/ethan03805/secure-mcp-gateway/internal/adapter.Version={{ .Version }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+  - id: smcp-stdio
+    main: ./cmd/smcp-stdio
+    binary: smcp-stdio
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w -X github.com/ethan03805/secure-mcp-gateway/internal/adapter.Version={{ .Version }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+  - id: smcp-connect
+    main: ./cmd/smcp-connect
+    binary: smcp-connect
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w -X github.com/ethan03805/secure-mcp-gateway/internal/adapter.Version={{ .Version }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+  # Reference workload generator and FR-11 measurements (SRS FR-11.1).
+  - id: smcp-workload
+    main: ./cmd/smcp-workload
+    binary: smcp-workload
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - id: smcp
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - src: README.md
+      - src: CHANGELOG.md
+      - src: docs/icd/*.md
+        dst: docs/icd
+        strip_parent: true
+      - src: LICENSE*
+        info:
+          mode: 0644
+      # The SBOM (FR-13.1), from scripts/release-sbom.sh. Absent in a local
+      # snapshot without syft; the release workflow requires it.
+      - src: build/sbom/*.spdx.json
+        strip_parent: true
+        info:
+          mode: 0644
+      # Release provenance (FR-12.8): the build recipe and the dependency
+      # lockfiles, kept at their repository paths, and the provenance
+      # statement and third-party license notices from tools/provenance.
+      - src: .goreleaser.yaml
+      - src: scripts/release-sbom.sh
+      - src: go.mod
+      - src: go.sum
+      - src: console/package-lock.json
+      - src: build/provenance/*
+        strip_parent: true
+        info:
+          mode: 0644
+
+checksum:
+  name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"
+  algorithm: sha256
+
+# SBOMs for each archive, generated with syft when it is installed (the
+# release workflow installs it). Snapshot builds without syft skip them.
+sboms:
+  - id: archive-sbom
+    artifacts: archive
+    disable: '{{ not (isEnvSet "SMCP_SBOM") }}'
+
+signs:
+  - id: minisign
+    artifacts: checksum
+    cmd: minisign
+    signature: "${artifact}.minisig"
+    stdin: "{{ .Env.MINISIGN_PASSWORD }}\n"
+    args:
+      - -S
+      - -s
+      - "{{ .Env.MINISIGN_KEY_FILE }}"
+      - -m
+      - "${artifact}"
+      - -x
+      - "${signature}"
+      - -t
+      - "smcp {{ .Version }} file:{{ .ProjectName }}_{{ .Version }}_checksums.txt"
+
+# Formula/smcp.rb in the tap ethan03805/homebrew-tap (FR-13.3), for the
+# darwin and linux archives. Uploaded only when HOMEBREW_TAP_TOKEN is set
+# (the release workflow passes the repository secret of that name) and the
+# release is not a pre-release. .github/workflows/tap.yml installs it on
+# macOS and Linux and compares the binaries with the release archives.
+brews:
+  - name: smcp
+    ids: [smcp]
+    repository:
+      owner: ethan03805
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Formula
+    commit_author:
+      name: smcp-release
+      email: ethan03805@users.noreply.github.com
+    commit_msg_template: "smcp {{ .Tag }}"
+    homepage: https://github.com/ethan03805/Secure-MCP-Gateway
+    description: Local reference monitor between AI agent harnesses and MCP servers
+    license: Apache-2.0
+    # auto: a pre-release (v1.0.0-rc.1) does not replace the formula.
+    # SMCP_TAP_PRERELEASE=true (repository variable of that name, passed by
+    # the release workflow) uploads a pre-release too, to rehearse the tap
+    # before a final release.
+    skip_upload: '{{ if not (isEnvSet "HOMEBREW_TAP_TOKEN") }}true{{ else if eq (envOrDefault "SMCP_TAP_PRERELEASE" "") "true" }}false{{ else }}auto{{ end }}'
+    install: |
+      bin.install "smcpd", "smcpctl"
+      %w[smcp-refserver smcp-stdio smcp-session smcp-connect].each { |f| bin.install f if File.exist?(f) }
+    caveats: |
+      Install the Gateway as a launchd agent (macOS) or systemd user unit
+      (Linux), with state, keys and an example configuration:
+        smcpctl install
+      Remove it with smcpctl uninstall before brew uninstall smcp.
+    test: |
+      assert_match "usage: smcpctl", shell_output("#{bin}/smcpctl 2>&1", 2)
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-snapshot+{{ .ShortCommit }}"
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - "^Merge pull request"
+      - "^Regenerate generated files"
+
+release:
+  github:
+    owner: ethan03805
+    name: Secure-MCP-Gateway
+  draft: false
+  prerelease: auto
+  mode: replace
+  footer: |
+    Verify the checksum file with the release key from SECURITY.md, then the archives:
+    `minisign -Vm {{ .ProjectName }}_{{ .Version }}_checksums.txt -P RWTQzqxkDKxPBk0ZPk07i/mcrUVaevLmrm8zRkQLqGrs14RwtUhG30Dq`
+    `sha256sum --check --ignore-missing {{ .ProjectName }}_{{ .Version }}_checksums.txt`
+    Homebrew: `brew install ethan03805/tap/smcp`.
+    Install: `curl -fsSL https://raw.githubusercontent.com/ethan03805/Secure-MCP-Gateway/main/install.sh | sh -s -- --version {{ .Tag }}`

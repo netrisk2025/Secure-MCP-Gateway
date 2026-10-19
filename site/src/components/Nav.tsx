@@ -1,28 +1,32 @@
 import Link from "next/link";
+import { CHAPTERS } from "@/lib/site";
+import NavCurrent from "./NavCurrent";
 
-const LINKS = [
-  { href: "/architecture/", label: "Architecture" },
-  { href: "/elements/", label: "Elements" },
-  { href: "/interfaces/", label: "Interfaces" },
-  { href: "/requirements/", label: "Requirements" },
-  { href: "/security/", label: "Security controls" },
-  { href: "/clients/", label: "Clients" },
-  { href: "/docs/", label: "Documents" },
-];
-
-export default function Nav() {
+export default function Nav({ commit, sample }: { commit: string; sample: boolean }) {
   return (
-    <header className="nav">
-      <Link href="/" className="wordmark">
-        Secure MCP Gateway
-      </Link>
-      <nav aria-label="Primary">
-        {LINKS.map((l) => (
-          <Link key={l.href} href={l.href}>
-            {l.label}
-          </Link>
-        ))}
+    <header className="masthead">
+      <div className="masthead-row">
+        <Link href="/" className="wordmark">
+          Secure MCP Gateway
+        </Link>
+        <p className="masthead-meta">
+          {sample ? <span className="flag-sample">sample data</span> : null}
+          <span>build {commit}</span>
+        </p>
+      </div>
+      <nav aria-label="Chapters" className="chapters">
+        <ol>
+          {CHAPTERS.map((c) => (
+            <li key={c.href}>
+              <Link href={c.href} data-href={c.href}>
+                <span className="chno">{c.n}</span>
+                {c.label}
+              </Link>
+            </li>
+          ))}
+        </ol>
       </nav>
+      <NavCurrent />
     </header>
   );
 }

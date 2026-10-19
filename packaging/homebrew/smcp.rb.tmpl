@@ -1,0 +1,53 @@
+# Homebrew formula template for Secure MCP Gateway.
+#
+# Rendered by scripts/render-brew-formula.sh from a release's checksum file:
+#   scripts/render-brew-formula.sh v0.1.0 build/dist/smcp_0.1.0_checksums.txt > smcp.rb
+# The release workflow publishes the formula to the tap repository
+# ethan03805/homebrew-tap (Formula/smcp.rb) with GoReleaser (`brews` in
+# .goreleaser.yaml); this template is the manual fallback for that step.
+class Smcp < Formula
+  desc "Local reference monitor between AI agent harnesses and MCP servers"
+  homepage "https://github.com/ethan03805/Secure-MCP-Gateway"
+  version "@VERSION@"
+
+  on_macos do
+    on_arm do
+      url "https://github.com/ethan03805/Secure-MCP-Gateway/releases/download/v@VERSION@/smcp_@VERSION@_darwin_arm64.tar.gz"
+      sha256 "@SHA256_DARWIN_ARM64@"
+    end
+    on_intel do
+      url "https://github.com/ethan03805/Secure-MCP-Gateway/releases/download/v@VERSION@/smcp_@VERSION@_darwin_amd64.tar.gz"
+      sha256 "@SHA256_DARWIN_AMD64@"
+    end
+  end
+
+  on_linux do
+    on_arm do
+      url "https://github.com/ethan03805/Secure-MCP-Gateway/releases/download/v@VERSION@/smcp_@VERSION@_linux_arm64.tar.gz"
+      sha256 "@SHA256_LINUX_ARM64@"
+    end
+    on_intel do
+      url "https://github.com/ethan03805/Secure-MCP-Gateway/releases/download/v@VERSION@/smcp_@VERSION@_linux_amd64.tar.gz"
+      sha256 "@SHA256_LINUX_AMD64@"
+    end
+  end
+
+  def install
+    bin.install "smcpd", "smcpctl"
+    bin.install "smcp-refserver" if File.exist?("smcp-refserver")
+    %w[smcp-stdio smcp-session smcp-connect].each { |f| bin.install f if File.exist?(f) }
+  end
+
+  def caveats
+    <<~EOS
+      Create a local instance (state, keys, example configuration):
+        smcpctl bootstrap --dir ~/smcp
+      Then start the Gateway:
+        smcpd --config ~/smcp/smcp.toml
+    EOS
+  end
+
+  test do
+    assert_match "usage: smcpctl", shell_output("#{bin}/smcpctl 2>&1", 2)
+  end
+end

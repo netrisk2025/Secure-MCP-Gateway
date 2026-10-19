@@ -1,0 +1,142 @@
+[
+  {
+    "commit": "1000000000000000000000000000000000000000",
+    "generatedAt": "2026-10-14T05:00:00.000Z",
+    "testsPassed": 5,
+    "testsFailed": 0,
+    "coveragePct": 30,
+    "verified": 0,
+    "partial": 0,
+    "unverified": 445
+  },
+  {
+    "commit": "1001eef000000000000000000000000000000000",
+    "generatedAt": "2026-10-14T10:00:00.000Z",
+    "testsPassed": 6,
+    "testsFailed": 0,
+    "coveragePct": 36.9,
+    "verified": 2,
+    "partial": 0,
+    "unverified": 443
+  },
+  {
+    "commit": "1003dde000000000000000000000000000000000",
+    "generatedAt": "2026-10-14T15:00:00.000Z",
+    "testsPassed": 7,
+    "testsFailed": 0,
+    "coveragePct": 39.7,
+    "verified": 6,
+    "partial": 0,
+    "unverified": 439
+  },
+  {
+    "commit": "1005ccd000000000000000000000000000000000",
+    "generatedAt": "2026-10-14T20:00:00.000Z",
+    "testsPassed": 8,
+    "testsFailed": 0,
+    "coveragePct": 41.9,
+    "verified": 10,
+    "partial": 0,
+    "unverified": 435
+  },
+  {
+    "commit": "1007bbc000000000000000000000000000000000",
+    "generatedAt": "2026-10-15T01:00:00.000Z",
+    "testsPassed": 10,
+    "testsFailed": 0,
+    "coveragePct": 43.7,
+    "verified": 14,
+    "partial": 1,
+    "unverified": 430
+  },
+  {
+    "commit": "1009aab000000000000000000000000000000000",
+    "generatedAt": "2026-10-15T06:00:00.000Z",
+    "testsPassed": 11,
+    "testsFailed": 0,
+    "coveragePct": 45.3,
+    "verified": 19,
+    "partial": 1,
+    "unverified": 425
+  },
+  {
+    "commit": "100b99a000000000000000000000000000000000",
+    "generatedAt": "2026-10-15T11:00:00.000Z",
+    "testsPassed": 9,
+    "testsFailed": 3,
+    "coveragePct": 46.8,
+    "verified": 25,
+    "partial": 1,
+    "unverified": 419
+  },
+  {
+    "commit": "100d889000000000000000000000000000000000",
+    "generatedAt": "2026-10-15T16:00:00.000Z",
+    "testsPassed": 13,
+    "testsFailed": 0,
+    "coveragePct": 48.1,
+    "verified": 30,
+    "partial": 1,
+    "unverified": 414
+  },
+  {
+    "commit": "100f778000000000000000000000000000000000",
+    "generatedAt": "2026-10-15T21:00:00.000Z",
+    "testsPassed": 14,
+    "testsFailed": 0,
+    "coveragePct": 49.4,
+    "verified": 36,
+    "partial": 1,
+    "unverified": 408
+  },
+  {
+    "commit": "1011667000000000000000000000000000000000",
+    "generatedAt": "2026-10-16T02:00:00.000Z",
+    "testsPassed": 15,
+    "testsFailed": 0,
+    "coveragePct": 50.6,
+    "verified": 42,
+    "partial": 1,
+    "unverified": 402
+  },
+  {
+    "commit": "1013556000000000000000000000000000000000",
+    "generatedAt": "2026-10-16T07:00:00.000Z",
+    "testsPassed": 17,
+    "testsFailed": 0,
+    "coveragePct": 51.7,
+    "verified": 48,
+    "partial": 2,
+    "unverified": 395
+  },
+  {
+    "commit": "1015445000000000000000000000000000000000",
+    "generatedAt": "2026-10-16T12:00:00.000Z",
+    "testsPassed": 18,
+    "testsFailed": 0,
+    "coveragePct": 52.7,
+    "verified": 54,
+    "partial": 2,
+    "unverified": 389
+  },
+  {
+    "commit": "1017334000000000000000000000000000000000",
+    "generatedAt": "2026-10-16T17:00:00.000Z",
+    "testsPassed": 19,
+    "testsFailed": 0,
+    "coveragePct": 53.7,
+    "verified": 60,
+    "partial": 2,
+    "unverified": 383
+  },
+  {
+    "commit": "1019223000000000000000000000000000000000",
+    "generatedAt": "2026-10-16T22:00:00.000Z",
+    "testsPassed": 20,
+    "testsFailed": 1,
+    "coveragePct": 54.7,
+    "verified": 67,
+    "partial": 2,
+    "unverified": 375
+  }
+]

@@ -1,0 +1,3551 @@
+{
+  "schema": 1,
+  "sample": true,
+  "generatedAt": "2026-10-16T22:00:00.000Z",
+  "commit": "0000000000000000000000000000000000000000",
+  "commitUrl": "https://github.com/ethan03805/Secure-MCP-Gateway/commits/main",
+  "runUrl": "https://github.com/ethan03805/Secure-MCP-Gateway/actions",
+  "tests": {
+    "total": 21,
+    "passed": 20,
+    "failed": 1,
+    "skipped": 0,
+    "durationSec": 13.4,
+    "packages": [
+      {
+        "name": "cmd/smcpctl",
+        "passed": 0,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "cmd/smcpd",
+        "passed": 0,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "internal/audit",
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "internal/backend",
+        "passed": 2,
+        "failed": 1,
+        "skipped": 0
+      },
+      {
+        "name": "internal/config",
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "internal/e2e",
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "internal/edge",
+        "passed": 0,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "internal/ids",
+        "passed": 0,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "internal/keys",
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "internal/policy",
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "internal/reqtest",
+        "passed": 0,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "internal/session",
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "tools/reqreport",
+        "passed": 0,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  "coverage": {
+    "totalPct": 54.7,
+    "packages": [
+      {
+        "name": "cmd/smcpctl",
+        "pct": 0
+      },
+      {
+        "name": "cmd/smcpd",
+        "pct": 0
+      },
+      {
+        "name": "internal/audit",
+        "pct": 77.8
+      },
+      {
+        "name": "internal/backend",
+        "pct": 9
+      },
+      {
+        "name": "internal/config",
+        "pct": 64.6
+      },
+      {
+        "name": "internal/edge",
+        "pct": 0
+      },
+      {
+        "name": "internal/ids",
+        "pct": 0
+      },
+      {
+        "name": "internal/keys",
+        "pct": 73.7
+      },
+      {
+        "name": "internal/policy",
+        "pct": 76.7
+      },
+      {
+        "name": "internal/reqtest",
+        "pct": 0
+      },
+      {
+        "name": "internal/session",
+        "pct": 26.6
+      },
+      {
+        "name": "tools/reqreport",
+        "pct": 0
+      }
+    ]
+  },
+  "requirements": {
+    "total": 445,
+    "verified": 67,
+    "partial": 2,
+    "failing": 1,
+    "unverified": 375,
+    "byElement": [
+      {
+        "element": "E-01",
+        "name": "Harness Interface Endpoint",
+        "total": 24,
+        "verified": 6,
+        "partial": 1,
+        "failing": 0
+      },
+      {
+        "element": "E-02",
+        "name": "Protocol Mediator",
+        "total": 41,
+        "verified": 13,
+        "partial": 0,
+        "failing": 0
+      },
+      {
+        "element": "E-33",
+        "name": "Harness Adapter Kit",
+        "total": 3,
+        "verified": 0,
+        "partial": 0,
+        "failing": 0
+      },
+      {
+        "element": "E-03",
+        "name": "Identity & Authentication Service",
+        "total": 10,
+        "verified": 6,
+        "partial": 0,
+        "failing": 0
+      },
+      {
+        "element": "E-04",
+        "name": "Session Manager",
+        "total": 16,
+        "verified": 13,
+        "partial": 0,
+        "failing": 0
+      },
+      {
+        "element": "E-05",
+        "name": "Policy Administration Service",
+        "total": 19,
+        "verified": 1,
+        "partial": 0,
+        "failing": 0
+      },
+      {
+        "element": "E-06",
+        "name": "Policy Decision Service",
+        "total": 23,
+        "verified": 4,
+        "partial": 1,
+        "failing": 0
+      },
+      {
+        "element": "E-07",
+        "name": "Approval Service",
+        "total": 7,
+        "verified": 0,
+        "partial": 0,
+        "failing": 0
+      },
+      {
+        "element": "E-08",
+        "name": "Access Enforcement Point",
+        "total": 18,
+        "verified": 9,
+        "partial": 0,
+        "failing": 0
+      },
+      {
+        "element": "E-09",
+        "name": "Request Inspection Pipeline",
+        "total": 13,
+        "verified": 1,
+        "partial": 0,
+        "failing": 0
+      },
+      {
+        "element": "E-10",
+        "name": "Tool Dispatcher",
+        "total": 31,
+        "verified": 2,
+        "partial": 0,
+        "failing": 1
+      },
+      {
+        "element": "E-11",
+        "name": "Response Inspection Pipeline",
+        "total": 8,
+        "verified": 2,
+        "partial": 0,
+        "failing": 0
+      },
+      {
+        "element": "E-12",
+        "name": "Enforcement Coordinator",
+        "total": 15,
+        "verified": 3,
+        "partial": 0,
+        "failing": 0
+      },
+      {
+        "element": "E-13",
+        "name": "Library Trust Verifier",
+        "total": 11,
+        "verified": 0,
+        "partial": 0,
+        "failing": 0
+      },
+      {
+        "element": "E-14",
+        "name": "Local Server Registry",
+        "total": 12,
+        "verified": 1,
+        "partial": 0,
+        "failing": 0
+      },
+      {
+        "element": "E-15",
+        "name": "Server Runtime Manager",
+        "total": 11,
+        "verified": 0,
+        "partial": 0,
+        "failing": 0
+      },
+      {
+        "element": "E-16",
+        "name": "Execution Sandbox",
+        "total": 5,
+        "verified": 0,
+        "partial": 0,
+        "failing": 0
+      },
+      {
+        "element": "E-17",
+        "name": "Runtime Monitor",
+        "total": 3,
+        "verified": 0,
+        "partial": 0,
+        "failing": 0
+      },
+      {
+        "element": "E-18",
+        "name": "Egress Broker",
+        "total": 9,
+        "verified": 0,
+        "partial": 0,
+        "failing": 0
+      },
+      {
+        "element": "E-19",
+        "name": "Secret Vault",
+        "total": 8,
+        "verified": 0,
+        "partial": 0,
+        "failing": 0
+      },
+      {
+        "element": "E-20",
+        "name": "Secret Broker",
+        "total": 7,
+        "verified": 0,
+        "partial": 0,
+        "failing": 0
+      },
+      {
+        "element": "E-21",
+        "name": "Audit & Evidence Service",
+        "total": 22,
+        "verified": 3,
+        "partial": 0,
+        "failing": 0
+      },
+      {
+        "element": "E-22",
+        "name": "Key & Trust Anchor Manager",
+        "total": 7,
+        "verified": 3,
+        "partial": 0,
+        "failing": 0
+      },
+      {
+        "element": "E-23",
+        "name": "Health & Safety Monitor",
+        "total": 3,
+        "verified": 0,
+        "partial": 0,
+        "failing": 0
+      },
+      {
+        "element": "E-24",
+        "name": "Management Console & Control API",
+        "total": 39,
+        "verified": 0,
+        "partial": 0,
+        "failing": 0
+      },
+      {
+        "element": "E-25",
+        "name": "Graph Database Engine",
+        "total": 8,
+        "verified": 0,
+        "partial": 0,
+        "failing": 0
+      },
+      {
+        "element": "E-26",
+        "name": "Data Access Service",
+        "total": 11,
+        "verified": 0,
+        "partial": 0,
+        "failing": 0
+      },
+      {
+        "element": "E-27",
+        "name": "Observation Store",
+        "total": 5,
+        "verified": 0,
+        "partial": 0,
+        "failing": 0
+      },
+      {
+        "element": "E-28",
+        "name": "Data Lifecycle & Memory Manager",
+        "total": 12,
+        "verified": 0,
+        "partial": 0,
+        "failing": 0
+      },
+      {
+        "element": "E-29",
+        "name": "Observation Collector",
+        "total": 14,
+        "verified": 0,
+        "partial": 0,
+        "failing": 0
+      },
+      {
+        "element": "E-30",
+        "name": "Behavior Baseline Engine",
+        "total": 11,
+        "verified": 0,
+        "partial": 0,
+        "failing": 0
+      },
+      {
+        "element": "E-31",
+        "name": "Anomaly Scorer",
+        "total": 10,
+        "verified": 0,
+        "partial": 0,
+        "failing": 0
+      },
+      {
+        "element": "E-32",
+        "name": "Research Dataset Service",
+        "total": 9,
+        "verified": 0,
+        "partial": 0,
+        "failing": 0
+      }
+    ],
+    "items": [
+      {
+        "id": "FR-1",
+        "element": "E-01",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-1.1",
+        "element": "E-01",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-1.2",
+        "element": "E-01",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestOAuthSessionAndToolCall"
+        ]
+      },
+      {
+        "id": "FR-1.3",
+        "element": "E-01",
+        "status": "partial",
+        "tests": [
+          "internal/e2e.TestTransportAndAuthenticationRules"
+        ]
+      },
+      {
+        "id": "FR-1.4",
+        "element": "E-02",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-1.5",
+        "element": "E-02",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-1.6",
+        "element": "E-02",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-1.7",
+        "element": "E-02",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-1.8",
+        "element": "E-02",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-1.9",
+        "element": "E-02",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestTransportAndAuthenticationRules"
+        ]
+      },
+      {
+        "id": "FR-1.10",
+        "element": "E-02",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestTransportAndAuthenticationRules"
+        ]
+      },
+      {
+        "id": "FR-1.11",
+        "element": "E-02",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-1.12",
+        "element": "E-02",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestTransportAndAuthenticationRules"
+        ]
+      },
+      {
+        "id": "FR-1.13",
+        "element": "E-02",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestTransportAndAuthenticationRules"
+        ]
+      },
+      {
+        "id": "FR-1.14",
+        "element": "E-02",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestTransportAndAuthenticationRules"
+        ]
+      },
+      {
+        "id": "FR-1.15",
+        "element": "E-02",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestTransportAndAuthenticationRules"
+        ]
+      },
+      {
+        "id": "FR-1.16",
+        "element": "E-02",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-1.17",
+        "element": "E-02",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestTransportAndAuthenticationRules"
+        ]
+      },
+      {
+        "id": "FR-1.18",
+        "element": "E-02",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-1.19",
+        "element": "E-02",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-1.20",
+        "element": "E-02",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestPolicyDecisionsAndErrorMapping"
+        ]
+      },
+      {
+        "id": "FR-1.21",
+        "element": "E-02",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-1.22",
+        "element": "E-02",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-1.23",
+        "element": "E-08",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-1.24",
+        "element": "E-08",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-1.25",
+        "element": "E-08",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestOAuthSessionAndToolCall"
+        ]
+      },
+      {
+        "id": "FR-1.26",
+        "element": "E-08",
+        "status": "verified",
+        "tests": [
+          "internal/backend.TestPublicName",
+          "internal/e2e.TestOAuthSessionAndToolCall"
+        ]
+      },
+      {
+        "id": "FR-1.27",
+        "element": "E-08",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestOAuthSessionAndToolCall"
+        ]
+      },
+      {
+        "id": "FR-1.28",
+        "element": "E-08",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-1.29",
+        "element": "E-08",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestOAuthSessionAndToolCall"
+        ]
+      },
+      {
+        "id": "FR-1.30",
+        "element": "E-08",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestOAuthSessionAndToolCall"
+        ]
+      },
+      {
+        "id": "FR-1.31",
+        "element": "E-02",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-1.32",
+        "element": "E-02",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestPolicyDecisionsAndErrorMapping"
+        ]
+      },
+      {
+        "id": "FR-1.33",
+        "element": "E-02",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-1.34",
+        "element": "E-02",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-1.35",
+        "element": "E-02",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-1.36",
+        "element": "E-02",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-1.37",
+        "element": "E-02",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-1.38",
+        "element": "E-02",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-1.39",
+        "element": "E-10",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-1.40",
+        "element": "E-10",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-1.41",
+        "element": "E-01",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-1.42",
+        "element": "E-02",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestTransportAndAuthenticationRules"
+        ]
+      },
+      {
+        "id": "FR-1.43",
+        "element": "E-10",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-1.44",
+        "element": "E-02",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-1.45",
+        "element": "E-02",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-1.46",
+        "element": "E-02",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestTransportAndAuthenticationRules"
+        ]
+      },
+      {
+        "id": "FR-1.47",
+        "element": "E-01",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-1.48",
+        "element": "E-01",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-1.49",
+        "element": "E-14",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-1.50",
+        "element": "E-08",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestOAuthSessionAndToolCall"
+        ]
+      },
+      {
+        "id": "FR-2",
+        "element": "E-03",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-2.1",
+        "element": "E-03",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-2.2",
+        "element": "E-04",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestTransportAndAuthenticationRules"
+        ]
+      },
+      {
+        "id": "FR-2.3",
+        "element": "E-04",
+        "status": "verified",
+        "tests": [
+          "internal/session.TestCreateSelectsTemplateAndLimits"
+        ]
+      },
+      {
+        "id": "FR-2.4",
+        "element": "E-04",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestOAuthSessionAndToolCall",
+          "internal/session.TestCreateSelectsTemplateAndLimits"
+        ]
+      },
+      {
+        "id": "FR-2.5",
+        "element": "E-03",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestOAuthSessionAndToolCall",
+          "internal/session.TestAuthenticateAndLifetimes"
+        ]
+      },
+      {
+        "id": "FR-2.6",
+        "element": "E-04",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestScopesSelectTemplate",
+          "internal/session.TestCreateSelectsTemplateAndLimits"
+        ]
+      },
+      {
+        "id": "FR-2.7",
+        "element": "E-04",
+        "status": "verified",
+        "tests": [
+          "internal/session.TestCreateSelectsTemplateAndLimits"
+        ]
+      },
+      {
+        "id": "FR-2.8",
+        "element": "E-04",
+        "status": "verified",
+        "tests": [
+          "internal/session.TestCreateSelectsTemplateAndLimits"
+        ]
+      },
+      {
+        "id": "FR-2.9",
+        "element": "E-04",
+        "status": "verified",
+        "tests": [
+          "internal/session.TestAuthenticateAndLifetimes"
+        ]
+      },
+      {
+        "id": "FR-2.10",
+        "element": "E-04",
+        "status": "verified",
+        "tests": [
+          "internal/session.TestCreateSelectsTemplateAndLimits"
+        ]
+      },
+      {
+        "id": "FR-2.11",
+        "element": "E-04",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestTransportAndAuthenticationRules"
+        ]
+      },
+      {
+        "id": "FR-2.12",
+        "element": "E-04",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-2.13",
+        "element": "E-04",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-2.14",
+        "element": "E-22",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-2.15",
+        "element": "E-03",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-2.16",
+        "element": "E-04",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-2.17",
+        "element": "E-03",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestOAuthSessionAndToolCall"
+        ]
+      },
+      {
+        "id": "FR-2.18",
+        "element": "E-03",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestOAuthSessionAndToolCall"
+        ]
+      },
+      {
+        "id": "FR-2.19",
+        "element": "E-04",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestOAuthSessionAndToolCall"
+        ]
+      },
+      {
+        "id": "FR-2.20",
+        "element": "E-04",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestOAuthSessionAndToolCall"
+        ]
+      },
+      {
+        "id": "FR-2.21",
+        "element": "E-04",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestScopesSelectTemplate",
+          "internal/session.TestScopes"
+        ]
+      },
+      {
+        "id": "FR-2.22",
+        "element": "E-04",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestTransportAndAuthenticationRules",
+          "internal/session.TestAuthenticateAndLifetimes"
+        ]
+      },
+      {
+        "id": "FR-3",
+        "element": "E-05",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-3.1",
+        "element": "E-05",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-3.2",
+        "element": "E-05",
+        "status": "verified",
+        "tests": [
+          "internal/policy.TestCompileAndDecide",
+          "internal/policy.TestPublicationInvariants"
+        ]
+      },
+      {
+        "id": "FR-3.3",
+        "element": "E-05",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-3.4",
+        "element": "E-05",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-3.5",
+        "element": "E-05",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-3.6",
+        "element": "E-05",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-3.7",
+        "element": "E-05",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-3.8",
+        "element": "E-05",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-3.9",
+        "element": "E-05",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-3.10",
+        "element": "E-06",
+        "status": "verified",
+        "tests": [
+          "internal/policy.TestCompileAndDecide"
+        ]
+      },
+      {
+        "id": "FR-3.11",
+        "element": "E-06",
+        "status": "verified",
+        "tests": [
+          "internal/policy.TestCompileAndDecide"
+        ]
+      },
+      {
+        "id": "FR-3.12",
+        "element": "E-06",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-3.13",
+        "element": "E-06",
+        "status": "verified",
+        "tests": [
+          "internal/policy.TestRateLimit"
+        ]
+      },
+      {
+        "id": "FR-3.14",
+        "element": "E-07",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-3.15",
+        "element": "E-07",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-3.16",
+        "element": "E-07",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-3.17",
+        "element": "E-07",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-3.18",
+        "element": "E-07",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-4",
+        "element": "E-08",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-4.1",
+        "element": "E-02",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-4.2",
+        "element": "E-02",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-4.3",
+        "element": "E-08",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestPolicyDecisionsAndErrorMapping"
+        ]
+      },
+      {
+        "id": "FR-4.4",
+        "element": "E-09",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-4.5",
+        "element": "E-09",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestPolicyDecisionsAndErrorMapping"
+        ]
+      },
+      {
+        "id": "FR-4.6",
+        "element": "E-11",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-4.7",
+        "element": "E-09",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-4.8",
+        "element": "E-10",
+        "status": "failing",
+        "tests": [
+          "internal/e2e.TestQueueBound"
+        ]
+      },
+      {
+        "id": "FR-4.9",
+        "element": "E-10",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestPolicyDecisionsAndErrorMapping"
+        ]
+      },
+      {
+        "id": "FR-4.10",
+        "element": "E-10",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-4.11",
+        "element": "E-11",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-4.12",
+        "element": "E-11",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestOAuthSessionAndToolCall"
+        ]
+      },
+      {
+        "id": "FR-4.13",
+        "element": "E-12",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestPolicyDecisionsAndErrorMapping"
+        ]
+      },
+      {
+        "id": "FR-4.14",
+        "element": "E-12",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestPolicyDecisionsAndErrorMapping"
+        ]
+      },
+      {
+        "id": "FR-4.15",
+        "element": "E-09",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5",
+        "element": "E-10",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.1",
+        "element": "E-13",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.2",
+        "element": "E-13",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.3",
+        "element": "E-13",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.4",
+        "element": "E-13",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.5",
+        "element": "E-14",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.6",
+        "element": "E-14",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.7",
+        "element": "E-14",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.8",
+        "element": "E-14",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.9",
+        "element": "E-15",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.10",
+        "element": "E-15",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.11",
+        "element": "E-15",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.12",
+        "element": "E-15",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.13",
+        "element": "E-10",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.14",
+        "element": "E-10",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.15",
+        "element": "E-15",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.16",
+        "element": "E-10",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.17",
+        "element": "E-10",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.18",
+        "element": "E-10",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.19",
+        "element": "E-10",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.20",
+        "element": "E-10",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.21",
+        "element": "E-10",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.22",
+        "element": "E-14",
+        "status": "verified",
+        "tests": [
+          "internal/backend.TestCheckToolDefinition"
+        ]
+      },
+      {
+        "id": "FR-5.23",
+        "element": "E-10",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.24",
+        "element": "E-10",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.25",
+        "element": "E-10",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.26",
+        "element": "E-10",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.27",
+        "element": "E-15",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.28",
+        "element": "E-10",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.29",
+        "element": "E-10",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.30",
+        "element": "E-10",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.31",
+        "element": "E-10",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.32",
+        "element": "E-10",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.33",
+        "element": "E-17",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.34",
+        "element": "E-17",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.35",
+        "element": "E-17",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.36",
+        "element": "E-18",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.37",
+        "element": "E-15",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.38",
+        "element": "E-18",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-5.39",
+        "element": "E-14",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-6",
+        "element": "E-19",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-6.1",
+        "element": "E-19",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-6.2",
+        "element": "E-19",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-6.3",
+        "element": "E-19",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-6.4",
+        "element": "E-19",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-6.5",
+        "element": "E-05",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-6.6",
+        "element": "E-20",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-6.7",
+        "element": "E-20",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-6.8",
+        "element": "E-20",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-6.9",
+        "element": "E-20",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-6.10",
+        "element": "E-20",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-6.11",
+        "element": "E-20",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-6.12",
+        "element": "E-19",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-7",
+        "element": "E-21",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-7.1",
+        "element": "E-21",
+        "status": "verified",
+        "tests": [
+          "internal/audit.TestJournalChainAndVerify"
+        ]
+      },
+      {
+        "id": "FR-7.2",
+        "element": "E-21",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-7.3",
+        "element": "E-21",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-7.4",
+        "element": "E-21",
+        "status": "verified",
+        "tests": [
+          "internal/audit.TestJournalChainAndVerify",
+          "internal/audit.TestJournalContinuesChainAcrossOpen",
+          "internal/audit.TestJournalRotatesByAge"
+        ]
+      },
+      {
+        "id": "FR-7.5",
+        "element": "E-21",
+        "status": "verified",
+        "tests": [
+          "internal/audit.TestJournalChainAndVerify"
+        ]
+      },
+      {
+        "id": "FR-7.6",
+        "element": "E-21",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-7.7",
+        "element": "E-22",
+        "status": "verified",
+        "tests": [
+          "internal/keys.TestEnsureKeys"
+        ]
+      },
+      {
+        "id": "FR-7.8",
+        "element": "E-22",
+        "status": "verified",
+        "tests": [
+          "internal/keys.TestEnsureKeys"
+        ]
+      },
+      {
+        "id": "FR-7.9",
+        "element": "E-22",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-7.10",
+        "element": "E-22",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-7.11",
+        "element": "E-23",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-7.12",
+        "element": "E-23",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-7.13",
+        "element": "E-23",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-7.14",
+        "element": "E-21",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-8",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-8.1",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-8.2",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-8.3",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-8.4",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-8.5",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-8.6",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-8.7",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-8.8",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-8.9",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-8.10",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-8.11",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-8.12",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-8.13",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-8.14",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-8.15",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-8.16",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-8.17",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-8.18",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-8.19",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-8.20",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-8.21",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-8.22",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-8.23",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-8.24",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-8.25",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-8.26",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-8.27",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-9",
+        "element": "E-25",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-9.1",
+        "element": "E-25",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-9.2",
+        "element": "E-26",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-9.3",
+        "element": "E-26",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-9.4",
+        "element": "E-26",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-9.5",
+        "element": "E-26",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-9.6",
+        "element": "E-26",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-9.7",
+        "element": "E-27",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-9.8",
+        "element": "E-27",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-9.9",
+        "element": "E-27",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-9.10",
+        "element": "E-28",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-9.11",
+        "element": "E-28",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-9.12",
+        "element": "E-28",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-9.13",
+        "element": "E-28",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-9.14",
+        "element": "E-28",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-9.15",
+        "element": "E-28",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-9.16",
+        "element": "E-28",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-9.17",
+        "element": "E-01",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestTransportAndAuthenticationRules"
+        ]
+      },
+      {
+        "id": "FR-9.18",
+        "element": "E-25",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10",
+        "element": "E-29",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.1",
+        "element": "E-29",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.2",
+        "element": "E-29",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.3",
+        "element": "E-29",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.4",
+        "element": "E-29",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.5",
+        "element": "E-29",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.6",
+        "element": "E-29",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.7",
+        "element": "E-29",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.8",
+        "element": "E-29",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.9",
+        "element": "E-29",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.10",
+        "element": "E-29",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.11",
+        "element": "E-29",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.12",
+        "element": "E-30",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.13",
+        "element": "E-30",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.14",
+        "element": "E-30",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.15",
+        "element": "E-30",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.16",
+        "element": "E-30",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.17",
+        "element": "E-30",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.18",
+        "element": "E-30",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.19",
+        "element": "E-30",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.20",
+        "element": "E-30",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.21",
+        "element": "E-30",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.22",
+        "element": "E-31",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.23",
+        "element": "E-31",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.24",
+        "element": "E-31",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.25",
+        "element": "E-31",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.26",
+        "element": "E-31",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.27",
+        "element": "E-31",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.28",
+        "element": "E-31",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.29",
+        "element": "E-31",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.30",
+        "element": "E-32",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.31",
+        "element": "E-32",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.32",
+        "element": "E-32",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.33",
+        "element": "E-32",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.34",
+        "element": "E-32",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.35",
+        "element": "E-32",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.36",
+        "element": "E-32",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-10.37",
+        "element": "E-29",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-11",
+        "element": "E-01",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-11.1",
+        "element": "E-25",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-11.2",
+        "element": "E-06",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-11.3",
+        "element": "E-31",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-11.4",
+        "element": "E-29",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-11.5",
+        "element": "E-01",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-11.6",
+        "element": "E-27",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-11.7",
+        "element": "E-30",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-11.8",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-11.9",
+        "element": "E-28",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-11.10",
+        "element": "E-12",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-12",
+        "element": "E-01",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-12.1",
+        "element": "E-01",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-12.2",
+        "element": "E-01",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-12.3",
+        "element": "E-15",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-12.4",
+        "element": "E-28",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-12.5",
+        "element": "E-25",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-12.6",
+        "element": "E-01",
+        "status": "verified",
+        "tests": [
+          "internal/config.TestDefaultsAndSchema"
+        ]
+      },
+      {
+        "id": "FR-12.7",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-12.8",
+        "element": "E-01",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-12.9",
+        "element": "E-02",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-12.10",
+        "element": "E-01",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-12.11",
+        "element": "E-25",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-12.12",
+        "element": "E-33",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "FR-12.13",
+        "element": "E-33",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-1-1",
+        "element": "E-05",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-1-2",
+        "element": "E-06",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-1-3",
+        "element": "E-05",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-1.1-1",
+        "element": "E-06",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-1.2-1",
+        "element": "E-06",
+        "status": "verified",
+        "tests": [
+          "internal/policy.TestNoSnapshotDenies"
+        ]
+      },
+      {
+        "id": "SR-1.2-2",
+        "element": "E-12",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-1.3-1",
+        "element": "E-06",
+        "status": "partial",
+        "tests": [
+          "internal/policy.TestCompileAndDecide"
+        ]
+      },
+      {
+        "id": "SR-1.4-1",
+        "element": "E-06",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-1.5-1",
+        "element": "E-06",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-1.6-1",
+        "element": "E-06",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-1.7-1",
+        "element": "E-06",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-1.7-2",
+        "element": "E-06",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-1.8-1",
+        "element": "E-09",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-1.8-2",
+        "element": "E-09",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-1.8-3",
+        "element": "E-09",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-1.8-4",
+        "element": "E-09",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-1.8-5",
+        "element": "E-09",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-1.9-1",
+        "element": "E-05",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-1.10-1",
+        "element": "E-06",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-1.11-1",
+        "element": "E-06",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-1.12-1",
+        "element": "E-06",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-1.12-2",
+        "element": "E-06",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-1.12-3",
+        "element": "E-06",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-1.13-1",
+        "element": "E-26",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-1.13-2",
+        "element": "E-26",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-1.14-1",
+        "element": "E-05",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-1.15-1",
+        "element": "E-05",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-1.16-1",
+        "element": "E-12",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-1.17-1",
+        "element": "E-12",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestPolicyDecisionsAndErrorMapping"
+        ]
+      },
+      {
+        "id": "SR-1.17-2",
+        "element": "E-12",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-1.18-1",
+        "element": "E-06",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-1.18-2",
+        "element": "E-07",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-1.18-3",
+        "element": "E-07",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-1.19-1",
+        "element": "E-06",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-1.20-1",
+        "element": "E-06",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-2-1",
+        "element": "E-02",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-2-2",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-2.1-1",
+        "element": "E-03",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-2.1-2",
+        "element": "E-03",
+        "status": "verified",
+        "tests": [
+          "internal/session.TestAuthenticateAndLifetimes"
+        ]
+      },
+      {
+        "id": "SR-2.1-3",
+        "element": "E-03",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestTransportAndAuthenticationRules"
+        ]
+      },
+      {
+        "id": "SR-2.2-1",
+        "element": "E-22",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-2.3-1",
+        "element": "E-22",
+        "status": "verified",
+        "tests": [
+          "internal/keys.TestPasswordHash",
+          "internal/session.TestAuthenticateAndLifetimes"
+        ]
+      },
+      {
+        "id": "SR-2.3-2",
+        "element": "E-33",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-2.4-1",
+        "element": "E-12",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-2.5-1",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-2.6-1",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-2.7-1",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-2.8-1",
+        "element": "E-01",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestTransportAndAuthenticationRules"
+        ]
+      },
+      {
+        "id": "SR-2.8-2",
+        "element": "E-01",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-2.8-3",
+        "element": "E-01",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-2.9-1",
+        "element": "E-01",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestTransportAndAuthenticationRules"
+        ]
+      },
+      {
+        "id": "SR-2.9-2",
+        "element": "E-01",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestTransportAndAuthenticationRules"
+        ]
+      },
+      {
+        "id": "SR-2.9-3",
+        "element": "E-01",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-2.10-1",
+        "element": "E-10",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestPolicyDecisionsAndErrorMapping"
+        ]
+      },
+      {
+        "id": "SR-2.11-1",
+        "element": "E-03",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestOAuthSessionAndToolCall"
+        ]
+      },
+      {
+        "id": "SR-2.12-1",
+        "element": "E-08",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-2.13-1",
+        "element": "E-19",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-2.13-2",
+        "element": "E-20",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-2.13-3",
+        "element": "E-19",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-2.14-1",
+        "element": "E-15",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-3-1",
+        "element": "E-13",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-3-2",
+        "element": "E-13",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-3-3",
+        "element": "E-13",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-3-4",
+        "element": "E-13",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-3-5",
+        "element": "E-13",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-3.1-1",
+        "element": "E-13",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-3.2-1",
+        "element": "E-13",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-3.3-1",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-3.4-1",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-3.6-1",
+        "element": "E-15",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-3.7-1",
+        "element": "E-14",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-3.8-1",
+        "element": "E-14",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-3.9-1",
+        "element": "E-14",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-3.10-1",
+        "element": "E-06",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-3.11-1",
+        "element": "E-14",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-3.12-1",
+        "element": "E-08",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-3.13-1",
+        "element": "E-05",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-3.14-1",
+        "element": "E-14",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-4.1-1",
+        "element": "E-12",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-4.1-2",
+        "element": "E-16",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-4.2-1",
+        "element": "E-25",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-4.2-2",
+        "element": "E-27",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-4.3-1",
+        "element": "E-26",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-4.5-1",
+        "element": "E-16",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-4.5-2",
+        "element": "E-18",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-4.6-1",
+        "element": "E-16",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-4.7-1",
+        "element": "E-16",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-4.7-2",
+        "element": "E-16",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-4.8-1",
+        "element": "E-15",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-4.14-1",
+        "element": "E-01",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-5.1-1",
+        "element": "E-02",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestTransportAndAuthenticationRules"
+        ]
+      },
+      {
+        "id": "SR-5.1-2",
+        "element": "E-10",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-5.2-1",
+        "element": "E-02",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-5.2-2",
+        "element": "E-02",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-5.3-1",
+        "element": "E-02",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestTransportAndAuthenticationRules"
+        ]
+      },
+      {
+        "id": "SR-5.3-2",
+        "element": "E-10",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-5.4-1",
+        "element": "E-08",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestOAuthSessionAndToolCall"
+        ]
+      },
+      {
+        "id": "SR-5.5-1",
+        "element": "E-08",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestPolicyDecisionsAndErrorMapping"
+        ]
+      },
+      {
+        "id": "SR-5.6-1",
+        "element": "E-02",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-5.6-2",
+        "element": "E-10",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-5.7-1",
+        "element": "E-08",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-5.7-2",
+        "element": "E-08",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-5.7-3",
+        "element": "E-10",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-5.8-1",
+        "element": "E-09",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-5.8-2",
+        "element": "E-18",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-5.9-1",
+        "element": "E-11",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-5.10-1",
+        "element": "E-09",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-5.11-1",
+        "element": "E-02",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-5.12-1",
+        "element": "E-09",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-5.13-1",
+        "element": "E-11",
+        "status": "verified",
+        "tests": [
+          "internal/e2e.TestOAuthSessionAndToolCall"
+        ]
+      },
+      {
+        "id": "SR-5.14-1",
+        "element": "E-09",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-5.15-1",
+        "element": "E-18",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-5.15-2",
+        "element": "E-18",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-5.16-1",
+        "element": "E-18",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-5.17-1",
+        "element": "E-18",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-5.18-1",
+        "element": "E-11",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-5.18-2",
+        "element": "E-08",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-5.19-1",
+        "element": "E-18",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-5.20-1",
+        "element": "E-11",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-5.20-2",
+        "element": "E-11",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-6-1",
+        "element": "E-32",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-6-2",
+        "element": "E-32",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-6-3",
+        "element": "E-26",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-6.1-1",
+        "element": "E-21",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-6.2-1",
+        "element": "E-12",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-6.3-1",
+        "element": "E-12",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-6.4-1",
+        "element": "E-21",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-6.5-1",
+        "element": "E-21",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-6.6-1",
+        "element": "E-21",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-6.7-1",
+        "element": "E-21",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-6.8-1",
+        "element": "E-21",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-6.9-1",
+        "element": "E-05",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-6.10-1",
+        "element": "E-21",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-6.11-1",
+        "element": "E-12",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-6.12-1",
+        "element": "E-21",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-6.13-1",
+        "element": "E-21",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-6.14-1",
+        "element": "E-28",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-6.15-1",
+        "element": "E-21",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-6.16-1",
+        "element": "E-21",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-6.17-1",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-6.18-1",
+        "element": "E-21",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-6.19-1",
+        "element": "E-21",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-6.20-1",
+        "element": "E-21",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-7-1",
+        "element": "E-31",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-7.1-1",
+        "element": "E-26",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-7.2-1",
+        "element": "E-10",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-7.3-1",
+        "element": "E-26",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-7.4-1",
+        "element": "E-25",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-7.5-1",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-7.6-1",
+        "element": "E-12",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-7.6-2",
+        "element": "E-12",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-7.7-1",
+        "element": "E-28",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-7.8-1",
+        "element": "E-28",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-7.9-1",
+        "element": "E-05",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-7.10-1",
+        "element": "E-12",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-7.11-1",
+        "element": "E-01",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-7.12-1",
+        "element": "E-10",
+        "status": "unverified",
+        "tests": []
+      },
+      {
+        "id": "SR-8.9-1",
+        "element": "E-24",
+        "status": "unverified",
+        "tests": []
+      }
+    ]
+  },
+  "elements": [
+    {
+      "id": "E-01",
+      "name": "Harness Interface Endpoint",
+      "subsystem": "SS-1",
+      "implementation": "implemented",
+      "packages": [
+        "internal/edge"
+      ]
+    },
+    {
+      "id": "E-02",
+      "name": "Protocol Mediator",
+      "subsystem": "SS-1",
+      "implementation": "partial",
+      "packages": [
+        "internal/edge"
+      ]
+    },
+    {
+      "id": "E-33",
+      "name": "Harness Adapter Kit",
+      "subsystem": "SS-1",
+      "implementation": "not-started",
+      "packages": []
+    },
+    {
+      "id": "E-03",
+      "name": "Identity & Authentication Service",
+      "subsystem": "SS-2",
+      "implementation": "partial",
+      "packages": [
+        "internal/session"
+      ]
+    },
+    {
+      "id": "E-04",
+      "name": "Session Manager",
+      "subsystem": "SS-2",
+      "implementation": "partial",
+      "packages": [
+        "internal/session"
+      ]
+    },
+    {
+      "id": "E-05",
+      "name": "Policy Administration Service",
+      "subsystem": "SS-3",
+      "implementation": "partial",
+      "packages": [
+        "internal/policy",
+        "internal/config"
+      ]
+    },
+    {
+      "id": "E-06",
+      "name": "Policy Decision Service",
+      "subsystem": "SS-3",
+      "implementation": "implemented",
+      "packages": [
+        "internal/policy"
+      ]
+    },
+    {
+      "id": "E-07",
+      "name": "Approval Service",
+      "subsystem": "SS-3",
+      "implementation": "not-started",
+      "packages": []
+    },
+    {
+      "id": "E-08",
+      "name": "Access Enforcement Point",
+      "subsystem": "SS-4",
+      "implementation": "partial",
+      "packages": [
+        "internal/policy"
+      ]
+    },
+    {
+      "id": "E-09",
+      "name": "Request Inspection Pipeline",
+      "subsystem": "SS-4",
+      "implementation": "not-started",
+      "packages": []
+    },
+    {
+      "id": "E-10",
+      "name": "Tool Dispatcher",
+      "subsystem": "SS-4",
+      "implementation": "partial",
+      "packages": [
+        "internal/backend"
+      ]
+    },
+    {
+      "id": "E-11",
+      "name": "Response Inspection Pipeline",
+      "subsystem": "SS-4",
+      "implementation": "not-started",
+      "packages": []
+    },
+    {
+      "id": "E-12",
+      "name": "Enforcement Coordinator",
+      "subsystem": "SS-4",
+      "implementation": "not-started",
+      "packages": []
+    },
+    {
+      "id": "E-13",
+      "name": "Library Trust Verifier",
+      "subsystem": "SS-5",
+      "implementation": "not-started",
+      "packages": []
+    },
+    {
+      "id": "E-14",
+      "name": "Local Server Registry",
+      "subsystem": "SS-5",
+      "implementation": "not-started",
+      "packages": []
+    },
+    {
+      "id": "E-15",
+      "name": "Server Runtime Manager",
+      "subsystem": "SS-5",
+      "implementation": "partial",
+      "packages": [
+        "internal/backend"
+      ]
+    },
+    {
+      "id": "E-16",
+      "name": "Execution Sandbox",
+      "subsystem": "SS-5",
+      "implementation": "not-started",
+      "packages": []
+    },
+    {
+      "id": "E-17",
+      "name": "Runtime Monitor",
+      "subsystem": "SS-5",
+      "implementation": "not-started",
+      "packages": []
+    },
+    {
+      "id": "E-18",
+      "name": "Egress Broker",
+      "subsystem": "SS-5",
+      "implementation": "not-started",
+      "packages": []
+    },
+    {
+      "id": "E-19",
+      "name": "Secret Vault",
+      "subsystem": "SS-6",
+      "implementation": "not-started",
+      "packages": []
+    },
+    {
+      "id": "E-20",
+      "name": "Secret Broker",
+      "subsystem": "SS-6",
+      "implementation": "not-started",
+      "packages": []
+    },
+    {
+      "id": "E-21",
+      "name": "Audit & Evidence Service",
+      "subsystem": "SS-7",
+      "implementation": "implemented",
+      "packages": [
+        "internal/audit"
+      ]
+    },
+    {
+      "id": "E-22",
+      "name": "Key & Trust Anchor Manager",
+      "subsystem": "SS-7",
+      "implementation": "implemented",
+      "packages": [
+        "internal/keys"
+      ]
+    },
+    {
+      "id": "E-23",
+      "name": "Health & Safety Monitor",
+      "subsystem": "SS-7",
+      "implementation": "not-started",
+      "packages": []
+    },
+    {
+      "id": "E-24",
+      "name": "Management Console & Control API",
+      "subsystem": "SS-8",
+      "implementation": "partial",
+      "packages": [
+        "cmd/smcpctl"
+      ]
+    },
+    {
+      "id": "E-25",
+      "name": "Graph Database Engine",
+      "subsystem": "SS-9",
+      "implementation": "not-started",
+      "packages": []
+    },
+    {
+      "id": "E-26",
+      "name": "Data Access Service",
+      "subsystem": "SS-9",
+      "implementation": "not-started",
+      "packages": []
+    },
+    {
+      "id": "E-27",
+      "name": "Observation Store",
+      "subsystem": "SS-9",
+      "implementation": "not-started",
+      "packages": []
+    },
+    {
+      "id": "E-28",
+      "name": "Data Lifecycle & Memory Manager",
+      "subsystem": "SS-9",
+      "implementation": "not-started",
+      "packages": []
+    },
+    {
+      "id": "E-29",
+      "name": "Observation Collector",
+      "subsystem": "SS-10",
+      "implementation": "not-started",
+      "packages": []
+    },
+    {
+      "id": "E-30",
+      "name": "Behavior Baseline Engine",
+      "subsystem": "SS-10",
+      "implementation": "not-started",
+      "packages": []
+    },
+    {
+      "id": "E-31",
+      "name": "Anomaly Scorer",
+      "subsystem": "SS-10",
+      "implementation": "not-started",
+      "packages": []
+    },
+    {
+      "id": "E-32",
+      "name": "Research Dataset Service",
+      "subsystem": "SS-10",
+      "implementation": "not-started",
+      "packages": []
+    }
+  ],
+  "agents": [
+    {
+      "client": "Claude Code",
+      "version": "2.1",
+      "mode": "streamable HTTP, OAuth",
+      "result": "pass",
+      "detail": "Sample row. Lists tools and completes a read-only call."
+    },
+    {
+      "client": "Codex CLI",
+      "version": "0.50",
+      "mode": "streamable HTTP, bearer token",
+      "result": "not-run",
+      "detail": "Sample row."
+    },
+    {
+      "client": "Hermes",
+      "version": "0.9",
+      "mode": "stdio adapter",
+      "result": "not-run",
+      "detail": "Sample row."
+    }
+  ],
+  "hostile": [
+    {
+      "fixture": "path-escape",
+      "attack": "Tool argument resolves outside the granted root",
+      "expected": "deny before dispatch",
+      "observed": "deny before dispatch",
+      "pass": true
+    },
+    {
+      "fixture": "tool-shadowing",
+      "attack": "Server advertises a tool named like another server's tool",
+      "expected": "names stay alias-prefixed",
+      "observed": "names stay alias-prefixed",
+      "pass": true
+    },
+    {
+      "fixture": "response-injection",
+      "attack": "Tool result carries instructions addressed to the model",
+      "expected": "response flagged and withheld",
+      "observed": "response released unflagged",
+      "pass": false
+    }
+  ],
+  "ci": {
+    "workflow": "ci",
+    "conclusion": "failure"
+  }
+}

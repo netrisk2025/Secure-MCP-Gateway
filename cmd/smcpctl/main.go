@@ -1,21 +1,19 @@
-// Command smcpctl is the administrative CLI (FR-12.7 subset): bootstrap,
-// config validate, journal verify, health and hash-password. Emergency stop,
-// backup and restore need the admin listener, which is not in this slice.
+// Command smcpctl is the administrative CLI (FR-12.7 subset). Offline
+// commands work on the configuration and state directory; control commands
+// talk to the running Gateway's control API on the admin listener with the
+// local operator token from the state directory.
 package main
 
 import (
-	"crypto/tls"
-	"crypto/x509"
-	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 
-	"github.com/ethan03805/secure-mcp-gateway/internal/audit"
+	"golang.org/x/term"
+
 	"github.com/ethan03805/secure-mcp-gateway/internal/config"
 	"github.com/ethan03805/secure-mcp-gateway/internal/keys"
 	"github.com/ethan03805/secure-mcp-gateway/internal/policy"
@@ -23,180 +21,150 @@ import (
 
 const usage = `usage: smcpctl <command> [flags]
 
-  bootstrap        create state, keys, TLS certificates and example config and policy
+Offline:
+  bootstrap        create state, keys, TLS certificates, example config and policy
   config validate  validate the configuration and policy files
-  journal verify   verify the evidence journal's hash chain and signatures
-  health           query the running Gateway's health endpoint
-  hash-password    print an Argon2id hash of a password (for client secrets)
+  journal verify   verify the evidence journal (hash chain, signatures, key transitions, anchor)
+  journal export   copy closed journal segments and the anchor to an export directory
+  config migrate   rewrite the configuration to this release's schema_version
+  hash-password    print an Argon2id hash of a password (prompt or --password-file)
+  uds key          generate a UDS bearer key into a 0600 file and print its key_hash
+  package          build, sign, verify, install and manage server packages (smcpctl package help)
+  trust            enroll, list and remove package signing keys (trust anchors)
+  filters          list, export and test the inspection rule sets (rules, export, scan)
+  restore          restore an encrypted backup (the Gateway must be stopped)
+  install          install as a service: --profile standalone (launchd or systemd
+                   user unit) or enforced (Linux, root); idempotent
+  upgrade          install a new release with backup, health check and rollback
+  uninstall        remove services and binaries, keep evidence (--purge removes all)
+  version          print the version (and the running Gateway's label)
+
+Control API (running Gateway; backup and keys also work offline):
+  health           show the health monitor's report; health ack <cause>
+  reload           reload the configuration file (also SIGHUP)
+  keys             keys status | keys rotate tls|ca|evidence
+  backup           write an encrypted backup (passphrase or age recipient)
+  stop             emergency stop: refuse every tool call until resumed
+  resume           leave emergency stop
+  policy reload    publish the configured policy file through the Policy Store
+  policy ...       validate, diff, simulate, publish, rollback, history, show
+                   (smcpctl policy help)
+  approvals        list, show, approve, deny or watch tool-call approvals
+  approvers        list, add or remove Session Approver accounts (FR-2.23)
+  graph            graph mirror status, rebuild, canned queries, engine config
+  observe          observation status, anomalies, baselines, campaigns, exports
+  admin redeem     set the administrator password with the one-use bootstrap token
+  egress           Egress Broker status, grants and recent connections (smcpctl egress -h)
+  servers          Local Server Registry: list, show <alias>, suspended-tools
+  runtime          sandboxed server instances and enforced-profile checks (smcpctl runtime help)
+  secrets          secret vault: init (offline), list, show, set, rotate, rm, impact, resume, reload
+  remote           Remote Access Profile: enable, disable, status, check (tunnels)
+  clients          remote client registrations; harness setup (clients setup <client>)
+  lockdown         apply, show or remove a client lockdown profile
+  doctor           report non-Gateway MCP servers, readable Gateway paths, CA trust
+
+Every command takes --config <file> (default smcp.toml).
 `
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Fprint(os.Stderr, usage)
-		os.Exit(2)
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+}
+
+func run(args []string, stdout, stderr io.Writer) int {
+	if len(args) < 1 {
+		fmt.Fprint(stderr, usage)
+		return 2
 	}
+	sub := func(name string) bool { return len(args) > 1 && args[1] == name }
 	var err error
-	switch os.Args[1] {
-	case "bootstrap":
-		err = bootstrap(os.Args[2:])
-	case "config":
-		if len(os.Args) > 2 && os.Args[2] == "validate" {
-			err = validate(os.Args[3:])
-		} else {
-			err = fmt.Errorf("usage: smcpctl config validate --config <file>")
-		}
-	case "journal":
-		if len(os.Args) > 2 && os.Args[2] == "verify" {
-			err = verify(os.Args[3:])
-		} else {
-			err = fmt.Errorf("usage: smcpctl journal verify --config <file>")
-		}
-	case "health":
-		err = health(os.Args[2:])
-	case "hash-password":
-		err = hashPassword(os.Args[2:])
+	switch {
+	case args[0] == "bootstrap":
+		err = bootstrap(args[1:], stdout)
+	case args[0] == "config" && sub("validate"):
+		err = validate(args[2:], stdout)
+	case args[0] == "journal" && sub("verify"):
+		err = verifyJournal(args[2:], stdout)
+	case args[0] == "package":
+		err = packageCmd(args[1:], stdout)
+	case args[0] == "trust":
+		err = trustCmd(args[1:], stdout)
+	case args[0] == "hash-password":
+		err = hashPassword(args[1:], stdout)
+	case args[0] == "uds":
+		err = udsCmd(args[1:], stdout)
+	case args[0] == "filters":
+		err = filtersCmd(args[1:], os.Stdin, stdout)
+	case args[0] == "health":
+		err = healthCmd(args[1:], stdout)
+	case args[0] == "reload":
+		err = reloadCmd(args[1:], stdout)
+	case args[0] == "keys":
+		err = keysCmd(args[1:], stdout)
+	case args[0] == "backup":
+		err = backupCmd(args[1:], stdout)
+	case args[0] == "restore":
+		err = restoreCmd(args[1:], stdout)
+	case args[0] == "journal" && sub("export"):
+		err = journalExport(args[2:], stdout)
+	case args[0] == "config" && sub("migrate"):
+		err = configMigrate(args[2:], stdout)
+	case args[0] == "version":
+		err = versionCmd(args[1:], stdout)
+	case args[0] == "upgrade":
+		err = upgradeCmd(args[1:], stdout)
+	case args[0] == "install":
+		err = installCmd(args[1:], stdout)
+	case args[0] == "uninstall":
+		err = uninstallCmd(args[1:], os.Stdin, stdout)
+	case args[0] == "stop":
+		err = stopCmd(args[1:], stdout)
+	case args[0] == "resume":
+		err = control(args[1:], stdout, "POST", "/admin/v1/resume", map[string]any{})
+	case args[0] == "policy" && sub("reload"):
+		err = control(args[2:], stdout, "POST", "/admin/v1/policy/reload", map[string]any{})
+	case args[0] == "policy":
+		err = policyCmd(args[1:], stdout)
+	case args[0] == "approvers":
+		err = approversCmd(args[1:], stdout)
+	case args[0] == "approvals":
+		err = approvalsCmd(args[1:], os.Stdin, stdout)
+	case args[0] == "graph":
+		err = graphCmd(args[1:], os.Stdin, stdout)
+	case args[0] == "observe":
+		err = observeCmd(args[1:], stdout)
+	case args[0] == "admin" && sub("redeem"):
+		err = redeem(args[2:], stdout)
+	case args[0] == "remote":
+		err = remoteCmd(args[1:], stdout)
+	case args[0] == "clients" || args[0] == "client":
+		err = clientsCmd(args[1:], stdout)
+	case args[0] == "lockdown":
+		err = lockdownCmd(args[1:], stdout)
+	case args[0] == "doctor":
+		err = doctorCmd(args[1:], stdout)
+	case args[0] == "egress":
+		err = egressCmd(args[1:], stdout)
+	case args[0] == "runtime":
+		err = runtimeCmd(args[1:], stdout)
+	case args[0] == "secrets":
+		err = secretsCmd(args[1:], stdout)
+	case args[0] == "servers":
+		err = serversCmd(args[1:], stdout)
+	case args[0] == "help" || args[0] == "-h" || args[0] == "--help":
+		fmt.Fprint(stdout, usage)
+		return 0
 	default:
-		fmt.Fprint(os.Stderr, usage)
-		os.Exit(2)
+		fmt.Fprint(stderr, usage)
+		return 2
 	}
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "smcpctl:", err)
-		os.Exit(1)
+		fmt.Fprintln(stderr, "smcpctl:", err)
+		return 1
 	}
+	return 0
 }
 
-const exampleConfig = `# Secure MCP Gateway configuration (first vertical slice).
-# Validated against internal/config/config.schema.json at startup.
-
-[listener]
-address = "127.0.0.1:8443"
-public_url = "https://127.0.0.1:8443"
-
-[state]
-dir = "state"
-
-[admin]
-username = "admin"
-password_hash = "%s"
-
-[policy]
-file = "policy.json"
-
-# Framework instances (FR-2.1). The profile names a framework profile in policy.json.
-[[principal]]
-id = "claude-code-local"
-framework = "claude-code"
-display_name = "Claude Code on this machine"
-profile = "dev"
-
-# OAuth client registrations bound to a principal (FR-2.18).
-# Claude Code identifies itself with a Client ID Metadata Document URL and a
-# loopback redirect on a random port.
-[[client]]
-client_id = "https://claude.ai/api/mcp/oauth/client-metadata"
-principal = "claude-code-local"
-redirect_uris = ["http://localhost:*/callback", "http://127.0.0.1:*/callback"]
-
-# Backend MCP servers launched over stdio. Tools are read from the live
-# server at startup; the public name is <alias>_<tool>.
-[[server]]
-alias = "fs"
-command = "npx"
-args = ["-y", "@modelcontextprotocol/server-filesystem", "%s"]
-`
-
-const examplePolicy = `{
-  "revision": "r1",
-  "framework_profiles": {
-    "dev": { "templates": ["read-only", "read-write"], "default_template": "read-only" }
-  },
-  "templates": {
-    "read-only": {
-      "description": "Read the sandbox directory",
-      "rules": [
-        { "id": "ro-fs", "server": "fs", "tools": ["read_file", "read_text_file", "list_directory", "search_files", "get_file_info"] }
-      ]
-    },
-    "read-write": {
-      "description": "Read and, with approval, write the sandbox directory",
-      "rules": [
-        { "id": "rw-read", "server": "fs", "tools": ["read_file", "read_text_file", "list_directory", "search_files", "get_file_info"] },
-        { "id": "rw-write", "server": "fs", "tools": ["write_file", "edit_file", "create_directory", "move_file"], "approval": true }
-      ]
-    }
-  }
-}
-`
-
-func bootstrap(args []string) error {
-	fs := flag.NewFlagSet("bootstrap", flag.ContinueOnError)
-	dir := fs.String("dir", ".", "directory for smcp.toml, policy.json and state/")
-	pw := fs.String("admin-password", os.Getenv("SMCP_ADMIN_PASSWORD"), "administrator password (or SMCP_ADMIN_PASSWORD)")
-	sandbox := fs.String("sandbox", "", "directory the example filesystem server may read (default <dir>/sandbox)")
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
-	if *pw == "" {
-		return fmt.Errorf("--admin-password or SMCP_ADMIN_PASSWORD is required")
-	}
-	if len(*pw) < 12 {
-		return fmt.Errorf("administrator password must be at least 12 characters")
-	}
-	abs, err := filepath.Abs(*dir)
-	if err != nil {
-		return err
-	}
-	if *sandbox == "" {
-		*sandbox = filepath.Join(abs, "sandbox")
-	}
-	if err := os.MkdirAll(*sandbox, 0o755); err != nil {
-		return err
-	}
-	stateDir := filepath.Join(abs, "state")
-	if err := keys.Ensure(stateDir, "127.0.0.1"); err != nil {
-		return err
-	}
-	cfgPath := filepath.Join(abs, "smcp.toml")
-	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
-		hash, err := keys.HashPassword(*pw)
-		if err != nil {
-			return err
-		}
-		if err := os.WriteFile(cfgPath, []byte(fmt.Sprintf(exampleConfig, hash, *sandbox)), 0o600); err != nil {
-			return err
-		}
-		fmt.Println("wrote", cfgPath)
-	} else {
-		fmt.Println("kept existing", cfgPath)
-	}
-	polPath := filepath.Join(abs, "policy.json")
-	if _, err := os.Stat(polPath); os.IsNotExist(err) {
-		if err := os.WriteFile(polPath, []byte(examplePolicy), 0o644); err != nil {
-			return err
-		}
-		fmt.Println("wrote", polPath)
-	} else {
-		fmt.Println("kept existing", polPath)
-	}
-	if _, err := config.Load(cfgPath); err != nil {
-		return err
-	}
-	if _, err := policy.Load(polPath); err != nil {
-		return err
-	}
-	fmt.Printf(`
-State and keys are under %s.
-
-Next steps:
-  1. Start the Gateway:        smcpd --config %s
-  2. Trust the local CA:        export NODE_EXTRA_CA_CERTS=%s
-  3. Register with Claude Code: claude mcp add --transport http smcp https://127.0.0.1:8443/mcp
-     Claude Code opens a browser for OAuth; sign in as %q.
-`, stateDir, cfgPath, filepath.Join(stateDir, keys.CACertFile), "admin")
-	return nil
-}
-
-func validate(args []string) error {
+func validate(args []string, out io.Writer) error {
 	fs := flag.NewFlagSet("config validate", flag.ContinueOnError)
 	cfgPath := fs.String("config", "smcp.toml", "configuration file")
 	if err := fs.Parse(args); err != nil {
@@ -210,86 +178,106 @@ func validate(args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("configuration OK: %d principals, %d clients, %d servers; policy revision %s\n", len(cfg.Principals), len(cfg.Clients), len(cfg.Servers), snap.Revision)
+	fmt.Fprintf(out, "configuration OK: %d principals, %d clients, %d servers, %d approvers; policy revision %s\n",
+		len(cfg.Principals), len(cfg.Clients), len(cfg.Servers), len(cfg.Approvers), snap.Revision)
 	return nil
 }
 
-func verify(args []string) error {
-	fs := flag.NewFlagSet("journal verify", flag.ContinueOnError)
-	cfgPath := fs.String("config", "smcp.toml", "configuration file")
-	dir := fs.String("dir", "", "journal directory (default <state>/journal)")
-	if err := fs.Parse(args); err != nil {
-		return err
+// readSecret reads a secret from file ("-" is standard input) or, when file
+// is empty, from an interactive prompt with confirmation. Secrets are never
+// taken from the command line or the environment, and a file readable or
+// writable by group or others is refused (SR-7.5-2).
+func readSecret(file, prompt string, confirm bool) (string, error) {
+	if file != "" {
+		var b []byte
+		var err error
+		if file == "-" {
+			b, err = io.ReadAll(io.LimitReader(os.Stdin, 4096))
+		} else {
+			b, err = readPrivateFile(file)
+		}
+		if err != nil {
+			return "", err
+		}
+		return strings.TrimRight(string(b), "\r\n"), nil
 	}
-	cfg, err := config.Load(*cfgPath)
+	fd := int(os.Stdin.Fd())
+	if !term.IsTerminal(fd) {
+		return "", errors.New("no terminal for the password prompt; pass a password file")
+	}
+	fmt.Fprint(os.Stderr, prompt+": ")
+	a, err := term.ReadPassword(fd)
+	fmt.Fprintln(os.Stderr)
 	if err != nil {
-		return err
+		return "", err
 	}
-	pub, err := keys.LoadEvidencePublicKey(cfg.State.Dir)
-	if err != nil {
-		return err
+	if confirm {
+		fmt.Fprint(os.Stderr, "Repeat: ")
+		b, err := term.ReadPassword(fd)
+		fmt.Fprintln(os.Stderr)
+		if err != nil {
+			return "", err
+		}
+		if string(a) != string(b) {
+			return "", errors.New("the two entries differ")
+		}
 	}
-	if *dir == "" {
-		*dir = filepath.Join(cfg.State.Dir, "journal")
-	}
-	rep, err := audit.Verify(*dir, pub)
-	if err != nil {
-		return fmt.Errorf("journal verification FAILED: %w", err)
-	}
-	fmt.Printf("journal OK: %d segments, %d events", rep.Segments, rep.Events)
-	if rep.Open != "" {
-		fmt.Printf(" (%s is still open)", rep.Open)
-	}
-	fmt.Println()
-	return nil
+	return string(a), nil
 }
 
-func health(args []string) error {
-	fs := flag.NewFlagSet("health", flag.ContinueOnError)
-	cfgPath := fs.String("config", "smcp.toml", "configuration file")
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
-	cfg, err := config.Load(*cfgPath)
+// readPrivateFile reads a secret file whose mode is 0600 or stricter.
+func readPrivateFile(path string) ([]byte, error) {
+	f, err := os.Open(path)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	pool := x509.NewCertPool()
-	ca, err := os.ReadFile(filepath.Join(cfg.State.Dir, keys.CACertFile))
+	defer f.Close()
+	st, err := f.Stat()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	pool.AppendCertsFromPEM(ca)
-	client := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS13}}}
-	resp, err := client.Get(cfg.Listener.PublicURL + "/healthz")
-	if err != nil {
-		return err
+	if !st.Mode().IsRegular() {
+		return nil, fmt.Errorf("%s is not a regular file", path)
 	}
-	defer resp.Body.Close()
-	b, _ := io.ReadAll(resp.Body)
-	var pretty map[string]any
-	if json.Unmarshal(b, &pretty) == nil {
-		out, _ := json.MarshalIndent(pretty, "", "  ")
-		fmt.Println(string(out))
-		return nil
+	if perm := st.Mode().Perm(); perm&0o077 != 0 {
+		return nil, fmt.Errorf("%s has mode %04o; a secret file must be mode 0600 or stricter (chmod 600 %s)", path, perm, path)
 	}
-	fmt.Println(strings.TrimSpace(string(b)))
-	return nil
+	return io.ReadAll(io.LimitReader(f, 64<<10))
 }
 
-func hashPassword(args []string) error {
+// errPasswordArg refuses a password given as a command-line argument.
+var errPasswordArg = errors.New("passwords are never accepted as command-line arguments; use the prompt or a password file with mode 0600")
+
+// readPassword reads a password or bootstrap secret for bootstrap,
+// hash-password and admin redeem: only from the interactive prompt or a
+// file with mode 0600 or stricter (SR-7.5-2), never from standard input.
+func readPassword(file, prompt string, confirm bool) (string, error) {
+	if file == "-" {
+		return "", errors.New("standard input is not accepted for this password; use the prompt or a password file with mode 0600")
+	}
+	return readSecret(file, prompt, confirm)
+}
+
+func hashPassword(args []string, out io.Writer) error {
 	fs := flag.NewFlagSet("hash-password", flag.ContinueOnError)
-	pw := fs.String("password", os.Getenv("SMCP_PASSWORD"), "password to hash (or SMCP_PASSWORD)")
+	file := fs.String("password-file", "", "read the password from this file (mode 0600 or stricter) instead of a prompt")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	if *pw == "" {
-		return fmt.Errorf("--password or SMCP_PASSWORD is required")
+	if fs.NArg() > 0 {
+		return errPasswordArg
 	}
-	h, err := keys.HashPassword(*pw)
+	pw, err := readPassword(*file, "Password", true)
 	if err != nil {
 		return err
 	}
-	fmt.Println(h)
+	if pw == "" {
+		return errors.New("empty password")
+	}
+	h, err := keys.HashPassword(pw)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintln(out, h)
 	return nil
 }

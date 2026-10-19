@@ -1,0 +1,47 @@
+{
+  "recipe_version": 1,
+  "server": {
+    "id": "mcp-memory",
+    "alias": "mem",
+    "publisher": "Model Context Protocol reference servers",
+    "description": "Knowledge-graph memory kept in one JSON Lines file under the data slot.",
+    "homepage": "https://github.com/modelcontextprotocol/servers"
+  },
+  "artifact": {
+    "type": "npm",
+    "reference": "@modelcontextprotocol/server-memory",
+    "version": "2026.8.31",
+    "integrity": "sha512-ljj/3S4aGjxdNSQWw6gucKKGnTLdBPWxzapyY/MT2tOVyZwvxChvevXSLPwx59nKJAlVpUVW+cOlnVRXRwiqMQ=="
+  },
+  "dependencies": {
+    "npm_package_json": "package.json",
+    "npm_lockfile": "package-lock.json"
+  },
+  "launch": {
+    "runtime": "node",
+    "argv": ["node", "node_modules/@modelcontextprotocol/server-memory/dist/index.js"],
+    "env_fixed": { "MEMORY_FILE_PATH": "{data}/memory.jsonl" }
+  },
+  "risk_class": "low",
+  "instance_scope": ["shared", "per-principal"],
+  "tools": {
+    "default": { "side_effect": "read", "source_trust": "untrusted" },
+    "overrides": {
+      "add_observations": { "side_effect": "write" },
+      "create_entities": { "side_effect": "write" },
+      "create_relations": { "side_effect": "write" },
+      "delete_entities": { "side_effect": "write" },
+      "delete_observations": { "side_effect": "write" },
+      "delete_relations": { "side_effect": "write" }
+    },
+    "expect": ["create_entities", "read_graph"]
+  },
+  "capabilities": {
+    "filesystem": [{ "slot": "data", "mode": "rw", "argv_placeholder": "{data}" }],
+    "egress": [],
+    "spawns_processes": false,
+    "resources": { "memory_mib": 256, "pids": 64 }
+  },
+  "licenses": ["Apache-2.0", "MIT"],
+  "operator_note": "The npm tarball has no license file; its package.json says SEE LICENSE IN LICENSE, and the LICENSE of github.com/modelcontextprotocol/servers states a transition from MIT to Apache-2.0 with code under both, so both identifiers are listed."
+}

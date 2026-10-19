@@ -4,17 +4,57 @@
   "title": "Secure MCP Gateway configuration",
   "type": "object",
   "additionalProperties": false,
+  "$defs": {
+    "duration": { "type": "string", "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$" },
+    "loopback": { "type": "string", "pattern": "^(127\\.0\\.0\\.1|\\[::1\\]|localhost):[0-9]{1,5}$" },
+    "argon2id": { "type": "string", "pattern": "^\\$argon2id\\$" }
+  },
   "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "address": { "$ref": "#/$defs/loopback" }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "export_dir": { "type": "string", "minLength": 1 },
+        "export_interval": { "$ref": "#/$defs/duration" },
+        "quota_bytes": { "type": "integer", "minimum": 1048576 }
+      }
+    },
+    "backup": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dir": { "type": "string", "minLength": 1 },
+        "interval": { "type": "string" },
+        "passphrase_file": { "type": "string", "minLength": 1 },
+        "recipients": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
     "listener": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "address": { "type": "string", "pattern": "^(127\\.0\\.0\\.1|\\[::1\\]|localhost):[0-9]{1,5}$" },
+        "address": { "$ref": "#/$defs/loopback" },
         "public_url": { "type": "string", "pattern": "^https://" },
         "mcp_path": { "type": "string", "pattern": "^/" },
         "tls_cert": { "type": "string", "minLength": 1 },
         "tls_key": { "type": "string", "minLength": 1 },
         "allowed_origins": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "admin_listener": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "address": { "$ref": "#/$defs/loopback" }
       }
     },
     "state": {
@@ -25,10 +65,202 @@
     "admin": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["username", "password_hash"],
+      "required": ["username"],
+      "anyOf": [
+        { "required": ["password_hash"] },
+        { "required": ["bootstrap_token_sha256", "bootstrap_token_expires"] }
+      ],
       "properties": {
-        "username": { "type": "string", "minLength": 1, "maxLength": 64 },
-        "password_hash": { "type": "string", "pattern": "^\\$argon2id\\$" }
+        "username": { "type": "string", "pattern": "^[A-Za-z0-9._-]{1,64}$" },
+        "password_hash": { "$ref": "#/$defs/argon2id" },
+        "bootstrap_token_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "bootstrap_token_expires": { "type": "string", "minLength": 1 }
+      }
+    },
+    "approver": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["username", "password_hash"],
+        "properties": {
+          "username": { "type": "string", "pattern": "^[A-Za-z0-9._-]{1,64}$" },
+          "password_hash": { "$ref": "#/$defs/argon2id" }
+        }
+      }
+    },
+    "approvals": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "lifetime": { "$ref": "#/$defs/duration" },
+        "keepalive": { "$ref": "#/$defs/duration" },
+        "notify": { "enum": ["auto", "off", "osascript", "terminal-notifier", "notify-send", "command"] },
+        "notify_command": { "type": "string", "minLength": 1 },
+        "console_url": { "type": "string", "pattern": "^https://" },
+        "account": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["username", "password_hash"],
+            "properties": {
+              "username": { "type": "string", "pattern": "^[A-Za-z0-9._-]{1,64}$" },
+              "password_hash": { "$ref": "#/$defs/argon2id" }
+            }
+          }
+        }
+      }
+    },
+    "console": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "account": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["username", "password_hash", "role"],
+            "properties": {
+              "username": { "type": "string", "pattern": "^[A-Za-z0-9._-]{1,64}$" },
+              "password_hash": { "$ref": "#/$defs/argon2id" },
+              "role": { "enum": ["operator", "policy_author", "auditor", "researcher"] }
+            }
+          }
+        }
+      }
+    },
+    "remote": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "address": { "type": "string", "minLength": 3 },
+        "public_url": { "type": "string", "pattern": "^https://[^/?#@]+/?$" },
+        "clients": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "default_principal": { "type": "string", "minLength": 1 },
+        "templates": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "client_address_header": { "type": "string", "pattern": "^[A-Za-z0-9-]{1,64}$" },
+        "max_pending_registrations": { "type": "integer", "minimum": 1, "maximum": 1024 },
+        "max_pending_per_source": { "type": "integer", "minimum": 1, "maximum": 1024 },
+        "pending_registration_lifetime": { "$ref": "#/$defs/duration" },
+        "limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "calls_per_minute": { "type": "integer", "minimum": 1 },
+            "calls_burst": { "type": "integer", "minimum": 1 },
+            "oauth_per_second": { "type": "integer", "minimum": 1 },
+            "oauth_burst": { "type": "integer", "minimum": 1 },
+            "lockout_failures": { "type": "integer", "minimum": 1 },
+            "lockout": { "$ref": "#/$defs/duration" },
+            "body_bytes": { "type": "integer", "minimum": 1024 },
+            "header_bytes": { "type": "integer", "minimum": 1024 },
+            "concurrency_per_client": { "type": "integer", "minimum": 1 },
+            "concurrency_total": { "type": "integer", "minimum": 1 },
+            "session_max_lifetime": { "$ref": "#/$defs/duration" },
+            "session_idle_timeout": { "$ref": "#/$defs/duration" }
+          }
+        }
+      }
+    },
+    "uds": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "path": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "group": { "type": "string", "minLength": 1 },
+        "peer": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["uid", "principal", "key_hash"],
+            "properties": {
+              "uid": { "type": "integer", "minimum": 0 },
+              "principal": { "type": "string", "minLength": 1 },
+              "key_hash": { "type": "string", "minLength": 1 },
+              "template": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "store": { "enum": ["auto", "duckdb", "jsonl"] },
+        "dir": { "type": "string", "minLength": 1 },
+        "export_dir": { "type": "string", "minLength": 1 },
+        "policy_id": { "type": "string", "pattern": "^[A-Za-z0-9._:-]{1,64}$" },
+        "parameters": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "escalation_parameters": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "sampling_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "retention": { "$ref": "#/$defs/duration" },
+        "queue": { "type": "integer", "minimum": 16, "maximum": 1048576 },
+        "flush_records": { "type": "integer", "minimum": 1, "maximum": 100000 },
+        "flush_interval": { "$ref": "#/$defs/duration" },
+        "metrics_interval": { "$ref": "#/$defs/duration" },
+        "memory_limit_bytes": { "type": "integer", "minimum": 16777216 },
+        "storage_quota_bytes": { "type": "integer", "minimum": 1048576 },
+        "scoring": { "enum": ["off", "async", "sync"] },
+        "require_approval_band": { "enum": ["off", "elevated", "abnormal", "critical"] },
+        "withhold_band": { "enum": ["off", "elevated", "abnormal", "critical"] },
+        "escalate_capture_band": { "enum": ["off", "elevated", "abnormal", "critical"] },
+        "uncharacterized_action": { "enum": ["record", "escalate", "approve"] },
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "principals": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+            "frameworks": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+            "templates": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+            "servers": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+            "tools": { "type": "array", "items": { "type": "string", "pattern": "^[^/]+/[^/]+$" } }
+          }
+        },
+        "escalation_bands": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "elevated": { "type": "array", "items": { "type": "string" } },
+            "abnormal": { "type": "array", "items": { "type": "string" } },
+            "critical": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "baseline": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "contexts": { "type": "array", "minItems": 1, "items": { "enum": ["principal", "framework_type", "session_template", "end_user", "server", "server_revision", "tool", "hour", "weekday"] } },
+            "feature": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["parameter"],
+                "properties": {
+                  "parameter": { "type": "string", "minLength": 1 },
+                  "kind": { "enum": ["numeric", "categorical"] },
+                  "transform": { "type": "string", "pattern": "^(none|log1p|box-cox\\(-?[0-9]+(\\.[0-9]+)?\\))$" },
+                  "robust": { "type": "boolean" },
+                  "sigma_floor": { "type": "number", "minimum": 0 }
+                }
+              }
+            },
+            "n_min": { "type": "integer", "minimum": 1 },
+            "half_life": { "$ref": "#/$defs/duration" },
+            "learning_window": { "$ref": "#/$defs/duration" },
+            "snapshot_interval": { "$ref": "#/$defs/duration" },
+            "snapshot_records": { "type": "integer", "minimum": 0 },
+            "auto_promote_max_shift": { "type": "number", "minimum": 0 },
+            "auto_promote_max_sigma_factor": { "type": "number", "minimum": 0 },
+            "bands": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number", "exclusiveMinimum": 0 } }
+          }
+        }
       }
     },
     "policy": {
@@ -46,14 +278,34 @@
         "tool_concurrency_total": { "type": "integer", "minimum": 1 },
         "tool_queue": { "type": "integer", "minimum": 0 },
         "principal_calls_per_minute": { "type": "integer", "minimum": 1 },
-        "upstream_timeout": { "type": "string" },
-        "client_deadline": { "type": "string" },
-        "session_max_lifetime": { "type": "string" },
-        "session_idle_timeout": { "type": "string" },
+        "principal_call_burst": { "type": "integer", "minimum": 0 },
+        "upstream_timeout": { "$ref": "#/$defs/duration" },
+        "client_deadline": { "$ref": "#/$defs/duration" },
+        "session_max_lifetime": { "$ref": "#/$defs/duration" },
+        "session_idle_timeout": { "$ref": "#/$defs/duration" },
         "sessions_per_principal": { "type": "integer", "minimum": 1 },
         "catalog_ttl_ms": { "type": "integer", "minimum": 0 },
         "catalog_page_size": { "type": "integer", "minimum": 1, "maximum": 1000 },
-        "listen_streams_per_session": { "type": "integer", "minimum": 1 }
+        "listen_streams_per_session": { "type": "integer", "minimum": 1 },
+        "approval_hold": { "$ref": "#/$defs/duration" }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "type": "string", "enum": ["auto", "standalone", "enforced"] }
+      }
+    },
+    "log": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "level": { "type": "string", "enum": ["debug", "info", "warn", "error"] },
+        "format": { "type": "string", "enum": ["text", "json"] },
+        "file": { "type": "string", "minLength": 1 },
+        "max_bytes": { "type": "integer", "minimum": 65536 },
+        "max_files": { "type": "integer", "minimum": 1, "maximum": 100 }
       }
     },
     "principal": {
@@ -64,7 +316,10 @@
         "required": ["id", "framework", "profile"],
         "properties": {
           "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$" },
-          "framework": { "type": "string", "enum": ["claude-code", "codex", "hermes", "cursor", "other"] },
+          "framework": {
+            "type": "string",
+            "enum": ["claude-code", "codex", "hermes", "opencode", "gemini-cli", "goose", "grok-build", "grok-bot", "chatgpt", "meta-muse", "cursor", "other"]
+          },
           "display_name": { "type": "string", "maxLength": 128 },
           "profile": { "type": "string", "minLength": 1 },
           "enabled": { "type": "boolean" }
@@ -85,18 +340,242 @@
         }
       }
     },
+    "client_metadata": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["url", "principal"],
+        "properties": {
+          "url": { "type": "string", "pattern": "^https://" },
+          "principal": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sandbox": { "type": "string", "enum": ["none", "podman"] },
+        "podman": { "type": "string", "minLength": 1 },
+        "image": { "type": "string", "pattern": "@sha256:[0-9a-f]{64}$" },
+        "memory_bytes": { "type": "integer", "minimum": 16777216 },
+        "cpus": { "type": "number", "exclusiveMinimum": 0, "maximum": 1024 },
+        "pids": { "type": "integer", "minimum": 8 },
+        "tmpfs_bytes": { "type": "integer", "minimum": 1048576 },
+        "nofile": { "type": "integer", "minimum": 64, "maximum": 1048576 },
+        "userns_size": { "type": "integer", "minimum": 1024, "maximum": 65536 },
+        "user": { "type": "string", "pattern": "^[0-9]{1,10}:[0-9]{1,10}$" },
+        "apparmor_profile": { "type": "string", "pattern": "^[A-Za-z0-9._-]{1,128}$" },
+        "selinux_type": { "type": "string", "pattern": "^[a-z0-9_]{1,128}$" },
+        "cgroup_manager": { "type": "string", "enum": ["systemd", "cgroupfs"] },
+        "monitor_interval": { "$ref": "#/$defs/duration" },
+        "run_as": { "type": "string", "pattern": "^[a-z_][a-z0-9_-]{0,31}$" },
+        "sudo": { "type": "string", "minLength": 1 },
+        "shared_dir": { "type": "string", "minLength": 1 },
+        "server": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["alias"],
+            "properties": {
+              "alias": { "type": "string", "pattern": "^[a-z0-9]{1,16}$" },
+              "image": { "type": "string", "pattern": "@sha256:[0-9a-f]{64}$" },
+              "memory_bytes": { "type": "integer", "minimum": 16777216 },
+              "cpus": { "type": "number", "exclusiveMinimum": 0, "maximum": 1024 },
+              "pids": { "type": "integer", "minimum": 8 },
+              "network": { "type": "string", "enum": ["none", "egress"] },
+              "scope": { "type": "string", "enum": ["shared", "session", "call"] },
+              "userns": { "type": "string", "enum": ["auto", "keep-id"] },
+              "allow_spawn": { "type": "boolean" },
+              "on_deviation": { "type": "string", "enum": ["alert", "kill-instance"] },
+              "mount": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["source"],
+                  "properties": {
+                    "source": { "type": "string", "minLength": 1 },
+                    "target": { "type": "string", "pattern": "^/" },
+                    "write": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "filters": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "rules_dir": { "type": "string", "minLength": 1 },
+        "rule_versions": { "type": "object", "additionalProperties": { "type": "string", "minLength": 1 } },
+        "deadline": { "$ref": "#/$defs/duration" },
+        "mandatory_request": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$" } },
+        "mandatory_response": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$" } },
+        "metadata_scan": { "type": "boolean" },
+        "size": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "argument_bytes": { "type": "integer", "minimum": 1 },
+            "argument_depth": { "type": "integer", "minimum": 1, "maximum": 256 },
+            "string_bytes": { "type": "integer", "minimum": 0 },
+            "result_depth": { "type": "integer", "minimum": 1, "maximum": 256 }
+          }
+        },
+        "paths": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "roots": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+            "server_roots": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string", "minLength": 1 } } },
+            "argument_names": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+            "ignore_names": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+            "rewrite": { "type": "boolean" }
+          }
+        },
+        "urls": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "schemes": { "type": "array", "items": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9+.-]*$" } },
+            "hosts": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+            "deny_hosts": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+            "allow_private": { "type": "boolean" },
+            "argument_names": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+            "ignore_names": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+            "rewrite": { "type": "boolean" }
+          }
+        },
+        "content_types": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "allow": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9.+-]+/[a-z0-9.+-]+$" } },
+            "max_bytes": { "type": "integer", "minimum": 1 }
+          }
+        }
+      }
+    },
+    "graph": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "uri": { "type": "string", "pattern": "^(bolt|neo4j)(\\+s|\\+ssc)?://(127\\.0\\.0\\.1|localhost|\\[::1\\])(:[0-9]{1,5})?$" },
+        "username": { "type": "string", "pattern": "^[A-Za-z0-9_.-]{1,64}$" },
+        "password_file": { "type": "string", "minLength": 1 },
+        "database": { "type": "string", "pattern": "^[a-z0-9][a-z0-9.-]{0,62}$" },
+        "retention": { "$ref": "#/$defs/duration" },
+        "retention_interval": { "$ref": "#/$defs/duration" },
+        "catchup_interval": { "$ref": "#/$defs/duration" },
+        "memory_interval": { "$ref": "#/$defs/duration" },
+        "batch_size": { "type": "integer", "minimum": 1, "maximum": 5000 },
+        "queue": { "type": "integer", "minimum": 16, "maximum": 1048576 },
+        "heap_bytes": { "type": "integer", "minimum": 134217728 },
+        "page_cache_bytes": { "type": "integer", "minimum": 8388608 },
+        "require_hardening": { "type": "boolean" }
+      }
+    },
+    "secrets": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "vault_dir": { "type": "string", "minLength": 1 },
+        "key_source": { "type": "string", "enum": ["auto", "keychain", "passphrase"] },
+        "passphrase_file": { "type": "string", "minLength": 1 },
+        "use_policy_file": { "type": "string", "minLength": 1 },
+        "runtime_dir": { "type": "string", "minLength": 1 },
+        "rotation_overlap": { "$ref": "#/$defs/duration" }
+      }
+    },
+    "packages": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "library": { "type": "string", "minLength": 1 },
+        "scan_interval": { "$ref": "#/$defs/duration" },
+        "require_signed": { "type": "boolean" },
+        "node": { "type": "string", "pattern": "^/" },
+        "python": { "type": "string", "pattern": "^/" },
+        "podman": { "type": "string", "pattern": "^/" }
+      }
+    },
     "server": {
       "type": "array",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["alias", "command"],
+        "required": ["alias"],
+        "oneOf": [{ "required": ["command"] }, { "required": ["package"] }],
         "properties": {
           "alias": { "type": "string", "pattern": "^[a-z0-9]{1,16}$" },
           "command": { "type": "string", "minLength": 1 },
           "args": { "type": "array", "items": { "type": "string" } },
           "env": { "type": "object", "additionalProperties": { "type": "string" } },
-          "dir": { "type": "string" }
+          "secret_env": {
+            "type": "object",
+            "propertyNames": { "pattern": "^[A-Z_][A-Z0-9_]{0,63}$" },
+            "additionalProperties": { "type": "string", "minLength": 1 }
+          },
+          "dir": { "type": "string" },
+          "risk_classes": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": { "type": "string", "enum": ["standard", "general-sql", "code-execution", "cad-scripting", "browser-automation"] }
+          },
+          "package": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,62}$" },
+          "package_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "command_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "slots": {
+            "type": "object",
+            "propertyNames": { "pattern": "^[a-z][a-z0-9_]{0,31}$" },
+            "additionalProperties": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "egress": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "proxy_env": { "type": "boolean" },
+        "request_bytes": { "type": "integer", "minimum": 1024 },
+        "response_bytes": { "type": "integer", "minimum": 1024 },
+        "operation_timeout": { "$ref": "#/$defs/duration" },
+        "dial_timeout": { "$ref": "#/$defs/duration" },
+        "requests_per_minute": { "type": "integer", "minimum": 1 },
+        "bytes_per_minute": { "type": "integer", "minimum": 65536 },
+        "recent_records": { "type": "integer", "minimum": 0, "maximum": 100000 },
+        "require_capability": { "type": "boolean" },
+        "capability_tokens": { "type": "integer", "minimum": 1, "maximum": 256 },
+        "resolvers": { "type": "array", "maxItems": 8, "items": { "type": "string", "minLength": 3 } },
+        "ca_file": { "type": "string", "minLength": 1 },
+        "grant": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["server", "host", "methods"],
+            "properties": {
+              "server": { "type": "string", "pattern": "^[a-z0-9]{1,16}$" },
+              "host": { "type": "string", "pattern": "^((\\*\\.)?[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*\\.?|[0-9.]+|[0-9A-Fa-f:.]+)$" },
+              "ports": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "integer", "minimum": 1, "maximum": 65535 } },
+              "methods": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "enum": ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "CONNECT-TLS"] } },
+              "class": { "type": "string", "enum": ["api", "public-fetch"] },
+              "addresses": { "type": "array", "items": { "type": "string", "minLength": 2 } },
+              "endpoint_env": { "type": "string", "pattern": "^[A-Z_][A-Z0-9_]{0,63}$" },
+              "request_bytes": { "type": "integer", "minimum": 0 },
+              "response_bytes": { "type": "integer", "minimum": 0 },
+              "timeout": { "$ref": "#/$defs/duration" }
+            }
+          }
         }
       }
     }

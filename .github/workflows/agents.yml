@@ -1,0 +1,140 @@
+# Real-agent conformance suite (SRS FR-15.8). Not a required check: it
+# depends on third-party CLIs and a paid model endpoint, so a vendor release
+# or an outage must not block merges. It installs the Appendix K clients at
+# the versions pinned in docs/clients/matrix.json (FR-15.10), runs
+# scripts/agents against a fresh Gateway, and publishes build/agents.json to
+# the site-data branch, where the CI "status" job merges it into
+# status.json.
+#
+# Models come from the Vercel AI Gateway (secret AI_GATEWAY_API_KEY, spend
+# capped by the account). Gemini CLI runs only when GEMINI_API_KEY is set.
+# Without a key the clients are recorded as not-run.
+name: Real agents
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      clients:
+        description: "Comma-separated client IDs (empty: all)"
+        required: false
+        default: ""
+  schedule:
+    - cron: "23 8 * * *" # nightly, 03:23 America/Chicago (CDT)
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agents-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  GO_VERSION: "1.26.x"
+  NODE_VERSION: "24"
+
+jobs:
+  agents:
+    name: agents
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+          cache-dependency-path: go.sum
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Install the agent CLIs at the pinned versions
+        env:
+          CLIENTS: ${{ inputs.clients }}
+        run: |
+          # shellcheck disable=SC2086 # CLIENTS is a list of IDs
+          scripts/agents/install-clis.sh ${CLIENTS//,/ }
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Run the conformance suite
+        id: suite
+        env:
+          AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          CLIENTS: ${{ inputs.clients }}
+        run: go run ./scripts/agents -clients "$CLIENTS" -work "$RUNNER_TEMP/agents"
+      # FR-15.8: a deliberately broken Gateway build (smcpd built with
+      # -tags smcp_broken, which skips rate limits and approval obligations)
+      # must turn a real agent's result to fail. The suite exits 0 only if
+      # the agent reached the Gateway and failed. Its results go to separate
+      # files and are never published.
+      - name: Broken-build check (Claude Code against a broken Gateway)
+        if: ${{ !cancelled() && (inputs.clients == '' || contains(inputs.clients, 'claude-code')) }}
+        env:
+          AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+        run: |
+          if [ -z "$AI_GATEWAY_API_KEY" ]; then
+            echo "AI_GATEWAY_API_KEY is not set; broken-build check skipped"
+            exit 0
+          fi
+          go run ./scripts/agents -clients claude-code -broken-gateway -work "$RUNNER_TEMP/agents-broken" \
+            -out build/agents-broken.json -report build/agents-broken-report.json
+      - name: Summary
+        if: always()
+        run: |
+          for f in build/agents.json build/agents-broken.json; do
+            [ -f "$f" ] || continue
+            {
+              echo "### $f"
+              echo
+              echo "| Client | Version | Mode | Result | Detail |"
+              echo "|---|---|---|---|---|"
+              jq -r '.[] | "| \(.client) | \(.version) | \(.mode) | \(.result) | \(.detail | gsub("\\|"; "/")) |"' "$f"
+              echo
+            } >> "$GITHUB_STEP_SUMMARY"
+          done
+      # Agent output is redacted by the suite; debug logs and per-client
+      # configuration (Goose's holds the session token) are not uploaded.
+      - name: Upload results and redacted agent output
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: agents-results
+          path: |
+            build/agents.json
+            build/agents-report.json
+            build/agents-broken.json
+            build/agents-broken-report.json
+            ${{ runner.temp }}/agents/smcpd.log
+            ${{ runner.temp }}/agents/agents/*/*.log
+            ${{ runner.temp }}/agents-broken/smcpd.log
+            ${{ runner.temp }}/agents-broken/agents/*/*.log
+          if-no-files-found: warn
+          retention-days: 14
+
+  publish:
+    name: publish
+    needs: [agents]
+    if: >-
+      always() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' &&
+      (needs.agents.result == 'success' || needs.agents.result == 'failure')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    concurrency:
+      group: publish-site-data
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: agents-results
+          path: results
+      - name: Publish agents.json to the site-data branch
+        run: |
+          f=$(find results -name agents.json -print -quit)
+          [ -n "$f" ] || { echo "no agents.json in the artifact"; exit 0; }
+          scripts/agents/publish.sh "$f"

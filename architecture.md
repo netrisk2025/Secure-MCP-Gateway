@@ -47,19 +47,19 @@ A compromised graph service can modify both policy and audit because CE cannot e
 ## 3. Components and trust boundaries
 
 ```mermaid
-flowchart LR
-  H[Contained Hermes or qualified client] -->|TLS plus principal token| G[Gateway enforcement point]
+flowchart TB
+  H[Contained Hermes or qualified client] -->|TLS plus<br/>principal token| G[Gateway enforcement point]
   H -->|Inference only| L[Local model runtime]
-  U[Human operator] -->|Separate admin session| C[Local GUI and control API]
-  G -->|Fixed authenticated operations| P[Trusted graph service and dispatch barrier]
+  U[Human operator] -->|Separate<br/>admin session| C[Local GUI and control API]
+  G -->|Fixed authenticated<br/>operations| P[Trusted graph service and dispatch barrier]
   C -->|Role-scoped APIs| P
-  P -->|Private authenticated Bolt| N[Neo4j CE: policy registry audit]
+  P -->|Private<br/>authenticated Bolt| N[Neo4j CE: policy registry audit]
   N --> O[Transactional export outbox]
   O --> E[Evidence exporter and signed local journal]
   G --> F[Request and result filters]
-  G -->|Approved exact route| B[Isolated local MCP workers]
-  B -->|No direct Internet| W[Trusted restricted web broker]
-  W -->|Individually authorized operations| I[Approved public documents]
+  G -->|Approved<br/>exact route| B[Isolated local MCP workers]
+  B -->|No direct<br/>Internet| W[Trusted restricted web broker]
+  W -->|Individually<br/>authorized operations| I[Approved public documents]
   C --> Q[Quarantine admission and source viewer]
   Q --> S[Pinned source and build evidence]
 ```
@@ -109,7 +109,7 @@ Stable identities are distinct from immutable revisions. A server display-name c
 | `SystemControl`, `UnresolvedTarget` | Stable reasons for invalid auth/default deny/unknown targets; no invented server execution |
 
 ```mermaid
-flowchart LR
+flowchart TB
   P[PolicyRevision] -->|CONTAINS| R[RuleRevision]
   R -->|APPLIES_TO| T[ToolRevision]
   T -->|BELONGS_TO| S[ServerRevision]

@@ -1,0 +1,45 @@
+{
+  "recipe_version": 1,
+  "server": {
+    "id": "mcp-git",
+    "alias": "git",
+    "publisher": "Model Context Protocol reference servers",
+    "description": "Inspect and change one local Git repository bound to the repo slot.",
+    "homepage": "https://github.com/modelcontextprotocol/servers"
+  },
+  "artifact": {
+    "type": "pypi",
+    "reference": "mcp-server-git",
+    "version": "2026.8.18",
+    "sha256": "6c32a8e771564122a9bafac373cf871fb3ab540ddc1ba0ee8e9c8c6e9878aef7"
+  },
+  "dependencies": {
+    "pip_requirements": "requirements.txt"
+  },
+  "launch": {
+    "runtime": "python",
+    "argv": ["python3", "-m", "mcp_server_git", "--repository", "{repo}"]
+  },
+  "risk_class": "moderate",
+  "instance_scope": ["shared", "per-session"],
+  "tools": {
+    "default": { "side_effect": "read", "source_trust": "untrusted" },
+    "overrides": {
+      "git_add": { "side_effect": "write" },
+      "git_checkout": { "side_effect": "write" },
+      "git_commit": { "side_effect": "write" },
+      "git_create_branch": { "side_effect": "write" },
+      "git_reset": { "side_effect": "write" }
+    },
+    "expect": ["git_status", "git_log", "git_diff"]
+  },
+  "capabilities": {
+    "filesystem": [{ "slot": "repo", "mode": "rw", "argv_placeholder": "{repo}" }],
+    "egress": [],
+    "spawns_processes": true,
+    "resources": { "memory_mib": 512, "pids": 128 }
+  },
+  "licenses": ["MIT"],
+  "probe": { "repo_init": ["repo"] },
+  "operator_note": "Runs the git executable found on the instance PATH; build and run with the same Python minor version (the artifact contains compiled wheels)."
+}

@@ -1,0 +1,371 @@
+{
+ "comment": "Package license fields of sbom.spdx.json inside the v1.0.0 linux_amd64 archive (other fields removed).",
+ "spdxVersion": "SPDX-2.3",
+ "creationInfo": {
+  "licenseListVersion": "3.29",
+  "creators": [
+   "Organization: Anchore, Inc",
+   "Tool: syft-1.54.0"
+  ],
+  "created": "2026-10-18T04:19:47Z"
+ },
+ "packages": [
+  {
+   "SPDXID": "SPDXRef-Package-npm--fontsource-ibm-plex-mono-c5841cf67f8dca3f",
+   "name": "@fontsource/ibm-plex-mono",
+   "versionInfo": "5.3.0",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "OFL-1.1"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-npm--fontsource-ibm-plex-sans-6a5de8d95f98780a",
+   "name": "@fontsource/ibm-plex-sans",
+   "versionInfo": "5.3.0",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "OFL-1.1"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-aead.dev-minisign-67c5164120f35a97",
+   "name": "aead.dev/minisign",
+   "versionInfo": "v0.3.0",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-filippo.io-age-909a2bc0f2151ec4",
+   "name": "filippo.io/age",
+   "versionInfo": "v1.3.2",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-filippo.io-hpke-6768a482c5f08f02",
+   "name": "filippo.io/hpke",
+   "versionInfo": "v0.4.0",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-apache-arrow-go-v18-4d93ea328f8a7a61",
+   "name": "github.com/apache/arrow-go/v18",
+   "versionInfo": "v18.5.1",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-duckdb-duckdb-go-bindings-97ddde62043924a9",
+   "name": "github.com/duckdb/duckdb-go-bindings",
+   "versionInfo": "v0.10506.0",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-duckdb-duckdb-go-bindings-lib-darwin-amd64-ef0954d7754e5de2",
+   "name": "github.com/duckdb/duckdb-go-bindings/lib/darwin-amd64",
+   "versionInfo": "v0.10506.0",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-duckdb-duckdb-go-bindings-lib-darwin-arm64-edf02012da85d833",
+   "name": "github.com/duckdb/duckdb-go-bindings/lib/darwin-arm64",
+   "versionInfo": "v0.10506.0",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-duckdb-duckdb-go-bindings-lib-linux-amd64-fde64e12205d97db",
+   "name": "github.com/duckdb/duckdb-go-bindings/lib/linux-amd64",
+   "versionInfo": "v0.10506.0",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-duckdb-duckdb-go-bindings-lib-linux-arm64-e0b7aa7ba3576500",
+   "name": "github.com/duckdb/duckdb-go-bindings/lib/linux-arm64",
+   "versionInfo": "v0.10506.0",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-duckdb-duckdb-go-bindings-lib-windows-amd64-403d6d2cc3f001c0",
+   "name": "github.com/duckdb/duckdb-go-bindings/lib/windows-amd64",
+   "versionInfo": "v0.10506.0",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-duckdb-duckdb-go-v2-d639a47bd9573d1f",
+   "name": "github.com/duckdb/duckdb-go/v2",
+   "versionInfo": "v2.10506.0",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-go-viper-mapstructure-v2-69e67edfc2286e18",
+   "name": "github.com/go-viper/mapstructure/v2",
+   "versionInfo": "v2.5.0",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-goccy-go-json-92463fb2dfb99ba1",
+   "name": "github.com/goccy/go-json",
+   "versionInfo": "v0.10.5",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-google-flatbuffers-409e865f95ec2cf4",
+   "name": "github.com/google/flatbuffers",
+   "versionInfo": "v25.12.19+incompatible",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-google-go-cmp-473d0adb4b419c7e",
+   "name": "github.com/google/go-cmp",
+   "versionInfo": "v0.7.0",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-google-jsonschema-go-854bb626977263ec",
+   "name": "github.com/google/jsonschema-go",
+   "versionInfo": "v0.4.3",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-google-nftables-71f31f5ff5b6be38",
+   "name": "github.com/google/nftables",
+   "versionInfo": "v0.3.0",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-google-uuid-f6424607fde0264b",
+   "name": "github.com/google/uuid",
+   "versionInfo": "v1.6.0",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-klauspost-compress-46926630f4726f72",
+   "name": "github.com/klauspost/compress",
+   "versionInfo": "v1.18.3",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-klauspost-cpuid-v2-d80cd4af33eaf8e3",
+   "name": "github.com/klauspost/cpuid/v2",
+   "versionInfo": "v2.3.0",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-mdlayher-netlink-0d4a32a354124448",
+   "name": "github.com/mdlayher/netlink",
+   "versionInfo": "v1.7.3-0.20250113171957-fbb4dce95f42",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-mdlayher-socket-3814996d65666967",
+   "name": "github.com/mdlayher/socket",
+   "versionInfo": "v0.5.0",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-modelcontextprotocol-go-sdk-3b94e9596cd13c01",
+   "name": "github.com/modelcontextprotocol/go-sdk",
+   "versionInfo": "v1.8.0",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-neo4j-neo4j-go-driver-v6-aa5982bf5c564e42",
+   "name": "github.com/neo4j/neo4j-go-driver/v6",
+   "versionInfo": "v6.3.0",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-pelletier-go-toml-v2-d91b6d6201c35c75",
+   "name": "github.com/pelletier/go-toml/v2",
+   "versionInfo": "v2.4.3",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-pierrec-lz4-v4-d9cb593b4ead1044",
+   "name": "github.com/pierrec/lz4/v4",
+   "versionInfo": "v4.1.25",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-santhosh-tekuri-jsonschema-v6-c20b008a43f442ea",
+   "name": "github.com/santhosh-tekuri/jsonschema/v6",
+   "versionInfo": "v6.0.3",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-segmentio-asm-d1ebda30a903a174",
+   "name": "github.com/segmentio/asm",
+   "versionInfo": "v1.1.3",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-segmentio-encoding-9ac72e90bcc39681",
+   "name": "github.com/segmentio/encoding",
+   "versionInfo": "v0.5.4",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-yosida95-uritemplate-v3-ba0d2aab72f03917",
+   "name": "github.com/yosida95/uritemplate/v3",
+   "versionInfo": "v3.0.2",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-github.com-zeebo-xxh3-115bfbb372ddcda8",
+   "name": "github.com/zeebo/xxh3",
+   "versionInfo": "v1.1.0",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-crypto-15c1d9acb12062ba",
+   "name": "golang.org/x/crypto",
+   "versionInfo": "v0.58.0",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-exp-35832bce83fc6906",
+   "name": "golang.org/x/exp",
+   "versionInfo": "v0.0.0-20260112195511-716be5621a96",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-mod-56d232e7120c3a8b",
+   "name": "golang.org/x/mod",
+   "versionInfo": "v0.41.0",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-net-e090465aca4b3a43",
+   "name": "golang.org/x/net",
+   "versionInfo": "v0.60.0",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-oauth2-7b252a7445d4781d",
+   "name": "golang.org/x/oauth2",
+   "versionInfo": "v0.35.0",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-sync-295e96fc2f845b35",
+   "name": "golang.org/x/sync",
+   "versionInfo": "v0.24.0",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-sys-aec8e4adcf0dcac2",
+   "name": "golang.org/x/sys",
+   "versionInfo": "v0.49.0",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-telemetry-1457c89b6722901a",
+   "name": "golang.org/x/telemetry",
+   "versionInfo": "v0.0.0-20260924152758-ed294f943157",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-term-8db19b9b9f8e30c1",
+   "name": "golang.org/x/term",
+   "versionInfo": "v0.47.0",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-text-70a65622f5a0d35d",
+   "name": "golang.org/x/text",
+   "versionInfo": "v0.43.0",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-time-d9baab7c2b8c8a86",
+   "name": "golang.org/x/time",
+   "versionInfo": "v0.15.0",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-tools-9208579da0e0c549",
+   "name": "golang.org/x/tools",
+   "versionInfo": "v0.51.0",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-go-module-golang.org-x-xerrors-056fc8b658138e7a",
+   "name": "golang.org/x/xerrors",
+   "versionInfo": "v0.0.0-20240903120638-7835f813f4da",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-npm-react-0a5120f4c4b00094",
+   "name": "react",
+   "versionInfo": "19.3.1",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "MIT"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-npm-react-dom-7325d52a8a7fc2ba",
+   "name": "react-dom",
+   "versionInfo": "19.3.1",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "MIT"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-npm-scheduler-c4b4ad9049644cbf",
+   "name": "scheduler",
+   "versionInfo": "0.28.0",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "MIT"
+  },
+  {
+   "SPDXID": "SPDXRef-Package-npm-secure-mcp-gateway-console-01fbf9c4ce641d1b",
+   "name": "secure-mcp-gateway-console",
+   "versionInfo": "0.1.0",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  },
+  {
+   "SPDXID": "SPDXRef-DocumentRoot-Directory-smcp",
+   "name": "smcp",
+   "versionInfo": "1.0.0",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION"
+  }
+ ]
+}

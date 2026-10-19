@@ -1,0 +1,38 @@
+# After every push to main, checks open PRs that have auto-merge enabled
+# against main and labels the ones that conflict "needs-rebase". It does
+# not push updates: CI runs started by github-actions[bot] wait for
+# approval, so branches are updated with a user token instead.
+#
+# Same-repository PRs only.
+name: auto-update
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: auto-update
+  cancel-in-progress: true
+
+jobs:
+  auto-update:
+    name: auto-update
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      actions: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts
+      - name: Update auto-merge PR branches
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/auto-update-prs.sh "$GITHUB_REPOSITORY"

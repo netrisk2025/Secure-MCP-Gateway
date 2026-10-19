@@ -298,11 +298,11 @@ R: Local delivery to analysis tools.
 
 @FR-10.37 | Parameter Catalog content
 P: FR-10
-S: The Gateway release SHALL include a versioned Parameter Catalog containing at least the parameters P-001 to P-250 of ArchitectureV2 §10.3, each with ID, name, description, unit, data type, source element, capture point, derivation, sensitivity class, baselinable flag and cost class.
+S: The Gateway release SHALL include the versioned Parameter Catalog file `docs/parameters.json` containing every parameter ID defined in ArchitectureV2 §10.3, each with ID, name, description, unit, data type, source element, capture point, derivation, sensitivity class, baselinable flag and cost class.
 A: E-29; E-05; D-11
-V: Inspection | Inspect the shipped catalog; confirm every listed parameter and attribute.
-SRC: ARCH §10.1; ARCH §10.3; OWNER (as many parameters as possible)
-R: The catalog is the research data dictionary.
+V: Inspection | Run the SRS build, which checks that `docs/parameters.json` holds every §10.3 parameter ID with every attribute; confirm the build reports the catalog count and no catalog error.
+SRC: ARCH §10.1; ARCH §10.3; OWNER (as many parameters as possible); REVIEW (I8)
+R: The catalog is the research data dictionary. The V1.1 text implied 250 parameters, while §10.3 defines a sparse ID range; the requirement now names the file and the IDs that exist, and the build checks it mechanically.
 
 ### FR-11 Performance and resources
 
@@ -422,27 +422,28 @@ R: Local, non-SaaS operation.
 
 @FR-12.3 | Host platform
 P: FR-12
-S: The Gateway SHALL run on a single x86_64 Linux host with kernel 6.8 or later, cgroup v2, unprivileged user namespaces, nftables and AppArmor or SELinux.
-A: E-15; E-16; X-07
-V: Demonstration | Install and run the acceptance suite on the reference host.
-SRC: OWNER (single PC); ARCH §15
-R: Defines the isolation features the design relies on.
+S: The Gateway SHALL run in the Enforced profile on a single Linux host (x86_64 or arm64) meeting the Section 1.5.1 prerequisites, and in the Standalone profile on macOS arm64 and on Linux hosts without those prerequisites.
+A: E-15; E-16; E-23; X-07
+V: Demonstration | Install and run the acceptance suite on a GitHub-hosted Ubuntu runner in the Enforced profile and on a macOS arm64 host in the Standalone profile; confirm both installations reach their expected health state.
+SRC: OWNER (single PC; platform profiles); ARCH §2.2 A-8; ARCH §15
+R: Defines the isolation features each profile relies on and the platforms the release supports.
 
 @FR-12.4 | Filesystem layout
 P: FR-12
-S: The Gateway SHALL keep configuration in `/etc/smcp`, persistent state in `/var/lib/smcp`, runtime sockets in `/run/smcp` and exports in `/var/lib/smcp/exports`.
-A: E-28; E-32; X-07
-V: Inspection | Inspect an installed host for the layout and ownership.
-SRC: A2 §3
-R: Separates protected state from agent-writable locations.
+S: The Gateway SHALL keep its configuration, persistent state, runtime sockets, diagnostic logs and exports in the directories that CP-46 assigns to the active platform profile, with the ownership and modes CP-46 states.
+A: E-28; E-32; E-24; F-97; X-07
+V: Inspection | Inspect an Enforced installation and a Standalone installation on macOS and on Linux; confirm each directory, owner and mode against CP-46.
+SRC: A2 §3; OWNER (per-user layout for the Standalone profile)
+R: Separates protected state from agent-writable locations where the platform allows it, and keeps a per-user installation out of system directories.
 
 @FR-12.5 | Service management
 P: FR-12
-S: The Gateway SHALL install as systemd services with declared start ordering Data Server, Key & Trust Anchor Manager, Gateway core, then console.
-A: E-25; E-22; E-24; X-07
-V: Test | Reboot the host; confirm the start order from the journal.
-SRC: ARCH §15
-R: Startup gating depends on ordering.
+S: The Gateway SHALL install as systemd system services in the Enforced profile, and as a launchd user agent on macOS or a systemd user unit on Linux in the Standalone profile, with declared start ordering Key & Trust Anchor Manager, Gateway core, console, then the optional Data Server.
+A: E-25; E-22; E-24; F-97; X-07
+V: Test | Reboot an Enforced host and log in on a Standalone host; confirm the start order from the service manager log and that the Gateway serves harness requests while the Data Server is still starting.
+SRC: ARCH §15; ARCH §2.2 A-9
+R: Startup gating depends on the keys and the core only; the graph mirror starts last because enforcement does not wait for it.
+DEFER: Release 1.0 runs the Key & Trust Anchor Manager, the Gateway core, the console and the graph mirror in one process, smcpd, which `smcpctl install` installs as one systemd system service in the Enforced profile and as one launchd user agent (macOS) or systemd user unit (Linux) in the Standalone profile. There are no separate element services whose start order could be declared: smcpd loads its keys and trust anchors before it opens a listener, serves the console from the same process, and starts the graph mirror without waiting for it, so harness requests are served while the mirror is still connecting (FR-9.17). Separate per-element services with declared start ordering are deferred with a multi-process split of the Gateway.
 
 @FR-12.6 | Configuration file
 P: FR-12
@@ -454,11 +455,11 @@ R: Predictable configuration.
 
 @FR-12.7 | Administrative CLI
 P: FR-12
-S: The Gateway release SHALL include the `smcpctl` command providing bootstrap, health, emergency stop, backup, restore, journal verification and configuration validation subcommands.
-A: E-24; E-28; E-21
-V: Demonstration | Exercise each subcommand on the reference host.
-SRC: SEC 10.9
-R: Procedures that do not depend on the GUI.
+S: The Gateway release SHALL include the `smcpctl` command providing the subcommands `bootstrap`, `install`, `upgrade`, `uninstall`, `version`, `health`, `stop`, `resume`, `reload`, `backup`, `restore`, `journal verify`, `config validate`, `config migrate`, `keys rotate`, `trust`, `clients`, `approvals`, `package`, `doctor`, `lockdown`, `client setup` and `remote`.
+A: E-24; E-28; E-21; F-97
+V: Demonstration | Exercise each subcommand on an Enforced and a Standalone installation; confirm each completes its documented operation.
+SRC: SEC 10.9; REVIEW (C1, C2, C4, C5, I6)
+R: Procedures that do not depend on the GUI. The list names every command another requirement relies on.
 
 @FR-12.8 | Release provenance
 P: FR-12
@@ -478,11 +479,11 @@ R: Continuous verification of protocol conformance.
 
 @FR-12.10 | Requirement-tagged tests
 P: FR-12
-S: Each automated test SHALL declare the IDs of the requirements it verifies, and the build SHALL produce a report mapping requirement IDs to test results.
+S: Each automated test SHALL declare each requirement it claims as a full or a partial claim, and the build SHALL produce a report that lists every requirement of this SRS with the status verified, partial, failing or unverified as defined in Section 2.6, together with the claiming tests.
 A: E-01; E-24
-V: Inspection | Inspect the generated report; confirm every Test-method requirement maps to at least one test.
-SRC: SEC 10.3; SEC 10.6
-R: Verification traceability for coding.
+V: Inspection | Run the report on the release commit; confirm it lists exactly the requirements of Appendix H, that every requirement without a claim is listed as unverified, that a requirement with only partial claims is listed as partial, and that the totals match the published status data.
+SRC: SEC 10.3; SEC 10.6; REVIEW (C7)
+R: Verification traceability for coding. A report that lists only claimed requirements hides the unverified ones and overstates completion.
 
 @FR-12.11 | No paid database features
 P: FR-12
@@ -494,17 +495,647 @@ R: Open-source local baseline.
 
 @FR-12.12 | Session helper adapter
 P: FR-12
-S: The Gateway release SHALL include the `smcp-session` command, which obtains or refreshes a session as the principal named by its CP-43 credential file through the token endpoint (FR-2.20) or the session API (FR-2.2), and prints a JSON object of request headers on standard output in the form consumed by the Claude Code `headersHelper` and Codex `http_headers_helper` hooks.
+S: The Gateway release SHALL include the `smcp-session` command, which obtains or refreshes a session as the principal named by its CP-43 credential file through the token endpoint (FR-2.20) or the session API (FR-2.2), and prints a JSON object of request headers on standard output in the form consumed by the Claude Code `headersHelper` hook, or, with `--env NAME`, the line `NAME=<Authorization value>` for clients that read a header value from an environment variable (Codex CLI `env_http_headers`, which at the Appendix K version has no header-helper hook).
 A: E-33; F-94; X-01; X-12
-V: Demonstration | Configure Claude Code and Codex CLI with the helper; confirm each connects and lists tools through the Gateway.
+V: Demonstration | Configure Claude Code with the helper as its `headersHelper`, and Codex CLI with an `env_http_headers` entry whose variable `smcp-session --env` set; confirm each connects and lists tools through the Gateway.
 SRC: ARCH §4 E-33; Client-Compatibility-Brief §4.1
 R: Neither client can call a session API itself. Both can run a header helper.
 
 @FR-12.13 | Stdio bridge adapter
 P: FR-12
-S: The Gateway release SHALL include the `smcp-stdio` command, which runs as a stdio MCP server for a framework, obtains a session (F-94), and forwards each JSON-RPC message unchanged between its standard streams and the Gateway harness listener, attaching the session credential and preserving the framework's protocol era.
+S: The Gateway release SHALL include the `smcp-stdio` command, which runs as a stdio MCP server for a framework, obtains a session (F-94), and forwards each JSON-RPC message unchanged between its standard streams and the Gateway harness listener, attaching the session credential and preserving the framework's protocol era; by default it connects to the CP-02 TLS listener and trusts only the Gateway server CA named in its CP-43 credential file, and it uses the UDS listener when the UDS Harness Profile is enabled and the credential file names the socket.
 A: E-33; F-95; X-01; X-12
 V: Test | Run the northbound conformance fixtures for both eras through the bridge; confirm results identical to a direct connection.
 SRC: ARCH §4 E-33; Client-Compatibility-Brief §4.1
 R: Every shipping client can launch a stdio server. This is the adapter the architecture assumed and now delivers.
 
+
+### FR-13 Distribution, installation, upgrade and platform profiles
+
+@FR-13 | Installation lifecycle
+P: —
+S: The Gateway release SHALL be installable, upgradable and removable on each platform of Section 1.6 by the procedures of this section, in the platform profile of Section 1.5.1 that the host supports.
+A: E-24; E-22; E-23; E-28; F-97; X-16; X-07
+V: Analysis | Review the verification results of every FR-13 child requirement; confirm each has passed on the Enforced CI host and on a macOS arm64 host.
+SRC: OWNER (distribution: GitHub Releases, install.sh, Homebrew tap; platform profiles); REVIEW (C2, C3)
+R: A product that cannot be installed, upgraded and removed by its documented procedure is not finished.
+
+@FR-13.1 | Release archives
+P: FR-13
+S: The Gateway release SHALL publish, for each of darwin-arm64, darwin-amd64, linux-amd64 and linux-arm64, a compressed archive containing `smcpd`, `smcpctl`, `smcp-session`, `smcp-stdio`, `smcp-connect`, the console assets, the license notices and the SBOM, together with one SHA-256 checksum file and a minisign signature over that checksum file.
+A: E-24; F-97; X-16
+V: Inspection | Inspect a GitHub Release; confirm the four archives and their contents, the checksum file and its signature, and that the signature verifies with the release public key published in `SECURITY.md`.
+SRC: OWNER (distribution); SEC 10.7
+R: Every install path starts from signed, checksummed archives.
+
+@FR-13.2 | Installer verification
+P: FR-13
+S: The `install.sh` script SHALL download the archive for the host platform, verify the checksum file's minisign signature with the release public key embedded in the script and the archive's SHA-256 against that file, and SHALL install nothing when either verification fails.
+A: E-24; F-97; X-16
+V: Test | Run the script against a release with a modified archive and against one with a modified checksum file; confirm both are refused with no file written outside a temporary directory; run it against the intact release and confirm installation.
+SRC: OWNER (install.sh); SEC 10.7
+R: A `curl | sh` installer is only as trustworthy as its verification step.
+
+@FR-13.3 | Homebrew formula
+P: FR-13
+S: The Gateway release SHALL publish a formula in the project's Homebrew tap whose URLs and SHA-256 values match the release archives for darwin and linux.
+A: E-24; F-97; X-16
+V: Test | In CI, install from the tap on macOS and Linux runners; confirm the installed binaries' digests equal those in the release archives.
+SRC: OWNER (Homebrew tap)
+R: Homebrew is the expected install path on macOS.
+
+@FR-13.4 | Idempotent install
+P: FR-13
+S: The `smcpctl install` command SHALL be idempotent: a repeated run on an installed host SHALL leave configuration, keys, policy and evidence byte-for-byte unchanged and SHALL report each step as `present` or `created`.
+A: E-24; F-97; X-07
+V: Test | Run `smcpctl install` twice in each profile; confirm the second run reports every step `present` and that digests of configuration, keys, policy and journal files are unchanged.
+SRC: OWNER (idempotent installer)
+R: Operators re-run installers after partial failures and upgrades; a re-run must never rotate keys or reset policy.
+
+@FR-13.5 | Enforced profile installation
+P: FR-13
+S: When installing the Enforced profile, the `smcpctl install` command SHALL verify every Section 1.5.1 prerequisite before changing the host, and SHALL then create the CP-46 service identities with their subordinate UID and GID ranges, the CP-46 directories with their owners and modes, the nftables table `smcp`, the AppArmor or SELinux profiles and the systemd units.
+A: E-24; E-16; F-97; X-07
+V: Test | On a GitHub-hosted Ubuntu runner, run the install; confirm each identity, subordinate range, directory, nftables table, LSM profile and unit; on a host missing a prerequisite, confirm the install stops before any change and names the prerequisite.
+SRC: OWNER (installer creating service identities, nftables, LSM and subuid on Linux enforced); SEC 4.1
+R: The Enforced profile's separation depends on these host objects existing with the right ownership.
+
+@FR-13.6 | Standalone profile installation
+P: FR-13
+S: When installing the Standalone profile, the `smcpctl install` command SHALL create the CP-46 per-user directories, install a launchd user agent on macOS or a systemd user unit on Linux, write `profile = "standalone"` to the configuration and print that the installation is not enforced.
+A: E-24; F-97; X-07
+V: Test | Run the install on a macOS arm64 runner and on a Linux runner without Podman; confirm the directories, the service unit, the configuration value and the printed notice.
+SRC: OWNER (Standalone profile; per-user path layout)
+R: Developers on macOS need a supported install that never pretends to contain servers.
+
+@FR-13.7 | Upgrade procedure
+P: FR-13
+S: The `smcpctl upgrade` command SHALL verify the new release as in FR-13.2, create an encrypted backup (FR-17.6), stop dispatch, install the new binaries, apply configuration and state migrations, start the new version and wait up to the CP-47 bound for a health state other than `fail-closed`.
+A: E-24; E-28; E-23; F-97; F-79; X-16
+V: Test | Upgrade from the previous release to the release candidate in each profile; confirm the backup exists, dispatch was stopped during the swap, migrations ran and health returned within the bound.
+SRC: OWNER (smcpctl upgrade with pre-upgrade backup)
+R: Upgrades must not lose policy, keys or evidence.
+
+@FR-13.8 | Upgrade rollback
+P: FR-13
+S: When a migration fails or the upgraded Gateway does not leave `fail-closed` within the CP-47 bound, the `smcpctl upgrade` command SHALL restore the previous binaries and the pre-upgrade backup, start the previous version and record an `upgrade_rolled_back` event in the Evidence Journal.
+A: E-24; E-28; E-21; F-97; F-79
+V: Test | Upgrade to a fault-injected release whose migration fails, and to one that never becomes healthy; confirm in both cases that the previous version runs with its policy, keys and journal intact and that the event is recorded.
+SRC: OWNER (rollback on failed health)
+R: A failed upgrade must leave the operator where they started.
+
+@FR-13.9 | No silent profile downgrade
+P: FR-13
+S: When the configuration selects the Enforced profile and a Section 1.5.1 prerequisite is missing, the Health & Safety Monitor (E-23) SHALL refuse to start the Gateway and SHALL name each missing prerequisite.
+A: E-23; F-61; F-62; X-07
+V: Test | Configure the Enforced profile on a host without rootless Podman and with nftables removed; confirm the daemon exits with a message naming both.
+SRC: OWNER (platform profiles); ARCH §2.2 A-8
+R: Running unconfined while configured as enforced would make the label false.
+
+@FR-13.10 | Standalone labelling
+P: FR-13
+S: In the Standalone profile, the Health & Safety Monitor (E-23) SHALL report health `degraded` with cause `unconfined`, and the Gateway SHALL show the label `not enforced` in `smcpctl health`, `smcpctl version`, the console banner and the startup diagnostic log entry.
+A: E-23; E-24; F-61; F-65
+V: Test | Start a Standalone installation with every other dependency healthy; confirm health `degraded` with only `unconfined`, and the label in each of the four places.
+SRC: OWNER (health reports degraded:unconfined; release label "not enforced")
+R: The operator must see, everywhere they look, that servers are not contained.
+
+@FR-13.11 | Uninstall
+P: FR-13
+S: The `smcpctl uninstall` command SHALL stop and remove the Gateway services, binaries, units, the nftables table and the LSM profiles, and SHALL keep the Evidence Journal, the evidence public key and the backup archives in place.
+A: E-24; F-97; D-06; D-15; X-07
+V: Test | Uninstall each profile; confirm the removed objects are gone and that `smcpctl journal verify` from a fresh install, pointed at the kept journal and key, succeeds.
+SRC: OWNER (smcpctl uninstall preserving evidence unless purged)
+R: Evidence outlives the installation that produced it.
+
+@FR-13.12 | Purge
+P: FR-13
+S: The `smcpctl uninstall --purge` command SHALL require the operator to type the installation ID, SHALL print the SHA-256 of the last journal segment, and SHALL then delete configuration, state, keys, the journal and the service identities.
+A: E-24; F-97; D-06; X-07
+V: Test | Run the purge with a wrong and with the correct installation ID; confirm refusal, then the printed digest and complete removal.
+SRC: OWNER (uninstall --purge)
+R: Deleting evidence is deliberate and leaves the operator a digest to compare against any copy.
+
+@FR-13.13 | Configuration schema version
+P: FR-13
+S: The Gateway SHALL read an integer `schema_version` from the configuration file, SHALL refuse to start when that value is greater than the highest version it supports, naming both versions, and SHALL accept an older version only after `smcpctl config migrate` or `smcpctl upgrade` has rewritten it.
+A: E-23; E-24; F-97; F-62
+V: Test | Start with a configuration one version newer and current; confirm refusal naming both versions and normal start. Release 1.0 has one schema version (a file without the key is version 1), so no real file is older: register a next version with a migration step in the test, start with a version-1 file and confirm refusal with a migrate instruction, then confirm that `smcpctl config migrate` (which `smcpctl upgrade` runs with the new binary) rewrites the file, keeps the original and the rewritten file loads.
+SRC: OWNER (config schema version field and refusal of unknown newer versions)
+R: A downgrade must not misread a configuration written by a newer release.
+
+### FR-14 Server packaging and admission
+
+@FR-14 | Operator self-curation
+P: —
+S: The Gateway release SHALL let an operator admit a local MCP server without an external curation system by packaging it from a pinned artifact, signing it with an operator key and importing it through the Library Trust Verifier (E-13).
+A: E-13; E-14; E-22; F-96; X-02; X-03; X-17
+V: Analysis | Review the verification results of every FR-14 child requirement; confirm each has passed.
+SRC: OWNER (server admission without the external curation system: operator self-curation); REVIEW (C1)
+R: V1.1 assumed an external curation system that does not exist; without this path no server could be admitted.
+
+@FR-14.1 | Package build
+P: FR-14
+S: The `smcpctl package build` command SHALL accept an artifact reference of type `npm`, `pypi`, `oci` or `binary` that names an exact version and a SHA-256 or registry-integrity digest, fetch the artifact over X-17, verify the digest and store the artifact in the package directory under its SHA-256.
+A: E-13; F-96; X-17; D-03
+V: Test | Build packages from one reference of each type and from a reference with a wrong digest; confirm the four succeed with artifacts stored by SHA-256 and the wrong digest is refused.
+SRC: OWNER (smcpctl package build materializes a pinned artifact by digest)
+R: The digest pins the exact code the operator chose to trust.
+
+@FR-14.2 | Pinned references only
+P: FR-14
+S: The `smcpctl package build` command SHALL refuse an artifact reference that lacks an exact version or a digest, including version ranges, dist-tags such as `latest` and image tags without a digest.
+A: E-13; F-96; X-17
+V: Test | Submit a range, a `latest` tag, an OCI tag without digest and a reference without digest; confirm each is refused with the reason.
+SRC: SEC 3.6; OWNER (runtime launch of unpinned commands is refused)
+R: A floating reference would let the registry change the code after review.
+
+@FR-14.3 | Manifest from live tool list
+P: FR-14
+S: The `smcpctl package build` command SHALL start the artifact once in a throwaway working directory with no secrets, the environment allowlist of the manifest and, in the Enforced profile, no network, read its tool list through the legacy handshake of FR-5.19 and `tools/list`, and SHALL write a manifest conforming to Appendix J containing the tools, their schemas, description digests and era, and the operator-supplied risk class, side-effect classes, `source_trust`, capability ceiling and secret slots.
+A: E-13; F-96; F-34; X-02
+V: Test | Package each reference server; validate each manifest against `docs/schemas/manifest.schema.json`; confirm the tools equal the live `tools/list` and that no secret or network access was available to the packaging run in the Enforced profile.
+SRC: OWNER (generate the manifest from a live tools/list at packaging time); SEC 3.5; SEC 3.7
+R: The manifest records exactly what the operator reviewed; the throwaway run is the quarantine probe. The era probe of FR-5.16 is deferred, so release 1.0 probes with the 2025-11-25 `initialize` handshake and records that era in the manifest.
+
+@FR-14.4 | Local servers only
+P: FR-14
+S: The Library Trust Verifier (E-13) SHALL reject a manifest whose server entrypoint is a network URL rather than a local executable or image.
+A: E-13; F-34; X-03
+V: Test | Import a manifest with an `https` endpoint; confirm rejection with the reason `REMOTE_BACKEND_UNSUPPORTED`.
+SRC: OWNER (remote hosted MCP servers as backends out of scope for v1); REVIEW (I9)
+R: Remote backends need a different trust and transport design that v1 does not provide.
+
+@FR-14.5 | Provenance statement
+P: FR-14
+S: The `smcpctl package build` command SHALL write a provenance statement that binds the source reference (registry tarball or sdist digest, OCI image source label, or an operator-supplied source archive URL and digest) and the SPDX license identifiers to the artifact digest.
+A: E-13; F-96; X-02
+V: Inspection | Inspect the provenance statement of each reference package; confirm the source reference, license identifiers and artifact digest.
+SRC: SEC 3.1; SEC 3.2
+R: Supplies the source and license evidence that SR-3.1-1 and SR-3.2-1 check at import.
+
+@FR-14.6 | Package signing
+P: FR-14
+S: The `smcpctl package sign` command SHALL sign the package index, which lists the digests of the artifact, manifest and provenance statement, with a minisign secret key read from a file or an interactive prompt, and SHALL refuse a key or passphrase supplied as a command-line argument.
+A: E-13; F-96; X-02
+V: Test | Sign a package with a key file and with a prompted passphrase; attempt to pass the key on the command line; confirm two valid signatures and one refusal.
+SRC: OWNER (sign with minisign, offline)
+R: Command-line arguments are visible to other processes and shell history.
+
+@FR-14.7 | Offline package verification
+P: FR-14
+S: The `smcpctl package verify` command SHALL verify, without network access, the package index signature against a given public key or enrolled trust anchor, every listed digest and the manifest schema, and SHALL exit with status 0 only when every check passes, naming the first failed check otherwise.
+A: E-13; F-96; F-33
+V: Test | Verify an intact package with networking disabled, then packages with a modified artifact, a modified manifest and a wrong key; confirm status 0 only for the intact one and the named failures.
+SRC: OWNER (smcpctl package verify; offline)
+R: The operator can check a package before copying it into the library.
+
+@FR-14.8 | Operator key as a scoped trust anchor
+P: FR-14
+S: The `smcpctl trust add` command SHALL enroll an operator minisign public key as a trust anchor only with an explicit list of permitted risk classes and an expiry, defaulting to the classes `low` and `moderate` when the operator names none.
+A: E-22; F-58; I-06
+V: Test | Enroll a key without classes and with `high` named; import a `high` package signed by each; confirm rejection for the first and acceptance for the second.
+SRC: OWNER (operator-local key enrolled as a trust anchor limited to operator-chosen risk classes); SEC 3.13
+R: A compromised operator key should not admit high-risk servers unless the operator chose to allow it.
+
+@FR-14.9 | Reference packages
+P: FR-14
+S: The Gateway release SHALL include packaging recipes, each with a pinned artifact reference and an operator classification, for the reference filesystem, git, fetch and memory MCP servers, and the release pipeline SHALL build, sign with a test key, import, enable and call one tool of each.
+A: E-13; E-14; F-96; F-36; X-02
+V: Test | Run the reference-package job on the release commit; confirm each of the four packages imports, enables and answers one tool call through the Gateway.
+SRC: OWNER (reference packaged servers: filesystem, git, fetch, memory); SEC 9.5
+R: Gives every installation working servers on day one and keeps the packaging path tested.
+
+@FR-14.10 | Bootstrap uses a packaged server
+P: FR-14
+S: The `smcpctl bootstrap` command SHALL write an example configuration whose only backend is the packaged reference filesystem server and whose launch specification names a content-addressed local artifact.
+A: E-24; E-15; F-38; F-96
+V: Inspection | Run bootstrap; inspect the written configuration; confirm one backend referencing the reference package by digest and no `npx`, `uvx`, `pip` or other installer in any launch specification.
+SRC: OWNER (the bootstrap example must use a packaged server); SEC 3.6
+R: The first experience must follow the same rule as production: no runtime package resolution.
+
+@FR-14.11 | Manifest schema
+P: FR-14
+S: The Library Trust Verifier (E-13) SHALL validate each manifest against the JSON Schema `docs/schemas/manifest.schema.json` (Appendix J) of the manifest's declared `manifest_version`, and SHALL reject a manifest that declares an unsupported version.
+A: E-13; F-34; X-03
+V: Test | Import a valid manifest, one violating each required field rule, and one with an unsupported `manifest_version`; confirm acceptance and the specific rejections.
+SRC: REVIEW (C1); ARCH §6.3
+R: One published schema is the contract between packaging and import.
+
+@FR-14.12 | Revocation entries
+P: FR-14
+S: The `smcpctl package revoke` command SHALL write into the library a revocation entry naming the server ID and revision, signed with the same key type as packages, which the Library Trust Verifier (E-13) processes under FR-5.3.
+A: E-13; F-96; F-35; X-02
+V: Test | Revoke an enabled revision; confirm that within the FR-5.3 interval it is `revoked`, its tools leave every catalog and running instances stop.
+SRC: SEC 3; ARCH §18.8
+R: An operator who curates must also be able to withdraw.
+
+### FR-15 Harness integration, lockdown and client matrix
+
+@FR-15 | Harness integration
+P: —
+S: The Gateway release SHALL connect each client of Appendix K through a documented, tested mode and SHALL provide the tooling that reduces each local client's ability to bypass the Gateway.
+A: E-33; E-01; F-94; F-95; F-98; X-01; X-12
+V: Analysis | Review the verification results of every FR-15 child requirement and the latest client matrix run; confirm each has passed.
+SRC: OWNER (client matrix); REVIEW (C4, I4)
+R: A gateway that an agent can route around protects nothing; the clients that matter must be named and tested.
+
+@FR-15.1 | Lockdown profiles
+P: FR-15
+S: The Gateway release SHALL include a lockdown profile for each local client of Appendix K that, using the mechanism Appendix K records for that client, restricts the client's MCP servers to the Gateway and denies the client's own file tools read and write access to the CP-46 Gateway paths and the CP-43 credential file.
+A: E-33; F-98; X-12
+V: Test | For each local client at its pinned version, apply the profile; attempt to add a second MCP server and to read the Gateway state directory through the client's file tool; confirm each attempt is refused where Appendix K lists a mechanism, and that `smcpctl doctor` reports each case where it lists none.
+SRC: OWNER (harness bypass: lockdown profiles per client); REVIEW (C4); SEC 4.9; SEC 4.11
+R: Lockdown uses the clients' own enforcement points. Where a client has none, the gap is reported rather than hidden.
+
+@FR-15.2 | Claude Code lockdown profile
+P: FR-15
+S: The Claude Code lockdown profile SHALL be a managed settings file at the platform's managed-settings path that sets `allowedMcpServers` to the Gateway entry alone, restricts MCP server allowlisting to the managed source where the pinned client version supports it, and adds `permissions.deny` rules for `Read` and `Edit` on the CP-46 Gateway paths and the CP-43 credential file.
+A: E-33; F-98; X-12
+V: Test | Install the profile with the pinned Claude Code; confirm a user-added MCP server does not load and that a request to read the Gateway state directory is denied by the client.
+SRC: OWNER (Claude Code managed settings allowedMcpServers and permissions deny on SMCP state paths); CCB §7
+R: Claude Code's managed settings cannot be overridden from user or project settings, which makes them the right enforcement point.
+
+@FR-15.3 | Doctor: MCP server inventory
+P: FR-15
+S: The `smcpctl doctor` command SHALL list, for each client of Appendix K installed for the current user whose configuration location Appendix K records, every MCP server configured in the client's user, project and managed scopes, SHALL flag each server that is not the Gateway, and SHALL state for each other installed client that its servers are not listed.
+A: E-33; F-98; X-12
+V: Test | Create fixture configurations for each client with one Gateway entry and one other server in each scope; confirm every other server is listed and flagged, and that a client without a recorded location is reported as not listed.
+SRC: OWNER (smcpctl doctor reporting non-Gateway MCP servers); REVIEW (C4)
+R: The operator cannot remove a bypass they do not know about. A client whose configuration location is still to be confirmed at pinning (Grok Build in Appendix K) cannot be read, so doctor says so instead of reporting it clean.
+
+@FR-15.4 | Doctor: readable paths
+P: FR-15
+S: The `smcpctl doctor` command SHALL report each CP-46 Gateway path and the CP-43 credential file that the user identity running a client can read, and in the Standalone profile SHALL state that the client runs under the Gateway's own identity.
+A: E-33; F-98; X-07
+V: Test | Run doctor on an Enforced host as the harness user and on a Standalone host; confirm no findings for the Enforced key directory, findings for every readable path, and the Standalone statement.
+SRC: OWNER (readable credential and state paths); REVIEW (C4)
+R: In the Standalone profile the operating system does not separate agent and Gateway; the operator must be told.
+
+@FR-15.5 | Doctor output
+P: FR-15
+S: The `smcpctl doctor` command SHALL exit with a non-zero status when it reports any finding of FR-15.3 or FR-15.4, and SHALL produce the same findings as JSON with `--json`.
+A: E-33; F-98
+V: Test | Run doctor with and without findings, with and without `--json`; confirm the exit status and that the JSON findings equal the text findings.
+SRC: REVIEW (C4)
+R: Lets CI and scripts gate on a clean harness configuration.
+
+@FR-15.6 | Reversible lockdown
+P: FR-15
+S: The `smcpctl lockdown apply` and `smcpctl lockdown remove` commands SHALL copy each client file they change to a timestamped backup before the change and SHALL restore that copy on removal.
+A: E-33; F-98; X-12
+V: Test | Apply and remove the lockdown for each local client; confirm the client files after removal equal the originals byte for byte.
+SRC: REVIEW (C4)
+R: Operators must be able to undo a change to a tool they use daily.
+
+@FR-15.7 | Per-client CA trust setup
+P: FR-15
+S: The `smcpctl client setup` command SHALL configure each local client of Appendix K to trust the Gateway server CA by the client's own mechanism recorded in Appendix K, and SHALL add the CA to the operating-system trust store only when the operator passes `--system-trust`.
+A: E-33; F-98; X-12
+V: Test | Run setup for each client; confirm each connects over TLS without certificate errors and that the system trust store is unchanged unless `--system-trust` was given.
+SRC: REVIEW (I4)
+R: Each client reads trust roots differently; a system-wide CA is a broader change than the Gateway needs.
+
+@FR-15.8 | Client matrix regression
+P: FR-15
+S: The continuous-integration pipeline SHALL run, for each local client of Appendix K at its pinned version, an automated test that obtains a session, lists tools, calls one permitted tool, receives a denial for one unpermitted tool and records the result `pass`, `fail` or `not-run` with the client version and connection mode in the published status data.
+A: E-33; E-01; F-94; F-95; X-01; X-12
+V: Test | Run the matrix job; confirm one result per local client in the status data `agents` array and that a deliberately broken Gateway build turns the results to `fail`.
+SRC: REVIEW (I4); OWNER (client matrix)
+R: Client releases change MCP behavior often; the matrix catches a break before users do.
+
+@FR-15.9 | Cloud agent matrix record
+P: FR-15
+S: The Gateway project SHALL keep, for each cloud agent of Appendix K, an entry in `docs/clients/matrix.json` that records either a manual connection run against the Remote Access Profile, with its date, agent version or build where shown, tunnel provider, registration mode and result, or, while no run has been made, the result `not-run`, the date the entry was last reviewed, the documented connection and registration modes and the reason no run was made.
+A: E-33; E-01; F-95; X-13
+V: Inspection | Inspect `docs/clients/matrix.json`; confirm one entry per cloud agent, each either a dated run with every run field or a `not-run` entry with its review date, documented modes and reason.
+SRC: OWNER (cloud agents: Grok Bot, ChatGPT dots, Meta Muse; live runs descoped from release 1.x on 2026-10-18)
+R: Cloud agents cannot run in CI, so their support claim rests on dated manual records. The owner descoped live cloud-agent runs from release 1.x: the agents are documented and the Remote Access Profile is tested against a local test tunnel, and a `not-run` entry states that plainly instead of implying a run.
+
+@FR-15.10 | Pinned client matrix file
+P: FR-15
+S: The Gateway source SHALL keep the Appendix K client matrix as `docs/clients/matrix.json`, listing for each client its pinned version, connection mode, session mechanism, lockdown mechanism and CA trust mechanism, and the matrix job of FR-15.8 SHALL read the pinned versions from that file.
+A: E-33; F-98; X-12
+V: Inspection | Inspect the file and the CI job; confirm every Appendix K client is present and the job reads its versions from the file.
+SRC: REVIEW (I4)
+R: One file keeps the documentation, the tests and the status data in step.
+
+### FR-16 Remote Access Profile
+
+@FR-16 | Remote Access Profile
+P: —
+S: When the Remote Access Profile is enabled, the Gateway SHALL serve agents that run on a vendor's computer through an authenticated tunnel to a dedicated loopback listener, with the controls of this section.
+A: E-01; E-03; E-33; F-01; F-59; F-95; X-13
+V: Analysis | Review the verification results of every FR-16 child requirement and the cloud agent records of FR-15.9; confirm each has passed.
+SRC: OWNER (cloud agents via a Remote Access profile); ARCH §2.2 A-10
+R: Cloud agents cannot reach the user's loopback address; installing the Gateway in the vendor's machine is not a control.
+
+@FR-16.1 | Remote listener
+P: FR-16
+S: When the Remote Access Profile is enabled, the Harness Interface Endpoint (E-01) SHALL open a second TLS listener on the CP-48 loopback address, separate from the CP-02 harness listener, and SHALL treat every request received on it as remote origin.
+A: E-01; F-01; X-13
+V: Test | Enable the profile; confirm the second listener on the CP-48 address only; send identical requests to both listeners; confirm only the second is marked remote.
+SRC: OWNER (Remote Access profile); ARCH §6.1 X-13
+R: A separate listener makes remote origin a property of the socket, which a remote client cannot forge with a header.
+
+@FR-16.2 | Tunnel providers
+P: FR-16
+S: The `smcpctl remote check` command SHALL validate a Cloudflare Tunnel, Tailscale Funnel or vendor MCP tunnel configuration that forwards one public HTTPS name to the CP-48 listener, and SHALL report the public name, the provider and whether a request through the public name reaches the remote listener.
+A: E-01; E-33; F-01; X-13
+V: Demonstration | Configure each of Cloudflare Tunnel and Tailscale Funnel on a test host; run the check; confirm it reports the provider, the name and a reachable listener, and that a tunnel pointed at the local harness listener is reported as misconfigured.
+SRC: OWNER (Cloudflare Tunnel, Tailscale Funnel, or OpenAI Secure MCP Tunnel)
+R: Misrouting a tunnel to the local listener would erase the remote/local distinction.
+
+@FR-16.3 | Public name binding
+P: FR-16
+S: The Harness Interface Endpoint (E-01) SHALL accept on the remote listener only requests whose `Host` equals the configured public name, and the Identity & Authentication Service (E-03) SHALL publish on that listener OAuth metadata whose issuer and resource name the public URL.
+A: E-01; E-03; F-01; F-04; X-13
+V: Test | Send requests with the public name and with another name; fetch both metadata documents through the tunnel; confirm 421 for the other name and public URLs in the metadata.
+SRC: SEC 2.9; MCP:basic/authorization
+R: Tokens must be audience-bound to the URL the agent actually uses.
+
+@FR-16.4 | Remote endpoint set
+P: FR-16
+S: The Harness Interface Endpoint (E-01) SHALL serve on the remote listener only the MCP endpoint and the OAuth metadata, authorization, token, registration, device authorization and device verification endpoints, and SHALL answer every other path with HTTP 404.
+A: E-01; F-01; X-13
+V: Test | Request the session API, health, metrics and console paths through the remote listener; confirm 404 for each.
+SRC: OWNER (Remote Access profile); SEC 2.5
+R: Minimizes what a remote caller can reach.
+
+@FR-16.5 | Operator-approved dynamic registration
+P: FR-16
+S: The Identity & Authentication Service (E-03) SHALL accept RFC 7591 Dynamic Client Registration requests only on the remote listener, SHALL store each registration as `pending`, and SHALL activate it only after a Session Approver or Administrator approves it in G-11 or with `smcpctl clients approve`.
+A: E-03; E-24; F-59; X-13; X-04
+V: Test | Register a client through the remote listener; attempt authorization while pending; approve; repeat; confirm the pending attempt fails with an OAuth error stating that operator approval is pending and the approved attempt proceeds; confirm a registration request on the local listener is refused.
+SRC: OWNER (DCR supported only for the Remote Access profile with operator approval of each registration); RFC 7591
+R: Cloud agents register dynamically; approval keeps an unknown registrant from obtaining a session.
+
+@FR-16.6 | Remote rate limits and lockout
+P: FR-16
+S: The Harness Interface Endpoint (E-01) SHALL apply the CP-49 remote rate limits per client ID and per forwarded source address, and the Identity & Authentication Service (E-03) SHALL lock a client ID and source address for the CP-49 lockout period after the CP-49 number of consecutive failed sign-ins or token requests.
+A: E-01; E-03; F-01; F-04; X-13
+V: Test | Exceed each rate through the remote listener; fail sign-in the lockout number of times; confirm `-31005` or HTTP 429 at the limits and refusal during the lockout period with an event recorded.
+SRC: OWNER (strict rate limits and lockout)
+R: A public name is reachable by anyone on the Internet.
+
+@FR-16.7 | Remote request bounds
+P: FR-16
+S: The Harness Interface Endpoint (E-01) SHALL apply the CP-49 remote body, header and concurrency bounds on the remote listener before parsing.
+A: E-01; F-01; X-13
+V: Test | Send requests exceeding each remote bound; confirm rejection before parsing.
+SRC: OWNER (request bounds); SEC 7.11
+R: Tighter bounds for an Internet-reachable endpoint.
+
+@FR-16.8 | Remote origin evidence
+P: FR-16
+S: The Audit & Evidence Service (E-21) SHALL record on every event from a remote-listener request the field `channel = "remote"`, the client ID and the tunnel-supplied client address as a server-asserted value.
+A: E-21; E-01; F-53; X-13
+V: Test | Make calls through the tunnel; confirm the three fields on every event and that the client address is labelled server-asserted.
+SRC: OWNER (audit of remote origin); SEC 6.18
+R: Investigators must separate remote from local activity; the forwarded address is a claim of the tunnel provider, not a verified fact.
+
+@FR-16.9 | smcp-connect relay
+P: FR-16
+S: The Gateway release SHALL include `smcp-connect`, distributed as a release binary and as an npm package of the same name, which runs as a stdio MCP server, obtains and refreshes a session against a configured Remote Access URL through the OAuth flow, stores its tokens in the CP-43 credential file, and forwards each JSON-RPC message unchanged.
+A: E-33; F-95; X-13; X-12
+V: Test | Run the northbound conformance fixtures through `smcp-connect` against a Gateway behind a test tunnel; confirm results identical to a direct connection and the credential file mode 0600.
+SRC: OWNER (a small npx stdio relay package, smcp-connect); ARCH §4 E-33
+R: Some agents accept only a command to launch, not a URL.
+
+@FR-16.10 | Vendor allowlist guidance
+P: FR-16
+S: The per-client quick start for each cloud agent of Appendix K SHALL name the vendor administration setting that restricts the agent's MCP servers to the Gateway URL where the vendor's public documentation names one, and otherwise SHALL state that no such setting was confirmed in the vendor's public documentation, with the date checked and the sources reviewed.
+A: E-33; F-98; X-13
+V: Inspection | Inspect each cloud agent quick start; confirm the setting is named, or the absence of a confirmed setting stated, with the date checked and the sources reviewed.
+SRC: OWNER (the vendor admin MCP allowlist restricts the agent to the Gateway URL; live cloud-agent runs descoped from release 1.x on 2026-10-18)
+R: The vendor's allowlist is the only control that keeps a cloud agent from using other MCP servers. Vendor administration consoles are not reachable without vendor business accounts, which the project does not hold, so the quick start reports what the vendor's public documentation states and says so when it states nothing.
+
+@FR-16.11 | Disabled by default
+P: FR-16
+S: The configuration written by `smcpctl bootstrap` and `smcpctl install` SHALL leave the Remote Access Profile disabled, and enabling it SHALL require an Administrator action that records a `remote_access_enabled` event.
+A: E-24; E-01; F-97; X-13
+V: Test | Inspect a fresh configuration; enable the profile as an Operator and as an Administrator; confirm it is off by default, refused for the Operator and recorded for the Administrator.
+SRC: OWNER (Remote Access profile)
+R: Exposure to the Internet is an explicit, attributable decision.
+
+@FR-16.12 | Remote session limits
+P: FR-16
+S: The Session Manager (E-04) SHALL create sessions through the remote listener only for Session Allow Policy templates that the Framework Profile marks `remote_allowed`, and SHALL apply the CP-49 remote session lifetime.
+A: E-04; F-06; F-07; X-13
+V: Test | Request a template without `remote_allowed` and one with it through the remote listener; confirm refusal of the first and the shorter lifetime on the second.
+SRC: OWNER (Remote Access profile)
+R: The operator decides which tools a cloud agent may ever use, separately from local agents.
+
+### FR-17 Operations
+
+@FR-17 | Operations
+P: —
+S: The Gateway SHALL provide the logging, metrics, key rotation, backup and configuration reload functions of this section for day-to-day operation.
+A: E-23; E-22; E-28; F-61; F-79; F-60
+V: Analysis | Review the verification results of every FR-17 child requirement; confirm each has passed.
+SRC: REVIEW (I6)
+R: An operator needs to diagnose, observe, rotate and recover the Gateway without reading its source.
+
+@FR-17.1 | Diagnostic log
+P: FR-17
+S: The Health & Safety Monitor (E-23) SHALL write a diagnostic log (D-14), separate from the Evidence Journal, as JSON Lines with the levels `error`, `warn`, `info` and `debug`, defaulting to `info`.
+A: E-23; F-61; D-14
+V: Test | Run a session at each level; confirm the log's location, format and level filtering, and that no diagnostic entry appears in the journal.
+SRC: REVIEW (I6)
+R: Troubleshooting messages and evidence have different audiences, retention and integrity needs.
+
+@FR-17.2 | Diagnostic log rotation
+P: FR-17
+S: The Health & Safety Monitor (E-23) SHALL rotate the diagnostic log at the CP-50 file size and keep at most the CP-50 number of rotated files.
+A: E-23; F-61; D-14
+V: Test | Generate log volume beyond several rotations; confirm file sizes and count stay within CP-50.
+SRC: REVIEW (I6)
+R: Logs must not fill the disk that holds the journal.
+
+@FR-17.3 | Diagnostic log content limits
+P: FR-17
+S: The Health & Safety Monitor (E-23) SHALL exclude from the diagnostic log, at every level, secret values, bearer and refresh tokens, passwords, tool arguments and tool results.
+A: E-23; F-61; D-14
+V: Test | Run calls carrying registered secret fingerprints, tokens and marker arguments at `debug` level; scan the log; confirm none appear.
+SRC: SEC 6.7; REVIEW (I6)
+R: Diagnostic logs are copied into bug reports.
+
+@FR-17.4 | Metrics endpoint
+P: FR-17
+S: When the configuration enables metrics, the Health & Safety Monitor (E-23) SHALL serve Prometheus text exposition at `/metrics` on the CP-51 loopback address only.
+A: E-23; F-61; X-15
+V: Test | Enable metrics; scrape the endpoint; attempt to bind it to a non-loopback address; confirm valid exposition and refusal of the non-loopback address.
+SRC: REVIEW (I6)
+R: Operators use standard tooling to watch throughput and latency.
+
+@FR-17.5 | Metric set and labels
+P: FR-17
+S: The metrics endpoint SHALL expose call counts by outcome and reason code, decision latency, journal flush latency, health state, active sessions, pending approvals and running backend instances, with labels limited to server alias, public tool name, outcome, reason code and channel.
+A: E-23; F-61; X-15
+V: Inspection | Scrape the endpoint after a test run; confirm each metric and that no other label names occur.
+SRC: REVIEW (I6); SEC 6.7
+R: Bounded labels keep arguments, principal names and secrets out of a monitoring system.
+
+@FR-17.6 | Encrypted backups
+P: FR-17
+S: The `smcpctl backup` command SHALL encrypt each backup archive (D-15) to an operator passphrase or an age recipient key and SHALL refuse to write an unencrypted archive.
+A: E-28; F-79; D-15
+V: Test | Back up with a passphrase and with a recipient; attempt a backup with neither; confirm two encrypted archives that restore and one refusal.
+SRC: OWNER (backups including key material and trust anchors, encrypted); SEC 7.7
+R: The archive contains private keys; it must not be readable where it is stored.
+
+@FR-17.7 | Key rotation
+P: FR-17
+S: The `smcpctl keys rotate` command SHALL rotate the server TLS certificate without dropping sessions, rotate the server CA with an overlap period during which the published trust bundle holds both CAs and the listeners present the certificate issued by the outgoing CA until they switch to one issued by the incoming CA when the overlap ends, and rotate the evidence-signing key by closing the open segment and writing a key-transition record signed by the outgoing key.
+A: E-22; E-21; F-60; F-55; D-08
+V: Test | Rotate each key type under traffic; confirm sessions continue across TLS rotation and the CA switch, clients trusting the outgoing CA or the published bundle connect during the overlap, clients trusting the incoming CA connect after the switch, and the journal records the transition.
+SRC: REVIEW (I6); SEC 6.12
+R: Keys expire and can be exposed; rotation must not require reinstalling. A TLS server presents one certificate chain per handshake, and the CP-53 path length 0 rules out a cross-certificate between the two CAs, so a client that trusts only the incoming CA cannot be served before the switch; clients import the published bundle during the overlap instead.
+
+@FR-17.8 | Verification across key transitions
+P: FR-17
+S: The `smcpctl journal verify` command SHALL follow evidence-key transition records and verify each segment with the key in force when it was signed.
+A: E-21; F-55; D-06
+V: Test | Verify a journal spanning two rotations; tamper with a transition record; confirm success before and failure after the tamper.
+SRC: SEC 6.12
+R: Rotation must not break the evidence chain.
+
+@FR-17.9 | Configuration reload
+P: FR-17
+S: On `smcpctl reload` or SIGHUP, the Gateway SHALL validate the new configuration, keep the running configuration when validation fails, apply the CP-50 reloadable keys without ending sessions, and report each changed non-reloadable key as requiring a restart.
+A: E-23; E-24; F-61; F-97
+V: Test | Reload with an invalid file, with a changed rate limit and with a changed listener address; confirm the old configuration kept, the new limit applied with sessions intact, and the restart notice for the address.
+SRC: REVIEW (I6)
+R: Operators tune limits and clients without interrupting agents.
+
+### FR-18 Documentation
+
+@FR-18 | Documentation set
+P: —
+S: The Gateway release SHALL include under `docs/` the documents of this section, versioned with the release.
+A: E-24; E-33; F-65; F-98
+V: Analysis | Review the verification results of every FR-18 child requirement; confirm each has passed.
+SRC: REVIEW (I7); SEC 10.9
+R: The product is used by people who did not build it.
+
+@FR-18.1 | Install guide
+P: FR-18
+S: The documentation SHALL include an install guide covering installation, upgrade, rollback and uninstall for each platform and profile of Section 1.6, including the release-signature check.
+A: E-24; F-97
+V: Inspection | Follow the guide on a clean macOS arm64 host and a clean Ubuntu host; confirm each step works as written.
+SRC: REVIEW (I7)
+R: Installation is the first task every user performs.
+
+@FR-18.2 | Security Limitations
+P: FR-18
+S: The documentation SHALL include a Security Limitations document that states at least: the Standalone profile contains no server; an agent's non-MCP native tools bypass the Gateway; in the Standalone profile the agent runs as the Gateway's identity; a tunnel provider can read remote traffic; detection filters have measured false-positive and false-negative rates; injection findings are tags only; lockdown profiles are only as strong as each client's settings enforcement; remote backends, resources and prompts are not supported; and running the Gateway inside a vendor's agent machine is not a control.
+A: E-24; E-33; F-98
+V: Inspection | Inspect the document; confirm each listed limitation is stated with its consequence and any mitigation.
+SRC: OWNER (documentation that non-MCP native tools bypass the Gateway); REVIEW (C4)
+R: Users decide how far to trust the Gateway from what it does not do.
+
+@FR-18.3 | Per-client quick starts
+P: FR-18
+S: The documentation SHALL include a quick start for each client of Appendix K that covers connection, session sign-in, CA trust, lockdown and verification with `smcpctl doctor`, and for cloud agents the Remote Access Profile setup.
+A: E-33; F-94; F-98; F-95; X-12; X-13
+V: Inspection | For each client, follow the quick start at the pinned version; confirm the client lists tools through the Gateway.
+SRC: REVIEW (I7); OWNER (client matrix)
+R: Each client configures MCP differently.
+
+@FR-18.4 | Operator guide
+P: FR-18
+S: The documentation SHALL include an operator guide covering roles and accounts, approvals, sessions, server enablement and suspension, emergency stop, backups and restore, key rotation, configuration reload, logs and metrics.
+A: E-24; F-65
+V: Inspection | Inspect the guide; confirm a section for each topic referencing the commands and views that perform it.
+SRC: REVIEW (I7); SEC 10.9
+R: Daily operation needs one reference.
+
+@FR-18.5 | Policy reference
+P: FR-18
+S: The documentation SHALL include a policy reference describing every policy object type, field, predicate operator and obligation, with examples that the build validates against the policy schema.
+A: E-05; F-10
+V: Test | Run the documentation check; confirm every example validates against the policy schema and every schema field is described.
+SRC: REVIEW (I7)
+R: Policy authors write policy from the reference, so its examples must be valid.
+
+@FR-18.6 | Packaging guide
+P: FR-18
+S: The documentation SHALL include a packaging guide covering artifact references, classification, building, signing, verifying, importing, enabling and revoking a server package, using a reference server as the worked example.
+A: E-13; F-96
+V: Inspection | Follow the guide to package one server that is not a reference server; confirm it imports and runs.
+SRC: REVIEW (I7); OWNER (operator self-curation)
+R: Packaging is the only way to admit a server.
+
+@FR-18.7 | Troubleshooting and reason codes
+P: FR-18
+S: The documentation SHALL include a troubleshooting guide that explains every Appendix B error code and every reason code the Gateway emits, with its meaning and the operator's next action, and the build SHALL fail when a reason code in the source is missing from the guide.
+A: E-02; F-22
+V: Test | Add an undocumented reason code to a test branch; confirm the build fails; confirm the release commit passes.
+SRC: REVIEW (I7)
+R: Reason codes are what users paste into bug reports.
+
+@FR-18.8 | Tested runbooks
+P: FR-18
+S: The documentation SHALL include runbooks for emergency stop, revocation, backup, restore, upgrade rollback and key rotation, each with a recorded execution against the release commit.
+A: E-24; E-28; E-12; F-31; F-79
+V: Inspection | Inspect each runbook and its execution record in `docs/verification/`; confirm the record names the commit, date and observed result.
+SRC: SEC 10.9
+R: A recovery procedure that was never run is not a procedure.
+
+@FR-18.9 | Scope statement
+P: FR-18
+S: The repository README and the documentation index SHALL state that remote MCP servers as backends are not supported in v1 and that the Gateway relays tools only, without resources or prompts.
+A: E-24; E-02; F-02
+V: Inspection | Inspect the README and `docs/README.md`; confirm both statements.
+SRC: REVIEW (I9, I10); OWNER (remote hosted MCP servers out of scope for v1)
+R: Users must learn the scope before they try to connect an unsupported server.
+
+### FR-19 Verification evidence
+
+@FR-19 | Verification evidence
+P: —
+S: The Gateway project SHALL produce the verification evidence of this section for each release and SHALL publish its results with the release status data.
+A: E-24; E-11; E-09; F-27; F-21
+V: Analysis | Review the verification results of every FR-19 child requirement; confirm each has passed.
+SRC: SEC 10.6; REVIEW (C7, C8)
+R: Claims about enforcement are only as good as the evidence published with them.
+
+@FR-19.1 | Hostile backend fixture suite
+P: FR-19
+S: The Gateway source SHALL include a hostile backend MCP server fixture that implements each attack of Appendix L and an automated test for each Appendix L row that asserts the row's expected outcome in the profile the row names.
+A: E-11; E-09; E-14; E-15; E-16; E-18; F-27; F-21; F-37; F-41; F-45
+V: Test | Run the hostile suite in both profiles; confirm one test per Appendix L row and that each passes in the profiles the row names.
+SRC: REVIEW (C8); SEC Appendix B AT-08, AT-09, AT-10
+R: Each attack a malicious server can make should have a test that shows what the Gateway does about it.
+
+@FR-19.2 | Hostile suite results
+P: FR-19
+S: The continuous-integration pipeline SHALL publish, for each Appendix L row, the fixture name, attack, expected outcome, observed outcome and pass flag in the `hostile` array of the status data.
+A: E-24; F-65
+V: Inspection | Inspect the status data of a main-branch run; confirm one entry per Appendix L row with each field.
+SRC: REVIEW (C8)
+R: Results, including failures, are visible to anyone deciding whether to trust the Gateway.
+
+@FR-19.3 | Enforced label gating
+P: FR-19
+S: The release process SHALL label a release "enforced" only when every acceptance scenario AT-01 to AT-21 of Appendix M has an automated or recorded passing result for the release commit in the Enforced profile, and SHALL label it "not enforced" otherwise.
+A: E-24; E-23; F-61
+V: Inspection | Inspect the release record of a candidate with one unexecuted scenario and of one with all scenarios passing; confirm the labels "not enforced" and "enforced" respectively.
+SRC: SEC 10.6; REVIEW (C7)
+R: A failed or unexecuted scenario means the enforcement claim is unsupported.
+
+@FR-19.4 | Acceptance scenario records
+P: FR-19
+S: Each acceptance scenario of Appendix M SHALL have either automated tests that claim it by its `AT-nn` ID or a recorded execution file `docs/verification/AT-nn.md` stating the commit, date, executor, steps, observations and result.
+A: E-24; F-65
+V: Inspection | Inspect the requirement report and `docs/verification/`; confirm each AT ID has claiming tests or a complete record.
+SRC: SEC 10.6; SEC Appendix B
+R: Scenarios that need a person still need a record a reviewer can check.
+
+@FR-19.5 | Labelled detection corpora
+P: FR-19
+S: Each detection rule set of FR-4.16 SHALL ship with a labelled corpus of positive and negative samples, and the continuous-integration pipeline SHALL measure and publish the false-positive and false-negative rate of each rule-set version against its corpus.
+A: E-09; E-11; E-14; F-21; F-27; F-34
+V: Test | Run the corpus job; confirm a rate pair per rule-set version in the published results and that a rule change that raises either rate beyond the recorded value is reported.
+SRC: REVIEW (I1); SEC 5.14
+R: A detector's value is its measured error rates, not its rule count.

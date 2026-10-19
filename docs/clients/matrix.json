@@ -1,0 +1,242 @@
+{
+  "schema": 1,
+  "updated": "2026-10-16",
+  "note": "Client matrix of SRS Appendix K (FR-15.10). pinnedVersion null means the matrix job has not yet pinned and run the client. Mechanisms marked confirm=true are taken from vendor documentation and are not yet verified against a pinned version. Cloud agent entries carry tunnelProvider, registrationMode and agentBuild for the dated manual record of FR-15.9; null until a run is recorded; until then each cloud entry is not-run with reviewed (the date the entry was last reviewed) and notRunReason. notes is a plain-language summary of how the client is driven and why it is not run, shown on the project site.",
+  "clients": [
+    {
+      "client": "Claude Code",
+      "vendor": "Anthropic",
+      "runsOn": "local",
+      "pinnedVersion": "2.1.302",
+      "connectionMode": "streamable-http",
+      "fallbackMode": "smcp-stdio",
+      "session": "oauth",
+      "lockdown": {
+        "mechanism": "managed-settings.json: allowedMcpServers, managed-only allowlist, permissions.deny Read and Edit on Gateway paths",
+        "confirm": true
+      },
+      "caTrust": {
+        "mechanism": "NODE_EXTRA_CA_CERTS",
+        "confirm": false
+      },
+      "label": "gateway-available",
+      "lastResult": "pass",
+      "lastRun": "2026-10-16",
+      "quickStart": "docs/clients/claude-code.md",
+      "notes": "Driven with the SDK control protocol (stream-json with --permission-prompt-tool stdio): Claude Code asks before every call to a tool marked requiresUserInteraction (FR-1.50), and the suite answers that local prompt for mcp__smcp__ tools only, so the Gateway's hold is exercised and smcpctl approves the call. The native build uses BoringSSL, which rejects iPAddress name constraints; CP-53 CAs carry dNSName constraints only, and an older CA must be replaced with smcpctl keys rotate ca."
+    },
+    {
+      "client": "Codex CLI",
+      "vendor": "OpenAI",
+      "runsOn": "local",
+      "pinnedVersion": "0.142.2",
+      "connectionMode": "streamable-http",
+      "fallbackMode": "smcp-stdio",
+      "session": "oauth or env_http_headers with smcp-session --env",
+      "lockdown": {
+        "mechanism": "requirements.toml MCP server allowlist matched by name and transport",
+        "confirm": true
+      },
+      "caTrust": {
+        "mechanism": "CODEX_CA_CERTIFICATE (PEM bundle; include the public roots for the model endpoint)",
+        "confirm": false
+      },
+      "label": "gateway-available",
+      "lastResult": "pass",
+      "lastRun": "2026-10-16",
+      "quickStart": "docs/clients/codex.md",
+      "notes": "Codex offers the model its own MCP resource tools next to the server's tools; every prompt says the Gateway's tools are MCP tools, not resources, and Codex runs at low reasoning effort. Calls run without a local prompt (default_tools_approval_mode approve); the Gateway holds the approval-obligated call."
+    },
+    {
+      "client": "Hermes Agent",
+      "vendor": "Nous Research",
+      "runsOn": "local",
+      "pinnedVersion": "0.17.0",
+      "connectionMode": "streamable-http",
+      "fallbackMode": "smcp-stdio",
+      "session": "oauth or static header from smcp-session",
+      "lockdown": {
+        "mechanism": null,
+        "confirm": true
+      },
+      "caTrust": {
+        "mechanism": "ssl_verify CA bundle path",
+        "confirm": false
+      },
+      "label": "gateway-available",
+      "lastResult": "pass",
+      "lastRun": "2026-10-16",
+      "quickStart": "docs/clients/hermes.md",
+      "notes": "Installed with the installer of the pinned release tag, because the main-line installer cannot install the pinned version. TLS trust is the ssl_verify CA path. No lockdown mechanism is documented by the vendor."
+    },
+    {
+      "client": "OpenCode",
+      "vendor": "opencode.ai",
+      "runsOn": "local",
+      "pinnedVersion": "1.15.13",
+      "connectionMode": "streamable-http",
+      "fallbackMode": "smcp-stdio",
+      "session": "oauth or headers from smcp-session",
+      "lockdown": {
+        "mechanism": "opencode.json mcp and permission settings",
+        "confirm": true
+      },
+      "caTrust": {
+        "mechanism": "NODE_EXTRA_CA_CERTS",
+        "confirm": false
+      },
+      "label": "gateway-available",
+      "lastResult": "pass",
+      "lastRun": "2026-10-16",
+      "quickStart": "docs/clients/opencode.md",
+      "notes": "Runs on Bun (BoringSSL), so it needs the dNSName-only CA of CP-53 like native Claude Code. Built-in tools are turned off in the suite; the remote MCP server reads the session token with {env:SMCP_SESSION_TOKEN}."
+    },
+    {
+      "client": "Gemini CLI",
+      "vendor": "Google",
+      "runsOn": "local",
+      "pinnedVersion": null,
+      "connectionMode": "streamable-http",
+      "fallbackMode": "smcp-stdio",
+      "session": "oauth or headers",
+      "lockdown": {
+        "mechanism": "system settings mcpServers and server allowlist; enterprise admin controls",
+        "confirm": true
+      },
+      "caTrust": {
+        "mechanism": "NODE_EXTRA_CA_CERTS",
+        "confirm": true
+      },
+      "label": "gateway-available",
+      "lastResult": "not-run",
+      "lastRun": null,
+      "quickStart": "docs/clients/gemini-cli.md",
+      "notes": "Not run: the suite needs GEMINI_API_KEY, because the Vercel AI Gateway that serves the other clients' models does not serve the Gemini API, and no such key is configured for CI. The driver, the system settings file with mcpServers.smcp.httpUrl and the NODE_EXTRA_CA_CERTS trust are in place, and CI installs the CLI. Set the repository secret GEMINI_API_KEY to run it."
+    },
+    {
+      "client": "Goose",
+      "vendor": "Block",
+      "runsOn": "local",
+      "pinnedVersion": "1.55.0",
+      "connectionMode": "stdio extension (smcp-stdio)",
+      "fallbackMode": "streamable-http",
+      "session": "headers from smcp-session",
+      "lockdown": {
+        "mechanism": "GOOSE_ALLOWLIST YAML allowlist matched on the extension command",
+        "confirm": true
+      },
+      "caTrust": {
+        "mechanism": "SSL_CERT_FILE on Linux; macOS system keychain only",
+        "confirm": false
+      },
+      "label": "gateway-available",
+      "lastResult": "pass",
+      "lastRun": "2026-10-16",
+      "quickStart": "docs/clients/goose.md",
+      "notes": "Runs in CI on Linux only: on macOS Goose verifies TLS against the system keychain alone, which the suite does not change, so it is not run there. Goose does not expand variables in extension headers, so its temporary config file (mode 0600) holds the session token."
+    },
+    {
+      "client": "Grok Build",
+      "vendor": "xAI",
+      "runsOn": "local",
+      "pinnedVersion": null,
+      "connectionMode": null,
+      "fallbackMode": "smcp-stdio",
+      "session": null,
+      "lockdown": {
+        "mechanism": null,
+        "confirm": true
+      },
+      "caTrust": {
+        "mechanism": null,
+        "confirm": true
+      },
+      "label": "gateway-available",
+      "lastResult": "not-run",
+      "lastRun": null,
+      "quickStart": "docs/clients/grok-build.md",
+      "notes": "Not run: there is no publicly installable Grok Build CLI. The connection mode is to be confirmed when a version can be pinned; smcp-stdio is the fallback for any client that can launch a command."
+    },
+    {
+      "client": "Grok Bot",
+      "vendor": "xAI",
+      "runsOn": "vendor-cloud",
+      "pinnedVersion": null,
+      "connectionMode": "remote-access (tunnel)",
+      "fallbackMode": "smcp-connect",
+      "session": "oauth with operator-approved dynamic registration or pre-registered client",
+      "lockdown": {
+        "mechanism": "vendor admin MCP allowlist, where offered",
+        "confirm": true
+      },
+      "caTrust": {
+        "mechanism": "public TLS at the tunnel provider",
+        "confirm": false
+      },
+      "label": "gateway-available",
+      "lastResult": "not-run",
+      "lastRun": null,
+      "tunnelProvider": null,
+      "registrationMode": "dynamic client registration with operator approval, or pre-registered",
+      "agentBuild": null,
+      "reviewed": "2026-10-18",
+      "notRunReason": "Live cloud-agent runs are descoped from release 1.x by the owner (2026-10-18): the project holds no vendor account for this agent. The Remote Access Profile, registration with operator approval, the device grant and smcp-connect are tested against a local test tunnel (internal/remote, internal/adapter, internal/conformance.TestConformanceThroughAdapters).",
+      "quickStart": "docs/clients/cloud-agents.md",
+      "notes": "Not run. A cloud agent on xAI's servers: it can reach the Gateway only through the Remote Access Profile (tunnel, operator-approved registration, Session Approver sign-in), or smcp-connect where it accepts only a command. No dated run is recorded (FR-15.9), and whether xAI offers an administrator MCP allowlist was not confirmed."
+    },
+    {
+      "client": "ChatGPT agent (dots)",
+      "vendor": "OpenAI",
+      "runsOn": "vendor-cloud",
+      "pinnedVersion": null,
+      "connectionMode": "remote-access (tunnel, including the vendor MCP tunnel where offered)",
+      "fallbackMode": "smcp-connect",
+      "session": "oauth with operator-approved dynamic registration or pre-registered client",
+      "lockdown": {
+        "mechanism": "workspace admin connector and MCP controls, where offered",
+        "confirm": true
+      },
+      "caTrust": {
+        "mechanism": "public TLS at the tunnel provider",
+        "confirm": false
+      },
+      "label": "gateway-available",
+      "lastResult": "not-run",
+      "lastRun": null,
+      "tunnelProvider": null,
+      "registrationMode": "dynamic client registration with operator approval, or pre-registered",
+      "agentBuild": null,
+      "reviewed": "2026-10-18",
+      "notRunReason": "Live cloud-agent runs are descoped from release 1.x by the owner (2026-10-18): the project holds no vendor account for this agent. The Remote Access Profile, registration with operator approval, the device grant and smcp-connect are tested against a local test tunnel (internal/remote, internal/adapter, internal/conformance.TestConformanceThroughAdapters).",
+      "quickStart": "docs/clients/cloud-agents.md",
+      "notes": "Not run. ChatGPT custom connectors add https://<public name>/mcp and register through operator-approved dynamic registration. No dated run is recorded (FR-15.9), and the workspace setting that limits connectors to one URL was not confirmed."
+    },
+    {
+      "client": "Meta Muse",
+      "vendor": "Meta",
+      "runsOn": "vendor-cloud",
+      "pinnedVersion": null,
+      "connectionMode": "remote-access (tunnel)",
+      "fallbackMode": "smcp-connect",
+      "session": null,
+      "lockdown": {
+        "mechanism": null,
+        "confirm": true
+      },
+      "caTrust": {
+        "mechanism": "public TLS at the tunnel provider",
+        "confirm": false
+      },
+      "label": "gateway-available",
+      "lastResult": "not-run",
+      "lastRun": null,
+      "tunnelProvider": null,
+      "registrationMode": "dynamic client registration with operator approval, or pre-registered",
+      "agentBuild": null,
+      "reviewed": "2026-10-18",
+      "notRunReason": "Live cloud-agent runs are descoped from release 1.x by the owner (2026-10-18): the project holds no vendor account for this agent. The Remote Access Profile, registration with operator approval, the device grant and smcp-connect are tested against a local test tunnel (internal/remote, internal/adapter, internal/conformance.TestConformanceThroughAdapters).",
+      "quickStart": "docs/clients/cloud-agents.md",
+      "notes": "Not run: no Meta Muse access was available for testing. Documented only; both dynamic registration and pre-registered clients are supported by the Gateway."
+    }
+  ]
+}

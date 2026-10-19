@@ -1,0 +1,198 @@
+# Builds and publishes a release when a tag v* is pushed: archives for
+# linux and darwin (amd64, arm64), a SHA-256 checksum file, its minisign
+# signature (release key; secrets MINISIGN_SECRET_KEY and
+# MINISIGN_PASSWORD), SBOMs (syft), a Sigstore bundle for the checksum file
+# (cosign keyless signing) and the Homebrew formula in
+# ethan03805/homebrew-tap (secret HOMEBREW_TAP_TOKEN). The procedure is
+# docs/release-checklist.md.
+#
+# The minisign signature is required. cosign signing is on by default; set
+# the repository variable SMCP_COSIGN to "false" to skip it.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 110
+    permissions:
+      contents: write # create the release and upload assets
+      id-token: write # cosign keyless signing through GitHub OIDC
+      actions: write # dispatch the tap workflow (FR-13.3); read the CI run of the tag
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.26.x"
+          check-latest: true
+          cache-dependency-path: go.sum
+      - name: Test
+        run: go test -race -short ./...
+      - name: Release settings
+        id: settings
+        run: |
+          prev=$(git tag -l 'v*' --sort=-version:refname | grep -vx "$GITHUB_REF_NAME" | head -n1 || true)
+          echo "previous=$prev" >> "$GITHUB_OUTPUT"
+          if [ -d cmd/smcp-refserver ]; then echo "refserver=1" >> "$GITHUB_OUTPUT"; else echo "refserver=0" >> "$GITHUB_OUTPUT"; fi
+      - name: Install syft (SBOM)
+        uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+      - name: Install minisign and the release signing key
+        env:
+          MINISIGN_SECRET_KEY: ${{ secrets.MINISIGN_SECRET_KEY }}
+        run: |
+          [ -n "$MINISIGN_SECRET_KEY" ] || { echo "::error::repository secret MINISIGN_SECRET_KEY is not set"; exit 1; }
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq minisign
+          umask 077
+          printf '%s\n' "$MINISIGN_SECRET_KEY" > "$RUNNER_TEMP/minisign.key"
+          echo "MINISIGN_KEY_FILE=$RUNNER_TEMP/minisign.key" >> "$GITHUB_ENV"
+      # tools/provenance copies the license files of the npm packages bundled
+      # into the console into THIRD_PARTY_NOTICES.txt (FR-12.8); the
+      # console itself is the committed console/dist.
+      - name: Install the console's production npm packages (license notices)
+        working-directory: console
+        run: npm ci --ignore-scripts --omit=dev --no-audit --no-fund
+      - name: GoReleaser
+        uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
+        with:
+          distribution: goreleaser
+          version: v2.18.2
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GORELEASER_CURRENT_TAG: ${{ github.ref_name }}
+          GORELEASER_PREVIOUS_TAG: ${{ steps.settings.outputs.previous }}
+          SMCP_BUILD_REFSERVER: ${{ steps.settings.outputs.refserver }}
+          SMCP_SBOM: "1"
+          MINISIGN_PASSWORD: ${{ secrets.MINISIGN_PASSWORD }}
+          # Formula/smcp.rb in ethan03805/homebrew-tap; skipped when unset
+          # and for a pre-release unless the variable SMCP_TAP_PRERELEASE
+          # is "true".
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          SMCP_TAP_PRERELEASE: ${{ vars.SMCP_TAP_PRERELEASE }}
+      - name: Check the archive contents (FR-13.1)
+        run: |
+          version=${GITHUB_REF_NAME#v}
+          for platform in darwin_arm64 darwin_amd64 linux_amd64 linux_arm64; do
+            a=build/dist/smcp_${version}_${platform}.tar.gz
+            [ -f "$a" ] || { echo "::error::$a missing"; exit 1; }
+            list=$(tar -tzf "$a")
+            for f in smcpd smcpctl smcp-refserver smcp-session smcp-stdio smcp-connect smcp-workload README.md CHANGELOG.md LICENSE sbom.spdx.json \
+              PROVENANCE.md THIRD_PARTY_NOTICES.txt .goreleaser.yaml scripts/release-sbom.sh go.mod go.sum console/package-lock.json; do
+              printf '%s\n' "$list" | grep -qx "$f" || { echo "::error::$a lacks $f"; exit 1; }
+            done
+            echo "$a: $(printf '%s\n' "$list" | tr '\n' ' ')"
+          done
+          x=$(mktemp -d)
+          tar -xzf "build/dist/smcp_${version}_linux_amd64.tar.gz" -C "$x"
+          jq -e '.spdxVersion and (.packages | length > 10)' "$x/sbom.spdx.json" >/dev/null \
+            || { echo "::error::sbom.spdx.json is not an SPDX document with packages"; exit 1; }
+          # The six release binaries report the release version.
+          for b in smcpd smcp-refserver smcp-session smcp-stdio smcp-connect; do
+            out=$("$x/$b" --version 2>&1)
+            echo "$b: $out"
+            [ "$out" = "$b $version" ] || { echo "::error::$b --version printed '$out', not '$b $version'"; exit 1; }
+          done
+          out=$("$x/smcpctl" version --short)
+          [ "$out" = "$version" ] || { echo "::error::smcpctl version --short printed '$out'"; exit 1; }
+          grep -q "^| Source commit | \`$GITHUB_SHA\` |" "$x/PROVENANCE.md" || { echo "::error::PROVENANCE.md does not name commit $GITHUB_SHA"; exit 1; }
+      # FR-12.1: every package of the SBOM in the archives and of the
+      # per-archive SBOMs has an OSI-approved or public-domain license, or a
+      # reviewed exception in packaging/sbom-review.json.
+      - name: Check the SBOM licenses (FR-12.1)
+        run: |
+          set -o pipefail
+          x=$(mktemp -d)
+          tar -xzf "build/dist/smcp_${GITHUB_REF_NAME#v}_linux_amd64.tar.gz" -C "$x" sbom.spdx.json
+          go run ./tools/sbomcheck -review packaging/sbom-review.json "$x/sbom.spdx.json" build/dist/*.sbom.json | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Check the minisign signature against SECURITY.md
+        run: |
+          rm -f "$MINISIGN_KEY_FILE"
+          key=$(sed -n 's/^PUBKEY="\(.*\)"$/\1/p' install.sh)
+          grep -qF "$key" SECURITY.md || { echo "::error::install.sh and SECURITY.md publish different keys"; exit 1; }
+          sums=$(ls build/dist/*_checksums.txt)
+          minisign -V -P "$key" -m "$sums" -x "$sums.minisig"
+      # FR-19.3: "enforced" only when every Appendix M scenario passed in the
+      # Enforced profile for this commit; "not enforced" otherwise, including
+      # when the status data is for another commit. The status data is the
+      # document the CI status job published to site-data when it is for
+      # this commit, and otherwise the status-document artifact of the CI
+      # run that this tag push started (ci.yml runs the Enforced jobs on v*
+      # tags); the step waits up to 70 minutes for that run to complete.
+      - name: Release label (FR-19.3)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p build
+          echo '{}' > build/release-status.json
+          if git fetch --quiet --depth=1 origin refs/heads/site-data 2>/dev/null && git show FETCH_HEAD:status.json > build/site-status.json 2>/dev/null &&
+             [ "$(jq -r .commit build/site-status.json)" = "$GITHUB_SHA" ]; then
+            cp build/site-status.json build/release-status.json
+            echo "the site-data status data is for this commit"
+          else
+            run=""
+            for _ in $(seq 1 140); do
+              run=$(gh run list -R "$GITHUB_REPOSITORY" --workflow ci.yml --commit "$GITHUB_SHA" --event push --limit 20 \
+                --json databaseId,status,headBranch \
+                -q "[.[] | select(.headBranch == \"$GITHUB_REF_NAME\" and .status == \"completed\")][0].databaseId // empty" || true)
+              [ -n "$run" ] && break
+              sleep 30
+            done
+            if [ -n "$run" ] && gh run download "$run" -R "$GITHUB_REPOSITORY" -n status-document -D build/ci-status; then
+              cp build/ci-status/status.json build/release-status.json
+              echo "status data of CI run $run for commit $(jq -r .commit build/release-status.json)"
+            else
+              echo "::warning::no status data for this commit (CI run of the tag: ${run:-not completed}); the release is labelled not enforced"
+            fi
+          fi
+          go run ./tools/reqreport label -status build/release-status.json -commit "$GITHUB_SHA" -out build/release-label.md
+          gh release view "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" --json body -q .body > build/release-notes.md
+          { echo; cat build/release-label.md; } >> build/release-notes.md
+          gh release edit "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" --notes-file build/release-notes.md
+          gh release upload "$GITHUB_REF_NAME" build/release-label.md -R "$GITHUB_REPOSITORY" --clobber
+          cat build/release-label.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Install cosign
+        if: vars.SMCP_COSIGN != 'false'
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - name: Sign the checksum file (keyless) and upload the bundle
+        if: vars.SMCP_COSIGN != 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sums=$(ls build/dist/*_checksums.txt)
+          cosign sign-blob --yes --bundle "$sums.sigstore.json" "$sums"
+          gh release upload "$GITHUB_REF_NAME" "$sums.sigstore.json" -R "$GITHUB_REPOSITORY" --clobber
+          {
+            echo "Verify the checksum file:"
+            echo '```'
+            echo "cosign verify-blob --bundle $(basename "$sums").sigstore.json \\"
+            echo "  --certificate-identity-regexp '^https://github.com/$GITHUB_REPOSITORY/.github/workflows/release.yml@' \\"
+            echo "  --certificate-oidc-issuer https://token.actions.githubusercontent.com $(basename "$sums")"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Start the Homebrew tap check (FR-13.3)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HAS_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN != '' }}
+          TAP_PRERELEASE: ${{ vars.SMCP_TAP_PRERELEASE }}
+        run: |
+          # GoReleaser treats a tag with a "-" suffix as a pre-release.
+          case "$GITHUB_REF_NAME" in *-*) pre=1 ;; *) pre=0 ;; esac
+          if [ "$HAS_TAP_TOKEN" != true ]; then echo "HOMEBREW_TAP_TOKEN is not set; no formula was pushed"; exit 0; fi
+          if [ "$pre" = 1 ] && [ "$TAP_PRERELEASE" != true ]; then echo "pre-release: no formula was pushed"; exit 0; fi
+          gh workflow run tap.yml -R "$GITHUB_REPOSITORY" --ref main -f tag="$GITHUB_REF_NAME"
+          echo "Started the tap workflow for $GITHUB_REF_NAME" >> "$GITHUB_STEP_SUMMARY"

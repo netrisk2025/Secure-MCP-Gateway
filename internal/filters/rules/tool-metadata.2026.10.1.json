@@ -1,0 +1,104 @@
+{
+  "id": "tool-metadata",
+  "version": "2026.10.1",
+  "normalize": true,
+  "description": "Blocking rules for tool names, titles, descriptions, schema property descriptions and enum values (SR-5.9-2, FR-1.52). A match suspends the tool.",
+  "rules": [
+    {
+      "id": "instruction-override",
+      "kind": "regex",
+      "description": "Asks the model to ignore earlier instructions or other tools.",
+      "pattern": "\\b(?:ignore|disregard|forget|skip|override|bypass)\\b(?: [\\w']+){0,3} (?:previous|prior|above|earlier|preceding|all|any|your|the system|these|those)\\b(?: [\\w']+){0,2} (?:instructions?|prompts?|directions?|rules|guidelines|directives|context)\\b",
+      "request_action": "block",
+      "response_action": "block"
+    },
+    {
+      "id": "role-override",
+      "kind": "regex",
+      "description": "Tries to change the model's role.",
+      "pattern": "\\byou are now (?:a |an |in )?(?:dan\\b|jailbroken|unrestricted|unfiltered|developer mode|evil|free of|no longer bound)|\\b(?:act|behave|pretend) as (?:if you (?:are|were) )?(?:an? )?(?:unrestricted|jailbroken|unfiltered|dan\\b)|\\bdeveloper mode (?:enabled|activated|on)\\b",
+      "request_action": "block",
+      "response_action": "block"
+    },
+    {
+      "id": "prompt-disclosure",
+      "kind": "regex",
+      "description": "Asks the model to disclose its instructions.",
+      "pattern": "\\b(?:reveal|print|show|output|repeat|leak|display|disclose|dump)\\b(?: [\\w']+){0,3} (?:system prompt|initial instructions|hidden instructions|original instructions|developer message|your instructions)",
+      "request_action": "block",
+      "response_action": "block"
+    },
+    {
+      "id": "fake-role-marker",
+      "kind": "regex",
+      "description": "Chat-template or role markers.",
+      "pattern": "<\\|im_start\\|>|<\\|im_end\\|>|<\\|(?:system|assistant)\\|>|\\[/?inst\\]|<</?sys>>|</?system>|### (?:system|instructions?)\\b|\\bsystem override\\b",
+      "request_action": "block",
+      "response_action": "block"
+    },
+    {
+      "id": "concealment",
+      "kind": "regex",
+      "description": "Asks the model to hide something from the user.",
+      "pattern": "\\b(?:do not|don't|never|without) (?:tell|telling|inform|informing|mention|mentioning|reveal|revealing|alert|alerting|notify|notifying)(?: [\\w']+){0,2} (?:the )?(?:user|human|operator)\\b",
+      "request_action": "block",
+      "response_action": "block"
+    },
+    {
+      "id": "exfiltration",
+      "kind": "regex",
+      "description": "Asks for data to be sent elsewhere.",
+      "pattern": "\\b(?:send|post|upload|forward|transmit|exfiltrate|leak|email)\\b[^.]{0,80}\\b(?:passwords?|credentials?|api keys?|secrets?|tokens?|ssh keys?|private keys?|\\.env|cookies?|conversation history|chat history)\\b[^.]{0,80}\\b(?:to|at) (?:https?://|[a-z0-9._%+-]+@|this url|the following url|my server)",
+      "request_action": "block",
+      "response_action": "block"
+    },
+    {
+      "id": "directive-tag",
+      "kind": "regex",
+      "description": "Pseudo-markup wrapping directives (<IMPORTANT> and similar).",
+      "pattern": "<\\s*(?:important|instructions?|admin|secret|hidden|system_?prompt)\\s*>",
+      "request_action": "block",
+      "response_action": "block"
+    },
+    {
+      "id": "covert-action",
+      "kind": "regex",
+      "description": "Describes an action to perform covertly.",
+      "pattern": "\\b(?:secretly|silently|quietly|covertly|discreetly|behind the scenes)\\b[^.]{0,40}\\b(?:call|invoke|run|execute|send|read|copy|forward|upload|include|pass|add)\\b|\\bwithout (?:asking|telling|informing|notifying)\\b",
+      "request_action": "block",
+      "response_action": "block"
+    },
+    {
+      "id": "sensitive-file-request",
+      "kind": "regex",
+      "description": "Asks for credential or configuration files.",
+      "pattern": "\\b(?:read|cat|open|send|upload|include|attach|pass|provide|print|output|paste)\\b[^.]{0,40}(?:(?:~|\\$home|%userprofile%)/\\.(?:ssh|aws|gnupg|kube|netrc|docker|env)\\b|\\bid_(?:rsa|ed25519|ecdsa)\\b|\\bmcp\\.json\\b|\\.cursor/|\\bcredentials? file\\b)",
+      "request_action": "block",
+      "response_action": "block"
+    },
+    {
+      "id": "hidden-parameter",
+      "kind": "regex",
+      "description": "Asks for data to be smuggled in a side parameter.",
+      "pattern": "\\b(?:pass|include|put|add|send|place|store)\\b[^.]{0,60}\\b(?:as|in|into|inside) (?:the |a )?['\\\"]?(?:sidenote|side_note|side note|notes?|extra|hidden|additional|metadata|context|comment|debug)['\\\"]? (?:parameter|argument|field|property)\\b",
+      "request_action": "block",
+      "response_action": "block"
+    },
+    {
+      "id": "tool-redefinition",
+      "kind": "regex",
+      "description": "Redefines or suppresses other tools.",
+      "pattern": "\\b(?:this tool|it) (?:replaces|overrides|supersedes|takes precedence over|must be used instead of|should be used instead of)\\b|\\b(?:do not|never|don't) (?:use|call|invoke)\\b[^.]{0,40}\\b(?:other|another|any other) (?:tools?|servers?|functions?)\\b|\\binstead of (?:using|calling) (?:the |any )?(?:other|another) (?:tools?|servers?)\\b",
+      "request_action": "block",
+      "response_action": "block"
+    },
+    {
+      "id": "model-directive",
+      "kind": "regex",
+      "description": "Addresses the model with a harmful imperative.",
+      "pattern": "\\b(?:the |any )?(?:ai|assistant|model|llm|agent|chatbot|claude|chatgpt)s? (?:must|should|needs to|is required to|has to|will) (?:now |immediately |first |also |secretly |always )?(?:ignore|disregard|forget|reveal|send|delete|execute|invoke|email|transfer)\\b",
+      "request_action": "block",
+      "response_action": "block"
+    }
+  ]
+}

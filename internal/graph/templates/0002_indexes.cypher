@@ -1,0 +1,10 @@
+// Migration 2: indexes for investigation queries (FR-9.18) and retention.
+CREATE INDEX smcp_decision_ts IF NOT EXISTS FOR (n:Decision) ON (n.ts);
+CREATE INDEX smcp_decision_last_seen IF NOT EXISTS FOR (n:Decision) ON (n.lastSeen);
+CREATE INDEX smcp_audit_event_ts IF NOT EXISTS FOR (n:AuditEvent) ON (n.ts);
+CREATE INDEX smcp_audit_event_correlation IF NOT EXISTS FOR (n:AuditEvent) ON (n.correlationId);
+CREATE INDEX smcp_audit_event_session IF NOT EXISTS FOR (n:AuditEvent) ON (n.sessionId);
+CREATE INDEX smcp_audit_event_server_revision IF NOT EXISTS FOR (n:AuditEvent) ON (n.serverRevision);
+CREATE INDEX smcp_session_last_seen IF NOT EXISTS FOR (n:Session) ON (n.lastSeen);
+CREATE INDEX smcp_invocation_last_seen IF NOT EXISTS FOR (n:Invocation) ON (n.lastSeen);
+CREATE INDEX smcp_approval_last_seen IF NOT EXISTS FOR (n:Approval) ON (n.lastSeen);
