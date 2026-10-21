@@ -15,10 +15,10 @@
   },
   {
     "client": "Hermes Agent",
-    "version": "0.17.0",
+    "version": "",
     "mode": "ai-gateway",
     "result": "not-run",
-    "detail": "AI_GATEWAY_API_KEY is not set; no model credentials"
+    "detail": "not installed (hermes not found)"
   },
   {
     "client": "OpenCode",
@@ -29,7 +29,7 @@
   },
   {
     "client": "Gemini CLI",
-    "version": "0.64.0",
+    "version": "0.65.0",
     "mode": "ai-gateway",
     "result": "not-run",
     "detail": "GEMINI_API_KEY is not set; no model credentials"
