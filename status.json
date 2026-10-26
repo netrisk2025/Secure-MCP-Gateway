@@ -6920,10 +6920,10 @@
     },
     {
       "client": "Hermes Agent",
-      "version": "0.17.0",
+      "version": "",
       "mode": "ai-gateway",
       "result": "not-run",
-      "detail": "AI_GATEWAY_API_KEY is not set; no model credentials"
+      "detail": "not installed (hermes not found)"
     },
     {
       "client": "OpenCode",
