@@ -15,10 +15,10 @@
   },
   {
     "client": "Hermes Agent",
-    "version": "",
+    "version": "0.17.0",
     "mode": "ai-gateway",
     "result": "not-run",
-    "detail": "not installed (hermes not found)"
+    "detail": "AI_GATEWAY_API_KEY is not set; no model credentials"
   },
   {
     "client": "OpenCode",
